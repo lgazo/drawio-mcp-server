@@ -1,5 +1,4 @@
-import { nanoid } from "nanoid";
-import { Bus, Context } from "./bus.js";
+import { Bus, Context } from "./types.js";
 import {
   CallToolResult,
   ServerNotification,
@@ -15,7 +14,7 @@ export type ToolFn<S> = (
 ) => Promise<CallToolResult>;
 
 export function build_channel<S>(
-  bus: Bus,
+  { bus, id_generator, log }: Context,
   event_name: string,
   handler: Handler,
 ) {
@@ -23,7 +22,7 @@ export function build_channel<S>(
     _args: S,
     _extra: RequestHandlerExtra<ServerRequest, ServerNotification>,
   ) => {
-    const request_id = nanoid();
+    const request_id = id_generator.generate();
     // const event_name = `get-selected-cell`;
     const reply_name = `${event_name}.${request_id}`;
     bus.send_to_extension({
@@ -31,14 +30,14 @@ export function build_channel<S>(
       __request_id: request_id,
       ..._args,
     });
-    console.error(`[${event_name}] emitted, waiting for reply @${reply_name}`);
+    log.debug(`[${event_name}] emitted, waiting for reply @${reply_name}`);
 
     const p: Promise<CallToolResult> = new Promise((resolve, _reject) => {
-      console.error(`[${event_name}] waiting for response @${reply_name}`);
+      log.debug(`[${event_name}] waiting for response @${reply_name}`);
 
       bus.on_reply_from_extension(reply_name, (reply: Record<string, any>) => {
         // bus.on(reply_name, (args) => {
-        console.error(`[${reply_name}] received response`, reply);
+        log.debug(`[${reply_name}] received response`, reply);
         const data = strip_internal_fields(reply);
 
         const response = handler(data);
@@ -52,8 +51,8 @@ export function build_channel<S>(
   return fn;
 }
 
-export function default_tool(name: string, { bus }: Context) {
-  const fn = build_channel(bus, name, (reply) => {
+export function default_tool(name: string, context: Context) {
+  const fn = build_channel(context, name, (reply) => {
     const response: CallToolResult = {
       content: [
         {

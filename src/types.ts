@@ -9,6 +9,17 @@ export type Bus = {
     listener: BusListener<RL>,
   ) => void;
 };
+export type IdGenerator = {
+  generate: () => string;
+};
+
+export type Logger = {
+  log: (level: string, message?: any, ...data: any[]) => void;
+  debug: (message?: any, ...data: any[]) => void;
+};
+
 export type Context = {
   bus: Bus;
+  id_generator: IdGenerator;
+  log: Logger;
 };

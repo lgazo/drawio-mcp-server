@@ -1,7 +1,7 @@
 /** @type {import('ts-jest').JestConfigWithTsJest} */
 export default {
-  preset: "ts-jest",
-  testEnvironment: "node",
+  preset: "ts-jest/presets/default-esm",
+  testEnvironment: "jest-environment-node",
   extensionsToTreatAsEsm: [".ts"],
   moduleNameMapper: {
     "^(\\.{1,2}/.*)\\.js$": "$1",
@@ -17,8 +17,11 @@ export default {
   testMatch: ["**/*.test.ts"],
   collectCoverageFrom: [
     "src/**/*.ts",
+    // exclude as it contains boundary injection logic mainly
+    "!src/index.ts",
     "!src/**/*.d.ts",
     "!src/**/__tests__/**",
+    "!src/**/*.test.ts",
   ],
   coverageThreshold: {
     global: {
