@@ -4,8 +4,6 @@ import { z } from "zod";
 
 import EventEmitter from "node:events";
 
-import * as GSC from "./get_selected_cell.js";
-
 import uWS from "uWebSockets.js";
 import {
   Bus,
@@ -79,7 +77,7 @@ const context: Context = {
 server.tool(
   "get-selected-cell",
   "This tool allows you to retrieve selected cell on the current page of a Draw.io diagram. The response is a JSON containing attributes of the cell.",
-  GSC.params,
+  {},
   // GSC.tool(context),
   default_tool("get-selected-cell", context),
 );
