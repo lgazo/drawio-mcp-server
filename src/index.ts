@@ -82,42 +82,43 @@ const context: Context = {
   log,
 };
 
+const TOOL_get_selected_cell = "get-selected-cell";
 server.tool(
-  "get-selected-cell",
-  "This tool allows you to retrieve selected cell on the current page of a Draw.io diagram. The response is a JSON containing attributes of the cell.",
+  TOOL_get_selected_cell,
+  "This tool allows you to retrieve selected cell (whether vertex or edge) on the current page of a Draw.io diagram. The response is a JSON containing attributes of the cell.",
   {},
-  // GSC.tool(context),
-  default_tool("get-selected-cell", context),
+  default_tool(TOOL_get_selected_cell, context),
 );
 
+const TOOL_add_rectangle = "add-rectangle";
 server.tool(
-  "add-rectangle",
-  "This tool allows you to add new Rectangle object on the current page of a Draw.io diagram. It accepts multiple optional input parameter.",
+  TOOL_add_rectangle,
+  "This tool allows you to add new Rectangle vertex cell (object) on the current page of a Draw.io diagram. It accepts multiple optional input parameter.",
   {
     x: z
       .number()
       .optional()
-      .describe("X-axis position of the Rectangle cell")
+      .describe("X-axis position of the Rectangle vertex cell")
       .default(100),
     y: z
       .number()
       .optional()
-      .describe("Y-axis position of the Rectangle cell")
+      .describe("Y-axis position of the Rectangle vertex cell")
       .default(100),
     width: z
       .number()
       .optional()
-      .describe("Width of the Rectangle cell")
+      .describe("Width of the Rectangle vertex cell")
       .default(200),
     height: z
       .number()
       .optional()
-      .describe("Height of the Rectangle cell")
+      .describe("Height of the Rectangle vertex cell")
       .default(100),
     text: z
       .string()
       .optional()
-      .describe("Text content placed inside of the Rectangle cell")
+      .describe("Text content placed inside of the Rectangle vertex cell")
       .default("New Cell"),
     style: z
       .string()
@@ -127,8 +128,129 @@ server.tool(
       )
       .default("whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;"),
   },
-  // GSC.tool(context),
-  default_tool("add-rectangle", context),
+  default_tool(TOOL_add_rectangle, context),
+);
+
+const TOOL_add_edge = "add-edge";
+server.tool(
+  TOOL_add_edge,
+  "This tool creates an edge, sometimes called also a relation, between two vertexes (cells).",
+  {
+    source_id: z
+      .string()
+      .describe("Source ID of a cell. It is represented by `id` attribute."),
+    target_id: z
+      .string()
+      .describe("Target ID of a cell. It is represented by `id` attribute."),
+    text: z
+      .string()
+      .optional()
+      .describe("Text content placed over the edge cell"),
+    style: z
+      .string()
+      .optional()
+      .describe(
+        "Semi-colon separated list of Draw.io visual styles, in the form of `key=value`. Example: `edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;`",
+      )
+      .default(
+        "edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;",
+      ),
+  },
+  default_tool(TOOL_add_edge, context),
+);
+
+const TOOL_delete_cell_by_id = "delete-cell-by-id";
+server.tool(
+  TOOL_delete_cell_by_id,
+  "Deletes a cell, whether it is a vertex or edge.",
+  {
+    cell_id: z
+      .string()
+      .describe(
+        "The ID of a cell to delete. The cell can be either vertex or edge. The ID is located in `id` attribute.",
+      ),
+  },
+  default_tool(TOOL_delete_cell_by_id, context),
+);
+
+const TOOL_get_shape_categories = "get-shape-categories";
+server.tool(
+  TOOL_get_shape_categories,
+  "Retrieves available shape categories from the diagram's library. Library is split into multiple categories.",
+  {},
+  default_tool(TOOL_get_shape_categories, context),
+);
+
+const TOOL_get_shapes_in_category = "get-shapes-in-category";
+server.tool(
+  TOOL_get_shapes_in_category,
+  "Retrieve all shapes in the provided category from the diagram's library. A shape primarily contains `style` based on which you can create new vertex cells.",
+  {
+    category_id: z
+      .string()
+      .describe(
+        "Identifier (ID / key) of the category from which all the shapes should be retrieved.",
+      ),
+  },
+  default_tool(TOOL_get_shapes_in_category, context),
+);
+
+const TOOL_get_shape_by_name = "get-shape-by-name";
+server.tool(
+  TOOL_get_shape_by_name,
+  "Retrieve a specific shape by its name from all available shapes in the diagram's library. It returns the shape and also the category it belongs.",
+  {
+    shape_name: z
+      .string()
+      .describe(
+        "Name of the shape to retrieve from the shape library of the current diagram.",
+      ),
+  },
+  default_tool(TOOL_get_shape_by_name, context),
+);
+
+const TOOL_add_cell_of_shape = "add-cell-of-shape";
+server.tool(
+  TOOL_add_cell_of_shape,
+  "This tool allows you to add new vertex cell (object) on the current page of a Draw.io diagram by its shape name. It accepts multiple optional input parameter.",
+  {
+    shape_name: z
+      .string()
+      .describe(
+        "Name of the shape to retrieved from the shape library of the current diagram.",
+      ),
+    x: z
+      .number()
+      .optional()
+      .describe("X-axis position of the vertex cell of the shape")
+      .default(100),
+    y: z
+      .number()
+      .optional()
+      .describe("Y-axis position of the vertex cell of the shape")
+      .default(100),
+    width: z
+      .number()
+      .optional()
+      .describe("Width of the vertex cell of the shape")
+      .default(200),
+    height: z
+      .number()
+      .optional()
+      .describe("Height of the vertex cell of the shape")
+      .default(100),
+    text: z
+      .string()
+      .optional()
+      .describe("Text content placed inside of the vertex cell of the shape"),
+    style: z
+      .string()
+      .optional()
+      .describe(
+        "Semi-colon separated list of Draw.io visual styles, in the form of `key=value`. Example: `whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;`",
+      ),
+  },
+  default_tool(TOOL_add_cell_of_shape, context),
 );
 
 async function main() {

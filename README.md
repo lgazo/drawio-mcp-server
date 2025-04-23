@@ -1,8 +1,10 @@
 # Draw.io MCP server
 
+Let's do some Vibe Diagramming with the most wide-spread diagramming tool called Draw.io (Diagrams.net).
+
 ## Introduction
 
-The Draw.io MCP server is a [Model Context Protocol (MCP)](https://modelcontextprotocol.io) tool that brings powerful diagramming capabilities to AI agentic systems. This integration enables:
+The Draw.io MCP server is a [Model Context Protocol (MCP)](https://modelcontextprotocol.io) implementation that brings powerful diagramming capabilities to AI agentic systems. This integration enables:
 
 - **Seamless Draw.io Integration**: Connect your MCP-powered applications with Draw.io's rich diagramming functionality
 - **Programmatic Diagram Control**: Create, modify, and manage diagram content through MCP commands
@@ -16,23 +18,6 @@ As an MCP-compliant tool, it follows the standard protocol for tool integration,
 - Create flowcharts and process maps programmatically
 
 The tool supports bidirectional communication, allowing both control of Draw.io instances and extraction of diagram information for further processing by AI agents in your MCP ecosystem.
-
-## Features
-
-The Draw.io MCP server provides the following tools for programmatic diagram interaction:
-
-### Diagram Inspection Tools
-- **`get-selected-cell`**
-  Retrieves the currently selected cell in Draw.io with all its attributes
-  *Returns*: JSON object containing cell properties (ID, geometry, style, value, etc.)
-
-### Diagram Modification Tools
-- **`add-rectangle`**
-  Creates a new rectangle shape on the active Draw.io page with customizable properties:
-  - Position (`x`, `y` coordinates)
-  - Dimensions (`width`, `height`)
-  - Text content
-  - Visual style (fill color, stroke, etc. using Draw.io style syntax)
 
 ## Requirements
 
@@ -54,76 +39,116 @@ Note: The Draw.io desktop app or web version must be accessible to the system wh
 
 ## Installation
 
-### MCP client
+### Connecting with Claude Desktop
 
-#### oterm
+1. Install [Claude Desktop](https://claude.ai/download)
+2. Open or create the configuration file:
+   - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+   - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 
-Usually in: ~/.local/share/oterm/config.json
+3. Update it to include this server:
+
+```json
+{
+   "mcpServers":{
+      "drawio":{
+         "command":"npx",
+         "args":[
+            "-y",
+            "drawio-mcp-server"
+         ]
+      }
+   }
+}
+```
+
+4. Restart Claude Desktop
+
+#### Connecting with oterm
+
+This is an alternative MCP client in case you like terminal and you plan to connect to your own Ollama instance.
+
+The configuration is usually in: ~/.local/share/oterm/config.json
 
 ```json
 {
 	"mcpServers": {
 		"drawio": {
-			"command": "node",
+			"command": "npx",
 			"args": [
-				"path-to/drawio-mcp-server/build/index.js"
+			  "-y",
+        "drawio-mcp-server"
 			]
 		}
 	}
 }
 ```
 
-### Browser Setup
+### Browser Extension Setup
+
+In order to control the Draw.io diagram, you need to install dedicated Browser Extension.
+
 1. Open [Draw.io in your browser](https://app.diagrams.net/)
 2. Activate the Draw.io MCP Browser Extension
 3. Ensure it connects to `ws://localhost:3000`
 
-## Development
+## Features
 
-### Watching changes
+The Draw.io MCP server provides the following tools for programmatic diagram interaction:
 
-The following command watches for changes.
+### Diagram Inspection Tools
+- **`get-selected-cell`**
+  Retrieves the currently selected cell in Draw.io with all its attributes
+  *Returns*: JSON object containing cell properties (ID, geometry, style, value, etc.)
 
-```sh
-pnpm run dev
-```
+- **`get-shape-categories`**
+  Retrieves available shape categories from the diagram's library
+  *Returns*: Array of category objects with their IDs and names
 
-It builds JavaScript output that can be then in turn ran by MCP client.
+- **`get-shapes-in-category`**
+  Retrieves all shapes in a specified category from the diagram's library
+  *Parameters*:
+    - `category_id`: Identifier of the category to retrieve shapes from
+  *Returns*: Array of shape objects with their properties and styles
 
-### MCP Inspector client
+- **`get-shape-by-name`**
+  Retrieves a specific shape by its name from all available shapes
+  *Parameters*:
+    - `shape_name`: Name of the shape to retrieve
+  *Returns*: Shape object including its category and style information
 
-You can use [MCP Inspector](https://modelcontextprotocol.io/docs/tools/inspector) as MCP client to debug your MCP server.
+### Diagram Modification Tools
+- **`add-rectangle`**
+  Creates a new rectangle shape on the active Draw.io page with customizable properties:
+  - Position (`x`, `y` coordinates)
+  - Dimensions (`width`, `height`)
+  - Text content
+  - Visual style (fill color, stroke, etc. using Draw.io style syntax)
 
-Start:
+- **`add-edge`**
+  Creates a connection between two cells (vertexes)
+  *Parameters*:
+    - `source_id`: ID of the source cell
+    - `target_id`: ID of the target cell
+    - `text`: Optional text label for the edge
+    - `style`: Optional style properties for the edge
 
-```sh
-pnpm run inspect
-```
+- **`delete-cell-by-id`**
+  Removes a specified cell from the diagram
+  *Parameters*:
+    - `cell_id`: ID of the cell to delete
 
-Every time you rebuild the MCP server script, you need to **Restart** the Inspector tool.
-Every time you change the tool definition, you should **Clear** and then **List** the tool again.
+- **`add-cell-of-shape`**
+  Adds a new cell of a specific shape type from the diagram's library
+  *Parameters*:
+    - `shape_name`: Name of the shape to create
+    - `x`, `y`: Position coordinates (optional)
+    - `width`, `height`: Dimensions (optional)
+    - `text`: Optional text content
+    - `style`: Optional additional style properties
 
-If you want to debug the MCP server code, you need to configure the MCP server with **debugging** enabled:
+## Related Resources
 
-| key | value |
-| --- | --- |
-| Command | node |
-| Arguments | --inspect build/index.js |
+[Architecture](./ARCHITECTURE.md)
 
-Connect Chrome Debugger by opening `chrome://inspect`.
-
-## Architecture
-
-### Core Capabilities
-- **Bi-directional Communication**: Real-time interaction between MCP clients and Draw.io
-- **WebSocket Bridge**: Built-in WebSocket server (port 3000) for browser extension connectivity
-- **Standardized Protocol**: Full MCP compliance for seamless agent integration
-- **Debugging Support**: Integrated with Chrome DevTools via `--inspect` flag
-
-### Architecture Highlights
-- Event-driven system using Node.js EventEmitter
-- uWebSockets.js for high-performance WebSocket connections
-- Zod schema validation for all tool parameters
-- Plugin-ready design for additional tool development
-
-*Note: Additional tools can be easily added by extending the server implementation.*
+[Development](./DEVELOPMENT.md)
