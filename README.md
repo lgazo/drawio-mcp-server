@@ -32,7 +32,7 @@ To use the Draw.io MCP server, you'll need:
 - **LLM with Tools Support** - Any language model capable of handling MCP tool calls (e.g., GPT-4, Claude 3, etc.)
 
 ### Optional for Development
-- **pnpm** - Preferred package manager (npm/yarn also supported)
+- **pnpm** - Preferred package manager
 - **Chrome DevTools** - For debugging when using `--inspect` flag
 
 Note: The Draw.io desktop app or web version must be accessible to the system where the MCP server runs.
@@ -48,6 +48,9 @@ Note: The Draw.io desktop app or web version must be accessible to the system wh
 
 3. Update it to include this server:
 
+<details>
+  <summary>Using <code>npm</code></summary>
+
 ```json
 {
    "mcpServers":{
@@ -61,14 +64,36 @@ Note: The Draw.io desktop app or web version must be accessible to the system wh
    }
 }
 ```
+</details>
+
+<details>
+  <summary>Using <code>pnpm</code></summary>
+
+```json
+{
+   "mcpServers":{
+      "drawio":{
+         "command":"pnpm",
+         "args":[
+            "dlx",
+            "drawio-mcp-server"
+         ]
+      }
+   }
+}
+```
+</details>
 
 4. Restart Claude Desktop
 
-#### Connecting with oterm
+### Connecting with oterm
 
 This is an alternative MCP client in case you like terminal and you plan to connect to your own Ollama instance.
 
 The configuration is usually in: ~/.local/share/oterm/config.json
+
+<details>
+  <summary>Using <code>npm</code></summary>
 
 ```json
 {
@@ -83,14 +108,46 @@ The configuration is usually in: ~/.local/share/oterm/config.json
 	}
 }
 ```
+</details>
+
+<details>
+  <summary>Using <code>pnpm</code></summary>
+
+```json
+{
+	"mcpServers": {
+		"drawio": {
+			"command": "pnpm",
+			"args": [
+			  "dlx",
+        "drawio-mcp-server"
+			]
+		}
+	}
+}
+```
+</details>
 
 ### Browser Extension Setup
 
 In order to control the Draw.io diagram, you need to install dedicated Browser Extension.
 
 1. Open [Draw.io in your browser](https://app.diagrams.net/)
-2. Activate the Draw.io MCP Browser Extension
-3. Ensure it connects to `ws://localhost:3000`
+2. Install the Draw.io MCP Browser Extension from a web store (**still pending review**) or [use other means](https://github.com/lgazo/drawio-mcp-extension)
+<p>
+  <a href="https://chrome.google.com/webstore/detail/drawio-mcp-extension/okdbbjbbccdhhfaefmcmekalmmdjjide">
+    <picture>
+      <source srcset="https://i.imgur.com/XBIE9pk.png" media="(prefers-color-scheme: dark)" />
+      <img height="58" src="https://i.imgur.com/oGxig2F.png" alt="Chrome Web Store" /></picture
+  ></a>
+  <a href="https://addons.mozilla.org/en-US/firefox/addon/drawio-mcp-extension/">
+    <picture>
+      <source srcset="https://i.imgur.com/ZluoP7T.png" media="(prefers-color-scheme: dark)" />
+      <img height="58" src="https://i.imgur.com/4PobQqE.png" alt="Firefox add-ons" /></picture
+  ></a>
+</p>
+3. Ensure it is connected, the Extension icon should indicate green signal overlay <img alt="Extension connected" src="https://raw.githubusercontent.com/lgazo/drawio-mcp-extension/refs/heads/main/public/icon/logo_connected_32.png" />
+
 
 ## Features
 
