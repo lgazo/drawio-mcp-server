@@ -2,6 +2,8 @@
 
 Let's do some Vibe Diagramming with the most wide-spread diagramming tool called Draw.io (Diagrams.net).
 
+[![Build project](https://github.com/lgazo/drawio-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/lgazo/drawio-mcp-server/actions/workflows/ci.yml)
+
 ## Introduction
 
 The Draw.io MCP server is a [Model Context Protocol (MCP)](https://modelcontextprotocol.io) implementation that brings powerful diagramming capabilities to AI agentic systems. This integration enables:
