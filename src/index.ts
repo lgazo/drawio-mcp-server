@@ -57,16 +57,16 @@ const ws_handler: uWS.WebSocketBehavior<unknown> = {
 const app = uWS
   .App()
   .ws("/*", ws_handler)
-  .listen(3000, (token) => {
+  .listen(3333, (token) => {
     if (token) {
-      log.debug("Listening to port 3000");
+      log.debug("Listening to port 3333");
     }
   });
 
 // Create server instance
 const server = new McpServer({
   name: "drawio-mcp-server",
-  version: "1.0.0",
+  version: "1.0.1",
   capabilities: {
     resources: {},
     tools: {},

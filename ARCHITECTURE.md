@@ -2,7 +2,7 @@
 
 ## Core Capabilities
 - **Bi-directional Communication**: Real-time interaction between MCP clients and Draw.io
-- **WebSocket Bridge**: Built-in WebSocket server (port 3000) for browser extension connectivity
+- **WebSocket Bridge**: Built-in WebSocket server (port 3333) for browser extension connectivity
 - **Standardized Protocol**: Full MCP compliance for seamless agent integration
 - **Debugging Support**: Integrated with Chrome DevTools via `--inspect` flag
 
