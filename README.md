@@ -135,7 +135,7 @@ The configuration is usually in: ~/.local/share/oterm/config.json
 In order to control the Draw.io diagram, you need to install dedicated Browser Extension.
 
 1. Open [Draw.io in your browser](https://app.diagrams.net/)
-2. Install the Draw.io MCP Browser Extension from a web store (**still pending review**) or [use other means](https://github.com/lgazo/drawio-mcp-extension)
+2. Install the Draw.io MCP Browser Extension from a web store (**Chrome still pending review**) or [use other means](https://github.com/lgazo/drawio-mcp-extension)
 <p>
   <a href="https://chrome.google.com/webstore/detail/drawio-mcp-extension/okdbbjbbccdhhfaefmcmekalmmdjjide">
     <picture>
@@ -209,6 +209,8 @@ The Draw.io MCP server provides the following tools for programmatic diagram int
 ## Related Resources
 
 [Troubleshooting](./TROUBLESHOOTING.md)
+
+[Contributing](./CONTRIBUTING.md)
 
 [Architecture](./ARCHITECTURE.md)
 

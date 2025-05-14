@@ -1,5 +1,9 @@
 # Troubleshooting
 
+## Debug logs
+
+MCP server uses stdio (standard console output) for the communication between MCP Client and MCP server. In order to provide essential debug information at this stage of the development, detailed logs are reported as console **error** output, until better logging system is implemented.
+
 ## Does the MCP server run by itself?
 
 Running `pnpm` version should output the following.
