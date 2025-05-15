@@ -210,6 +210,8 @@ The Draw.io MCP server provides the following tools for programmatic diagram int
 
 [Troubleshooting](./TROUBLESHOOTING.md)
 
+[Prompt examples](./docs/examples/index.md)
+
 [Contributing](./CONTRIBUTING.md)
 
 [Architecture](./ARCHITECTURE.md)
