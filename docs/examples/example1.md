@@ -24,7 +24,7 @@ Local development setup with CLine extension in VS Codium:
 ## prompt
 
 ```
-create a diagram of a standard microservice architecture on aws. the stack should include a web frontend, service layer using a combination of aws lambda and microservice and two different databases
+create a drawio diagram of a standard microservice architecture on aws. the stack should include a web frontend, service layer using a combination of aws lambda and microservice and two different databases
 ```
 
 ## response
