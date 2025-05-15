@@ -25,27 +25,59 @@ export function build_channel<S>(
     const request_id = id_generator.generate();
     // const event_name = `get-selected-cell`;
     const reply_name = `${event_name}.${request_id}`;
-    bus.send_to_extension({
+    
+    // Log before sending
+    log.debug(`[${event_name}] Preparing to send request with ID ${request_id}`);
+    
+    const requestData = {
       __event: event_name,
       __request_id: request_id,
       ..._args,
-    });
-    log.debug(`[${event_name}] emitted, waiting for reply @${reply_name}`);
+    };
+    
+    log.debug(`[${event_name}] Request data: ${JSON.stringify(requestData)}`);
+    
+    // Send the request
+    bus.send_to_extension(requestData);
+    
+    log.debug(`[${event_name}] Request sent, emitted, waiting for reply @${reply_name}`);
 
-    const p: Promise<CallToolResult> = new Promise((resolve, _reject) => {
-      log.debug(`[${event_name}] waiting for response @${reply_name}`);
+    // Add 3 second timeout
+    const TIMEOUT_MS = 3000;
 
-      bus.on_reply_from_extension(reply_name, (reply: Record<string, any>) => {
-        // bus.on(reply_name, (args) => {
-        log.debug(`[${reply_name}] received response`, reply);
-        const data = strip_internal_fields(reply);
+    try {
+      return await new Promise<CallToolResult>((resolve, reject) => {
+        log.debug(`[${event_name}] waiting for response @${reply_name}`);
 
-        const response = handler(data);
-        resolve(response);
+        // Setup timeout timer
+        const timeoutId = setTimeout(() => {
+          log.debug(`[${event_name}] request timed out after ${TIMEOUT_MS}ms`);
+          reject(new Error(`Request timed out after ${TIMEOUT_MS}ms`));
+        }, TIMEOUT_MS);
+
+        bus.on_reply_from_extension(reply_name, (reply: Record<string, any>) => {
+          // Clear timeout timer when response received
+          clearTimeout(timeoutId);
+          
+          log.debug(`[${reply_name}] received response`, reply);
+          const data = strip_internal_fields(reply);
+
+          const response = handler(data);
+          resolve(response);
+        });
       });
-    });
-
-    return p;
+    } catch (error: any) {
+      // Handle timeout or other errors
+      log.debug(`[${event_name}] Error: ${error.message}`);
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({ error: error.message }),
+          },
+        ],
+      };
+    }
   };
 
   return fn;

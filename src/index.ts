@@ -24,12 +24,22 @@ const emitter = new EventEmitter();
 const conns: uWS.WebSocket<unknown>[] = [];
 
 const bus_to_ws_forwarder_listener = (event: any) => {
-  log.debug(`[bridge] received; passing to #${conns.length}`, event);
+  log.debug(`[bridge] received event to forward`, event);
+  
+  if (conns.length === 0) {
+    log.debug(`[bridge] No active WebSocket connections to forward to!`);
+    return;
+  }
+  
+  log.debug(`[bridge] Forwarding to ${conns.length} connection(s)`);
   for (let i = 0; i < conns.length; i++) {
     try {
-      conns[i].send(JSON.stringify(event));
+      const jsonStr = JSON.stringify(event);
+      log.debug(`[bridge] Sending to connection #${i}: ${jsonStr}`);
+      conns[i].send(jsonStr);
+      log.debug(`[bridge] Successfully sent to connection #${i}`);
     } catch (e) {
-      log.debug(`[bridge] error forwarding request at conn = ${i}`);
+      log.debug(`[bridge] Error forwarding request to connection #${i}:`, e);
     }
   }
 };
@@ -39,19 +49,32 @@ const ws_handler: uWS.WebSocketBehavior<unknown> = {
   open: (ws) => {
     log.debug("A WebSocket connected!");
     conns.push(ws);
+    log.debug(`Active connections: ${conns.length}`);
   },
   message: (ws, message, isBinary) => {
-    // ws.send(message, isBinary);
     const decoder = new TextDecoder();
     const str = decoder.decode(message);
     const json = JSON.parse(str);
     log.debug(`[ws] received from Extension`, json);
-    // const event_name = message.__event;
+    
+    if (json.__event) {
+      log.debug(`[ws] Message contains __event: ${json.__event}`);
+    } else if (json.type) {
+      log.debug(`[ws] Message type: ${json.type}`);
+    }
+    
     emitter.emit(bus_reply_stream, json);
   },
   close: (ws, code, message) => {
-    log.debug("WebSocket closed");
-    //todo remove conn
+    log.debug(`WebSocket closed with code ${code}`);
+    
+    const index = conns.indexOf(ws);
+    if (index !== -1) {
+      conns.splice(index, 1);
+      log.debug(`Connection removed. Remaining connections: ${conns.length}`);
+    } else {
+      log.debug(`Connection not found in connections list`);
+    }
   },
 };
 
