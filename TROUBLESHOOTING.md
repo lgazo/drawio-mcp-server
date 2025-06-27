@@ -50,6 +50,14 @@ npx -y drawio-mcp-server
 
 Terminal output:
 ``` 
-Listening to port 3333 undefined
-Draw.io MCP Server running on stdio undefined
+DEBUG: Draw.io MCP Server starting
+DEBUG: [start_websocket_server] Listening to port 3333
+DEBUG: Draw.io MCP Server WebSocket started
+DEBUG: Draw.io MCP Server running on stdio
+```
+
+When Extension connects, you should see:
+
+```
+DEBUG: [ws_handler] A WebSocket client #0 connected, presumably MCP Extension!
 ```

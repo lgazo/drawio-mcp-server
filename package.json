@@ -1,6 +1,6 @@
 {
   "name": "drawio-mcp-server",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Provides Draw.io services to MCP Clients",
   "type": "module",
   "main": "index.js",

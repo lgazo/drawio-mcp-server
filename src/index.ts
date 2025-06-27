@@ -19,6 +19,7 @@ import { default_tool } from "./tool.js";
 import { nanoid_id_generator } from "./nanoid_id_generator.js";
 import { create_logger } from "./mcp_console_logger.js";
 
+const PORT = 3333;
 const log = create_logger();
 
 async function checkPortAvailable(port: number): Promise<boolean> {
@@ -37,7 +38,7 @@ const emitter = new EventEmitter();
 const conns: uWS.WebSocket<unknown>[] = [];
 
 const bus_to_ws_forwarder_listener = (event: any) => {
-  log.debug(`[bridge] received; passing to #${conns.length}`, event);
+  log.debug(`[bridge] received; forwarding message to #${conns.length} clients`, event);
   for (let i = 0; i < conns.length; i++) {
     try {
       conns[i].send(JSON.stringify(event));
@@ -50,7 +51,7 @@ emitter.on(bus_request_stream, bus_to_ws_forwarder_listener);
 
 const ws_handler: uWS.WebSocketBehavior<unknown> = {
   open: (ws) => {
-    log.debug("A WebSocket connected!");
+    log.debug(`[ws_handler] A WebSocket client #${conns.length} connected, presumably MCP Extension!`);
     conns.push(ws);
   },
   message: (ws, message, isBinary) => {
@@ -63,18 +64,16 @@ const ws_handler: uWS.WebSocketBehavior<unknown> = {
     emitter.emit(bus_reply_stream, json);
   },
   close: (ws, code, message) => {
-    log.debug("WebSocket closed");
+    log.debug("[ws_handler] WebSocket client closed");
     //todo remove conn
   },
 };
 
-async function startWebSocketServer() {
-  const PORT = 3333;
-  
+async function start_websocket_server() {  
   const isPortAvailable = await checkPortAvailable(PORT);
   
   if (!isPortAvailable) {
-    console.error(`Error: Port ${PORT} is already in use. Please stop the process using this port and try again.`);
+    console.error(`[start_websocket_server] Error: Port ${PORT} is already in use. Please stop the process using this port and try again.`);
     process.exit(1);
   }
   
@@ -83,9 +82,9 @@ async function startWebSocketServer() {
     .ws("/*", ws_handler)
     .listen(PORT, (token) => {
       if (token) {
-        log.debug(`Listening to port ${PORT}`);
+        log.debug(`[start_websocket_server] Listening to port ${PORT}`);
       } else {
-        console.error(`Error: Failed to listen on port ${PORT}`);
+        console.error(`[start_websocket_server] Error: Failed to listen on port ${PORT}`);
         process.exit(1);
       }
     });
@@ -96,7 +95,7 @@ async function startWebSocketServer() {
 // Create server instance
 const server = new McpServer({
   name: "drawio-mcp-server",
-  version: "1.0.1",
+  version: "1.0.3",
   capabilities: {
     resources: {},
     tools: {},
@@ -285,7 +284,7 @@ server.tool(
 
 async function main() {
   log.debug("Draw.io MCP Server starting");
-  await startWebSocketServer();
+  await start_websocket_server();
   log.debug("Draw.io MCP Server WebSocket started");
   const transport = new StdioServerTransport();
   await server.connect(transport);
