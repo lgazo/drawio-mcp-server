@@ -130,6 +130,54 @@ The configuration is usually in: ~/.local/share/oterm/config.json
 ```
 </details>
 
+### Connect with Zed
+
+1. Open the Zed Preview application.
+1. Click the Assistant (✨) icon in the bottom right corner.
+1. Click Settings in the top right panel of the Assistant.
+1. In the Context Servers section, click + Add Context Server.
+1. Configure with the following:
+
+<details>
+  <summary>Using <code>npm</code></summary>
+
+```json
+{
+  /// The name of your MCP server
+  "drawio": {
+    "command": {
+      /// The path to the executable
+      "path": "npx",
+      /// The arguments to pass to the executable
+      "args": ["-y","drawio-mcp-server"],
+      /// The environment variables to set for the executable
+      "env": {}
+    }
+  }
+}
+```
+</details>
+
+<details>
+  <summary>Using <code>pnpm</code></summary>
+
+```json
+{
+  /// The name of your MCP server
+  "drawio": {
+    "command": {
+      /// The path to the executable
+      "path": "pnpm",
+      /// The arguments to pass to the executable
+      "args": ["dlx","drawio-mcp-server"],
+      /// The environment variables to set for the executable
+      "env": {}
+    }
+  }
+}
+```
+</details>
+
 ### Browser Extension Setup
 
 In order to control the Draw.io diagram, you need to install dedicated Browser Extension.
