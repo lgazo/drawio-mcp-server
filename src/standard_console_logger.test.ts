@@ -98,11 +98,21 @@ describe("create_logger", () => {
     const data3 = "string data";
 
     logger.log("info", testMessage, data1, data2, data3);
-    expect(mockConsoleLog).toHaveBeenCalledWith(testMessage, data1, data2, data3);
+    expect(mockConsoleLog).toHaveBeenCalledWith(
+      testMessage,
+      data1,
+      data2,
+      data3,
+    );
 
     mockConsoleLog.mockClear();
 
     logger.debug(testMessage, data1, data2, data3);
-    expect(mockConsoleDebug).toHaveBeenCalledWith(testMessage, data1, data2, data3);
+    expect(mockConsoleDebug).toHaveBeenCalledWith(
+      testMessage,
+      data1,
+      data2,
+      data3,
+    );
   });
 });

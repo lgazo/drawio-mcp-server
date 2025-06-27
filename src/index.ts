@@ -25,12 +25,12 @@ const log = create_logger();
 async function checkPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
     const server = createServer();
-    
+
     server.listen(port, () => {
       server.close(() => resolve(true));
     });
-    
-    server.on('error', () => resolve(false));
+
+    server.on("error", () => resolve(false));
   });
 }
 
@@ -38,7 +38,10 @@ const emitter = new EventEmitter();
 const conns: uWS.WebSocket<unknown>[] = [];
 
 const bus_to_ws_forwarder_listener = (event: any) => {
-  log.debug(`[bridge] received; forwarding message to #${conns.length} clients`, event);
+  log.debug(
+    `[bridge] received; forwarding message to #${conns.length} clients`,
+    event,
+  );
   for (let i = 0; i < conns.length; i++) {
     try {
       conns[i].send(JSON.stringify(event));
@@ -51,7 +54,9 @@ emitter.on(bus_request_stream, bus_to_ws_forwarder_listener);
 
 const ws_handler: uWS.WebSocketBehavior<unknown> = {
   open: (ws) => {
-    log.debug(`[ws_handler] A WebSocket client #${conns.length} connected, presumably MCP Extension!`);
+    log.debug(
+      `[ws_handler] A WebSocket client #${conns.length} connected, presumably MCP Extension!`,
+    );
     conns.push(ws);
   },
   message: (ws, message, isBinary) => {
@@ -69,14 +74,16 @@ const ws_handler: uWS.WebSocketBehavior<unknown> = {
   },
 };
 
-async function start_websocket_server() {  
+async function start_websocket_server() {
   const isPortAvailable = await checkPortAvailable(PORT);
-  
+
   if (!isPortAvailable) {
-    console.error(`[start_websocket_server] Error: Port ${PORT} is already in use. Please stop the process using this port and try again.`);
+    console.error(
+      `[start_websocket_server] Error: Port ${PORT} is already in use. Please stop the process using this port and try again.`,
+    );
     process.exit(1);
   }
-  
+
   const app = uWS
     .App()
     .ws("/*", ws_handler)
@@ -84,11 +91,13 @@ async function start_websocket_server() {
       if (token) {
         log.debug(`[start_websocket_server] Listening to port ${PORT}`);
       } else {
-        console.error(`[start_websocket_server] Error: Failed to listen on port ${PORT}`);
+        console.error(
+          `[start_websocket_server] Error: Failed to listen on port ${PORT}`,
+        );
         process.exit(1);
       }
     });
-    
+
   return app;
 }
 

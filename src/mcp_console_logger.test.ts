@@ -37,7 +37,10 @@ describe("create_logger", () => {
     logger.log(testLevel, testMessage, testData);
 
     expect(mockConsoleError).toHaveBeenCalledTimes(1);
-    expect(mockConsoleError).toHaveBeenCalledWith(`${testLevel.toUpperCase()}: ${testMessage}`, testData);
+    expect(mockConsoleError).toHaveBeenCalledWith(
+      `${testLevel.toUpperCase()}: ${testMessage}`,
+      testData,
+    );
   });
 
   it("debug method should call console.error with message and data", () => {
@@ -48,7 +51,10 @@ describe("create_logger", () => {
     logger.debug(testMessage, testData);
 
     expect(mockConsoleError).toHaveBeenCalledTimes(1);
-    expect(mockConsoleError).toHaveBeenCalledWith(`DEBUG: ${testMessage}`, testData);
+    expect(mockConsoleError).toHaveBeenCalledWith(
+      `DEBUG: ${testMessage}`,
+      testData,
+    );
   });
 
   it("should handle no additional data parameters", () => {
@@ -72,11 +78,21 @@ describe("create_logger", () => {
     const data3 = "string data";
 
     logger.log("error", testMessage, data1, data2, data3);
-    expect(mockConsoleError).toHaveBeenCalledWith(`ERROR: ${testMessage}`, data1, data2, data3);
+    expect(mockConsoleError).toHaveBeenCalledWith(
+      `ERROR: ${testMessage}`,
+      data1,
+      data2,
+      data3,
+    );
 
     mockConsoleError.mockClear();
 
     logger.debug(testMessage, data1, data2, data3);
-    expect(mockConsoleError).toHaveBeenCalledWith(`DEBUG: ${testMessage}`, data1, data2, data3);
+    expect(mockConsoleError).toHaveBeenCalledWith(
+      `DEBUG: ${testMessage}`,
+      data1,
+      data2,
+      data3,
+    );
   });
 });
