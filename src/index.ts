@@ -53,6 +53,7 @@ const bus_to_ws_forwarder_listener = (event: any) => {
 emitter.on(bus_request_stream, bus_to_ws_forwarder_listener);
 
 const ws_handler: uWS.WebSocketBehavior<unknown> = {
+  maxPayloadLength: 128 * 1024,
   open: (ws) => {
     log.debug(
       `[ws_handler] A WebSocket client #${conns.length} connected, presumably MCP Extension!`,
@@ -69,7 +70,7 @@ const ws_handler: uWS.WebSocketBehavior<unknown> = {
     emitter.emit(bus_reply_stream, json);
   },
   close: (ws, code, message) => {
-    log.debug("[ws_handler] WebSocket client closed");
+    log.debug(`[ws_handler] WebSocket client closed with code ${code}`);
     //todo remove conn
   },
 };
