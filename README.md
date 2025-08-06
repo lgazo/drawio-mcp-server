@@ -199,6 +199,28 @@ In order to control the Draw.io diagram, you need to install dedicated Browser E
 3. Ensure it is connected, the Extension icon should indicate green signal overlay <img alt="Extension connected" src="https://raw.githubusercontent.com/lgazo/drawio-mcp-extension/refs/heads/main/public/icon/logo_connected_32.png" />
 
 
+## Sponsoring
+
+If you enjoy the project or find it useful, consider supporting its continued development.
+
+
+lightning invoice:
+
+![lightning invoice](./lightning_qr.png)
+
+```
+lnbc1p5f8wvnpp5kk0qt60waplesw3sjxu7tcqwmdp6ysq570dc4ln52krd3u5nzq6sdp82pshjgr5dusyymrfde4jq4mpd3kx2apq24ek2uscqzpuxqr8pqsp5gvr72xcs883qt4hea6v3u7803stcwfnk5c9w0ykqr9a40qqwnpys9qxpqysgqfzlhm0cz5vqy7wqt7rwpmkacukrk59k89ltd5n642wzru2jn88tyd78gr4y3j6u64k2u4sd4qgavlsnccl986velrg3x0pe95sx7p4sqtatttp
+```
+
+lightning address:
+```
+ladislav@blink.sv
+```
+
+<div align="center">
+<a href="https://liberapay.com/ladislav/donate"><img alt="Donate using Liberapay" src="https://liberapay.com/assets/widgets/donate.svg"></a>
+</div>
+
 ## Features
 
 The Draw.io MCP server provides the following tools for programmatic diagram interaction:
@@ -223,6 +245,9 @@ The Draw.io MCP server provides the following tools for programmatic diagram int
   *Parameters*:
     - `shape_name`: Name of the shape to retrieve
   *Returns*: Shape object including its category and style information
+
+- **`list-paged-model`**
+  Retrieves a paginated view of all cells (vertices and edges) in the current Draw.io diagram. This tool provides access to the complete model data with essential fields only, sanitized to remove circular dependencies and excessive data. It allows to filter based on multiple criteria and attribute boolean logic. Useful for programmatic inspection of diagram structure without overwhelming response sizes.
 
 ### Diagram Modification Tools
 - **`add-rectangle`**
