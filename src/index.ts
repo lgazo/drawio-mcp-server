@@ -327,7 +327,8 @@ server.tool(
           ),
       })
       .optional()
-      .describe("Optional filter criteria to apply to cells before pagination"),
+      .describe("Optional filter criteria to apply to cells before pagination")
+      .default({}),
   },
   default_tool(TOOL_list_paged_model, context),
 );
