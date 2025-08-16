@@ -1,6 +1,6 @@
 {
   "name": "drawio-mcp-server",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Provides Draw.io services to MCP Clients",
   "type": "module",
   "main": "index.js",
@@ -21,6 +21,9 @@
     "test:coverage": "NODE_OPTIONS=--experimental-vm-modules jest --coverage",
     "clean": "rimraf build coverage .eslintcache",
     "prebuild": "pnpm run clean"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   },
   "files": [
     "build"
@@ -44,7 +47,7 @@
     "nanoid": "5.1.5",
     "pino": "9.6.0",
     "pino-pretty": "13.0.0",
-    "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.51.0",
+    "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.52.0",
     "zod": "3.24.3"
   },
   "devDependencies": {

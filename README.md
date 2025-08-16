@@ -26,7 +26,7 @@ The tool supports bidirectional communication, allowing both control of Draw.io 
 To use the Draw.io MCP server, you'll need:
 
 ### Core Components
-- **Node.js** (v18 or higher) - Runtime environment for the MCP server
+- **Node.js** (v20 or higher) - Runtime environment for the MCP server
 - **Draw.io MCP Browser Extension** - Enables communication between Draw.io and the MCP server
 
 ### MCP Ecosystem
