@@ -131,26 +131,9 @@ export function create_logger(server: McpServer): Logger {
   return {
     log: (level, message, ...data) => {
       log3(level as McpLogLevel, ".", { message, data });
-      // return server.server.sendLoggingMessage({
-      //   // level: LogLevelMap[level?.toLowerCase()],
-      //   level: level?.toLowerCase() as McpLogLevel,
-      //   logger: "root",
-      //   data,
-      // });
-      // return data.length > 0
-      //   ? console.error(`${level?.toUpperCase()}: ${message}`, ...data)
-      //   : console.error(`${level?.toUpperCase()}: ${message}`);
     },
     debug: (message, ...data) => {
       log3("debug" as McpLogLevel, ".", { message, data });
-      // return server.server.sendLoggingMessage({
-      //   level: "debug" as McpLogLevel,
-      //   logger: "root",
-      //   data,
-      // });
-      // return data.length > 0
-      //   ? console.error(`DEBUG: ${message}`, ...data)
-      //   : console.error(`DEBUG: ${message}`);
     },
   };
 }
