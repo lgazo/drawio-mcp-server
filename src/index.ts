@@ -17,7 +17,11 @@ import {
 import { create_bus } from "./emitter_bus.js";
 import { default_tool } from "./tool.js";
 import { nanoid_id_generator } from "./nanoid_id_generator.js";
-import { create_logger, validLogLevels } from "./mcp_console_logger.js";
+import { create_logger as create_console_logger } from "./mcp_console_logger.js";
+import {
+  create_logger as create_server_logger,
+  validLogLevels,
+} from "./mcp_server_logger.js";
 
 const PORT = 3333;
 
@@ -101,25 +105,36 @@ async function start_websocket_server() {
   return app;
 }
 
+const logger_type = process.env.LOGGER_TYPE;
+let capabilities: any = {
+  resources: {},
+  tools: {},
+};
+if (logger_type === "mcp_server") {
+  capabilities = {
+    ...capabilities,
+    logging: {
+      setLevels: true,
+      levels: validLogLevels,
+    },
+  };
+}
+
 // Create server instance
 const server = new McpServer(
   {
     name: "drawio-mcp-server",
-    version: "1.2.0",
+    version: "1.2.1",
   },
   {
-    capabilities: {
-      resources: {},
-      tools: {},
-      logging: {
-        setLevels: true,
-        levels: validLogLevels,
-      },
-    },
+    capabilities,
   },
 );
 
-const log = create_logger(server);
+const log =
+  logger_type === "mcp_server"
+    ? create_server_logger(server)
+    : create_console_logger();
 const bus = create_bus(log)(emitter);
 const id_generator = nanoid_id_generator();
 
