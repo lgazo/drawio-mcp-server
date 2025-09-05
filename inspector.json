@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "drawio": {
+      "command": "node",
+      "args": ["--inspect", "build/index.js"]
+    }
+  }
+}
