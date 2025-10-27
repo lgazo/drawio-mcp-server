@@ -279,6 +279,26 @@ The Draw.io MCP server provides the following tools for programmatic diagram int
     - `text`: Optional text content
     - `style`: Optional additional style properties
 
+- **`set-cell-shape`**
+  Applies a library shape's style to an existing cell
+  *Parameters*:
+    - `cell_id`: ID of the cell whose appearance should change
+    - `shape_name`: Name of the library shape whose style should be applied
+
+- **`edit-cell`**
+  Updates an existing vertex/shape cell in place by ID
+  *Parameters*:
+    - `cell_id`: ID of the cell whose properties should change (required)
+    - `text`, `x`, `y`, `width`, `height`, `style`: Optional fields to update on the cell; omitted properties stay as-is
+
+- **`edit-edge`**
+  Updates an existing edge connection between cells by ID
+  *Parameters*:
+    - `cell_id`: ID of the edge cell to update (required)
+    - `text`: Optional edge label text
+    - `source_id`, `target_id`: Optional IDs of new source/target cells
+    - `style`: Optional replacement style string
+
 ## Related Resources
 
 [Troubleshooting](./TROUBLESHOOTING.md)

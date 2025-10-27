@@ -315,6 +315,95 @@ server.tool(
   default_tool(TOOL_add_cell_of_shape, context),
 );
 
+const TOOL_set_cell_shape = "set-cell-shape";
+server.tool(
+  TOOL_set_cell_shape,
+  "Updates the visual style of an existing vertex cell to match a library shape by name.",
+  {
+    cell_id: z
+      .string()
+      .describe("Identifier (`id` attribute) of the cell whose shape should change."),
+    shape_name: z
+      .string()
+      .describe(
+        "Name of the library shape whose style should be applied to the existing cell.",
+      ),
+  },
+  default_tool(TOOL_set_cell_shape, context),
+);
+
+const TOOL_edit_cell = "edit-cell";
+server.tool(
+  TOOL_edit_cell,
+  "Update properties of an existing vertex/shape cell by its ID. Only provided fields are modified; unspecified properties remain unchanged.",
+  {
+    cell_id: z
+      .string()
+      .describe(
+        "Identifier (`id` attribute) of the cell to update. Applies to vertex/shape cells.",
+      ),
+    text: z
+      .string()
+      .optional()
+      .describe("Replace the cell's text/label content."),
+    x: z
+      .number()
+      .optional()
+      .describe("Set a new X-axis position for the cell."),
+    y: z
+      .number()
+      .optional()
+      .describe("Set a new Y-axis position for the cell."),
+    width: z
+      .number()
+      .optional()
+      .describe("Set a new width for the cell."),
+    height: z
+      .number()
+      .optional()
+      .describe("Set a new height for the cell."),
+    style: z
+      .string()
+      .optional()
+      .describe(
+        "Replace the cell's style string (semi-colon separated `key=value` pairs).",
+      ),
+  },
+  default_tool(TOOL_edit_cell, context),
+);
+
+const TOOL_edit_edge = "edit-edge";
+server.tool(
+  TOOL_edit_edge,
+  "Update properties of an existing edge by its ID. Only provided fields are modified; unspecified properties remain unchanged.",
+  {
+    cell_id: z
+      .string()
+      .describe(
+        "Identifier (`id` attribute) of the edge cell to update. The ID must reference an edge.",
+      ),
+    text: z
+      .string()
+      .optional()
+      .describe("Replace the edge's label text."),
+    source_id: z
+      .string()
+      .optional()
+      .describe("Reassign the edge's source terminal to a different cell ID."),
+    target_id: z
+      .string()
+      .optional()
+      .describe("Reassign the edge's target terminal to a different cell ID."),
+    style: z
+      .string()
+      .optional()
+      .describe(
+        "Replace the edge's style string (semi-colon separated `key=value` pairs).",
+      ),
+  },
+  default_tool(TOOL_edit_edge, context),
+);
+
 const Attributes: z.ZodType<any> = z.lazy(() =>
   z
     .array(
