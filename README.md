@@ -285,6 +285,13 @@ The Draw.io MCP server provides the following tools for programmatic diagram int
     - `cell_id`: ID of the cell whose appearance should change
     - `shape_name`: Name of the library shape whose style should be applied
 
+- **`set-cell-data`**
+  Stores or updates a custom attribute on a cell
+  *Parameters*:
+    - `cell_id`: ID of the cell to update
+    - `key`: Attribute name to set
+    - `value`: Attribute value (stored as a string internally)
+
 - **`edit-cell`**
   Updates an existing vertex/shape cell in place by ID
   *Parameters*:

@@ -322,7 +322,9 @@ server.tool(
   {
     cell_id: z
       .string()
-      .describe("Identifier (`id` attribute) of the cell whose shape should change."),
+      .describe(
+        "Identifier (`id` attribute) of the cell whose shape should change.",
+      ),
     shape_name: z
       .string()
       .describe(
@@ -330,6 +332,26 @@ server.tool(
       ),
   },
   default_tool(TOOL_set_cell_shape, context),
+);
+
+const TOOL_set_cell_data = "set-cell-data";
+server.tool(
+  TOOL_set_cell_data,
+  "Sets or updates a custom attribute on an existing cell.",
+  {
+    cell_id: z
+      .string()
+      .describe(
+        "Identifier (`id` attribute) of the cell to update with custom data.",
+      ),
+    key: z.string().describe("Name of the attribute to set on the cell."),
+    value: z
+      .union([z.string(), z.number(), z.boolean()])
+      .describe(
+        "Value to store for the attribute. Non-string values are stringified before storage.",
+      ),
+  },
+  default_tool(TOOL_set_cell_data, context),
 );
 
 const TOOL_edit_cell = "edit-cell";
@@ -354,14 +376,8 @@ server.tool(
       .number()
       .optional()
       .describe("Set a new Y-axis position for the cell."),
-    width: z
-      .number()
-      .optional()
-      .describe("Set a new width for the cell."),
-    height: z
-      .number()
-      .optional()
-      .describe("Set a new height for the cell."),
+    width: z.number().optional().describe("Set a new width for the cell."),
+    height: z.number().optional().describe("Set a new height for the cell."),
     style: z
       .string()
       .optional()
@@ -382,10 +398,7 @@ server.tool(
       .describe(
         "Identifier (`id` attribute) of the edge cell to update. The ID must reference an edge.",
       ),
-    text: z
-      .string()
-      .optional()
-      .describe("Replace the edge's label text."),
+    text: z.string().optional().describe("Replace the edge's label text."),
     source_id: z
       .string()
       .optional()
