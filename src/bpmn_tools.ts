@@ -220,8 +220,8 @@ export function registerBpmnTools(server: McpServer, context: Context) {
 
       // Call add-edge with transformed parameters
       return addEdgeTool({
-        sourceId: params.sourceId,
-        targetId: params.targetId,
+        source_id: params.sourceId,
+        target_id: params.targetId,
         text: params.text ?? '',
         style: finalStyle,
       }, extra);

@@ -19,8 +19,9 @@ import {
 } from './constants.js';
 
 // Base coordinate schema
-const coordinateSchema = z.number().optional().default(100);
-const dimensionSchema = z.number().optional();
+// Use z.coerce.number() to handle string-to-number conversion from MCP protocol
+const coordinateSchema = z.coerce.number().optional().default(100);
+const dimensionSchema = z.coerce.number().optional();
 
 // Event schemas
 export const eventOutlineSchema = z.enum([
