@@ -48,7 +48,7 @@ export function registerBpmnTools(server: McpServer, context: Context) {
   server.tool(
     TOOL_add_bpmn_event,
     "Add a BPMN event to the diagram. Events represent things that happen during a process (start, intermediate, end, or boundary events) with various triggers (message, timer, error, etc.).",
-    bpmnSchemas.addBpmnEvent.shape,
+    bpmnSchemas.addBpmnEvent,
     async (params: AddBpmnEventInput, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) => {
       // Generate BPMN event style
       const bpmnStyle = BpmnStyleBuilder.buildEventStyle({
@@ -85,7 +85,7 @@ export function registerBpmnTools(server: McpServer, context: Context) {
   server.tool(
     TOOL_add_bpmn_task,
     "Add a BPMN task or activity to the diagram. Tasks represent work to be performed, with optional markers for task type (user, service, manual, etc.) and loop indicators.",
-    bpmnSchemas.addBpmnTask.shape,
+    bpmnSchemas.addBpmnTask,
     async (params: AddBpmnTaskInput, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) => {
       // Generate BPMN task style
       const bpmnStyle = BpmnStyleBuilder.buildTaskStyle({
@@ -126,7 +126,7 @@ export function registerBpmnTools(server: McpServer, context: Context) {
   server.tool(
     TOOL_add_bpmn_gateway,
     "Add a BPMN gateway to the diagram. Gateways control the flow of a process, representing decisions (exclusive), parallelization (parallel), or event-based routing.",
-    bpmnSchemas.addBpmnGateway.shape,
+    bpmnSchemas.addBpmnGateway,
     async (params: AddBpmnGatewayInput, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) => {
       // Generate BPMN gateway style
       const bpmnStyle = BpmnStyleBuilder.buildGatewayStyle({
@@ -161,7 +161,7 @@ export function registerBpmnTools(server: McpServer, context: Context) {
   server.tool(
     TOOL_add_bpmn_swimlane,
     "Add a BPMN swimlane (pool or lane) to the diagram. Pools represent participants in a process, and lanes subdivide pools by role or responsibility.",
-    bpmnSchemas.addBpmnSwimlane.shape,
+    bpmnSchemas.addBpmnSwimlane,
     async (params: AddBpmnSwimlaneInput, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) => {
       // Generate BPMN swimlane style
       const bpmnStyle = BpmnStyleBuilder.buildSwimlaneStyle({
@@ -205,7 +205,7 @@ export function registerBpmnTools(server: McpServer, context: Context) {
   server.tool(
     TOOL_add_bpmn_flow,
     "Add a BPMN flow connector between elements. Flows can be sequence flows (within a pool), message flows (between pools), or associations (to artifacts).",
-    bpmnSchemas.addBpmnFlow.shape,
+    bpmnSchemas.addBpmnFlow,
     async (params: AddBpmnFlowInput, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) => {
       // Generate BPMN flow style
       const bpmnStyle = BpmnStyleBuilder.buildFlowStyle({
@@ -236,7 +236,7 @@ export function registerBpmnTools(server: McpServer, context: Context) {
   server.tool(
     TOOL_add_bpmn_data_object,
     "Add a BPMN data object to the diagram. Data objects represent information flowing through the process (data objects, data inputs, data outputs, or data stores).",
-    bpmnSchemas.addBpmnDataObject.shape,
+    bpmnSchemas.addBpmnDataObject,
     async (params: AddBpmnDataObjectInput, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) => {
       // Generate BPMN data object style
       const bpmnStyle = BpmnStyleBuilder.buildDataObjectStyle({
@@ -272,7 +272,7 @@ export function registerBpmnTools(server: McpServer, context: Context) {
   server.tool(
     TOOL_add_bpmn_text_annotation,
     "Add a BPMN text annotation to the diagram. Text annotations provide additional information about the process without affecting the flow.",
-    bpmnSchemas.addBpmnTextAnnotation.shape,
+    bpmnSchemas.addBpmnTextAnnotation,
     async (params: AddBpmnTextAnnotationInput, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) => {
       // Generate BPMN text annotation style
       const bpmnStyle = BpmnStyleBuilder.buildTextAnnotationStyle();
@@ -300,7 +300,7 @@ export function registerBpmnTools(server: McpServer, context: Context) {
   server.tool(
     TOOL_add_bpmn_group,
     "Add a BPMN group to the diagram. Groups visually organize related elements without affecting the process flow.",
-    bpmnSchemas.addBpmnGroup.shape,
+    bpmnSchemas.addBpmnGroup,
     async (params: AddBpmnGroupInput, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) => {
       // Generate BPMN group style
       const bpmnStyle = BpmnStyleBuilder.buildGroupStyle();

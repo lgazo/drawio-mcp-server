@@ -244,13 +244,14 @@ export const addBpmnGroupSchema = z.object({
 export type AddBpmnGroupInput = z.infer<typeof addBpmnGroupSchema>;
 
 // Export all schemas for tool registration
+// Use .shape to get the raw ZodRawShape that server.tool() expects
 export const bpmnSchemas = {
-  addBpmnEvent: addBpmnEventSchema,
-  addBpmnTask: addBpmnTaskSchema,
-  addBpmnGateway: addBpmnGatewaySchema,
-  addBpmnSwimlane: addBpmnSwimlaneSchema,
-  addBpmnFlow: addBpmnFlowSchema,
-  addBpmnDataObject: addBpmnDataObjectSchema,
-  addBpmnTextAnnotation: addBpmnTextAnnotationSchema,
-  addBpmnGroup: addBpmnGroupSchema,
+  addBpmnEvent: addBpmnEventSchema.shape,
+  addBpmnTask: addBpmnTaskSchema.shape,
+  addBpmnGateway: addBpmnGatewaySchema.shape,
+  addBpmnSwimlane: addBpmnSwimlaneSchema.shape,
+  addBpmnFlow: addBpmnFlowSchema.shape,
+  addBpmnDataObject: addBpmnDataObjectSchema.shape,
+  addBpmnTextAnnotation: addBpmnTextAnnotationSchema.shape,
+  addBpmnGroup: addBpmnGroupSchema.shape,
 } as const;
