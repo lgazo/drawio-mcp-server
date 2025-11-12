@@ -22,6 +22,7 @@ import {
   create_logger as create_server_logger,
   validLogLevels,
 } from "./mcp_server_logger.js";
+import { registerBpmnTools } from "./bpmn_tools.js";
 
 const PORT = 3333;
 
@@ -469,6 +470,9 @@ server.tool(
   },
   default_tool(TOOL_list_paged_model, context),
 );
+
+// Register BPMN 2.0 tools
+registerBpmnTools(server, context);
 
 async function main() {
   log.debug("Draw.io MCP Server starting");
