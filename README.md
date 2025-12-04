@@ -39,6 +39,38 @@ To use the Draw.io MCP server, you'll need:
 
 Note: The Draw.io desktop app or web version must be accessible to the system where the MCP server runs.
 
+## Configuration
+
+### WebSocket Port
+
+The server listens on port 3333 by default for WebSocket connections from the browser extension. You can customize this port using the `--extension-port` or `-p` flag.
+
+**Default behavior** (port 3333):
+```json
+{
+  "mcpServers": {
+    "drawio": {
+      "command": "npx",
+      "args": ["-y", "drawio-mcp-server"]
+    }
+  }
+}
+```
+
+**Custom port** (e.g., port 8080):
+```json
+{
+  "mcpServers": {
+    "drawio": {
+      "command": "npx",
+      "args": ["-y", "drawio-mcp-server", "--extension-port", "8080"]
+    }
+  }
+}
+```
+
+**Note**: When using a custom port, ensure the browser extension is configured to connect to the same port.
+
 ## Installation
 
 ### Connecting with Claude Desktop
@@ -86,6 +118,19 @@ Note: The Draw.io desktop app or web version must be accessible to the system wh
 ```
 </details>
 
+To use a custom extension port (e.g., 8080), add `"--extension-port", "8080"` to the args array:
+
+```json
+{
+  "mcpServers": {
+    "drawio": {
+      "command": "npx",
+      "args": ["-y", "drawio-mcp-server", "--extension-port", "8080"]
+    }
+  }
+}
+```
+
 4. Restart Claude Desktop
 
 ### Connecting with oterm
@@ -129,6 +174,19 @@ The configuration is usually in: ~/.local/share/oterm/config.json
 }
 ```
 </details>
+
+To use a custom extension port (e.g., 8080), add `"--extension-port", "8080"` to the args array:
+
+```json
+{
+  "mcpServers": {
+    "drawio": {
+      "command": "npx",
+      "args": ["-y", "drawio-mcp-server", "--extension-port", "8080"]
+    }
+  }
+}
+```
 
 ### Connect with Zed
 
@@ -178,6 +236,24 @@ The configuration is usually in: ~/.local/share/oterm/config.json
 ```
 </details>
 
+To use a custom extension port (e.g., 8080), add `"--extension-port", "8080"` to the args array:
+
+```json
+{
+  /// The name of your MCP server
+  "drawio": {
+    "command": {
+      /// The path to the executable
+      "path": "npx",
+      /// The arguments to pass to the executable
+      "args": ["-y","drawio-mcp-server","--extension-port","8080"],
+      /// The environment variables to set for the executable
+      "env": {}
+    }
+  }
+}
+```
+
 ### Browser Extension Setup
 
 In order to control the Draw.io diagram, you need to install dedicated Browser Extension.
@@ -197,6 +273,8 @@ In order to control the Draw.io diagram, you need to install dedicated Browser E
   ></a>
 </p>
 3. Ensure it is connected, the Extension icon should indicate green signal overlay <img alt="Extension connected" src="https://raw.githubusercontent.com/lgazo/drawio-mcp-extension/refs/heads/main/public/icon/logo_connected_32.png" />
+
+**Important**: If you configured the MCP server to use a custom port (not 3333), you must configure the browser extension to use the same port. See the extension documentation for port configuration instructions.
 
 
 ## Sponsoring

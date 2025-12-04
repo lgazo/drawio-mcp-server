@@ -49,10 +49,18 @@ npx -y drawio-mcp-server
 ```
 
 Terminal output:
-``` 
-DEBUG: Draw.io MCP Server starting
+```
+DEBUG: Draw.io MCP Server starting (WebSocket extension port: 3333)
 DEBUG: [start_websocket_server] Listening to port 3333
-DEBUG: Draw.io MCP Server WebSocket started
+DEBUG: Draw.io MCP Server WebSocket started on extension port 3333
+DEBUG: Draw.io MCP Server running on stdio
+```
+
+When using a custom port (e.g., port 8080), you should see:
+```
+DEBUG: Draw.io MCP Server starting (WebSocket extension port: 8080)
+DEBUG: [start_websocket_server] Listening to port 8080
+DEBUG: Draw.io MCP Server WebSocket started on extension port 8080
 DEBUG: Draw.io MCP Server running on stdio
 ```
 
@@ -60,4 +68,25 @@ When Extension connects, you should see:
 
 ```
 DEBUG: [ws_handler] A WebSocket client #0 connected, presumably MCP Extension!
+```
+
+## Port Already in Use
+
+**Error**: `Error: Port 3333 is already in use`
+
+**Solution**:
+1. Check what's using port 3333: `lsof -i :3333` (macOS/Linux) or `netstat -ano | findstr :3333` (Windows)
+2. Stop the conflicting process, OR
+3. Configure drawio-mcp-server to use a different port by adding `--extension-port <number>` to the configuration
+
+Example with custom extension port:
+```json
+{
+  "mcpServers": {
+    "drawio": {
+      "command": "npx",
+      "args": ["-y", "drawio-mcp-server", "--extension-port", "8888"]
+    }
+  }
+}
 ```

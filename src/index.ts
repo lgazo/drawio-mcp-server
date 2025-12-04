@@ -7,6 +7,7 @@ import EventEmitter from "node:events";
 import { createServer } from "node:net";
 
 import uWS from "uWebSockets.js";
+import { buildConfig, shouldShowHelp, type ServerConfig } from "./config.js";
 import {
   Bus,
   bus_reply_stream,
@@ -23,7 +24,28 @@ import {
   validLogLevels,
 } from "./mcp_server_logger.js";
 
-const PORT = 3333;
+/**
+ * Display help message and exit
+ */
+function showHelp(): never {
+  console.log(`
+Draw.io MCP Server
+
+Usage: drawio-mcp-server [options]
+
+Options:
+  --extension-port, -p <number>  WebSocket server port for browser extension (default: 3333)
+  --help, -h                     Show this help message
+
+Examples:
+  drawio-mcp-server                           # Use default extension port 3333
+  drawio-mcp-server --extension-port 8080     # Use custom extension port 8080
+  drawio-mcp-server -p 8080                   # Short form
+  `);
+  process.exit(0);
+}
+
+// No PORT constant needed - using dynamic config
 
 async function checkPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -78,12 +100,12 @@ const ws_handler: uWS.WebSocketBehavior<unknown> = {
   },
 };
 
-async function start_websocket_server() {
-  const isPortAvailable = await checkPortAvailable(PORT);
+async function start_websocket_server(extensionPort: number) {
+  const isPortAvailable = await checkPortAvailable(extensionPort);
 
   if (!isPortAvailable) {
     console.error(
-      `[start_websocket_server] Error: Port ${PORT} is already in use. Please stop the process using this port and try again.`,
+      `[start_websocket_server] Error: Port ${extensionPort} is already in use. Please stop the process using this port and try again.`,
     );
     process.exit(1);
   }
@@ -91,12 +113,12 @@ async function start_websocket_server() {
   const app = uWS
     .App()
     .ws("/*", ws_handler)
-    .listen(PORT, (token) => {
+    .listen(extensionPort, (token) => {
       if (token) {
-        log.debug(`[start_websocket_server] Listening to port ${PORT}`);
+        log.debug(`[start_websocket_server] Listening to port ${extensionPort}`);
       } else {
         console.error(
-          `[start_websocket_server] Error: Failed to listen on port ${PORT}`,
+          `[start_websocket_server] Error: Failed to listen on port ${extensionPort}`,
         );
         process.exit(1);
       }
@@ -124,7 +146,7 @@ if (logger_type === "mcp_server") {
 const server = new McpServer(
   {
     name: "drawio-mcp-server",
-    version: "1.2.1",
+    version: "1.4.0",
   },
   {
     capabilities,
@@ -471,9 +493,26 @@ server.tool(
 );
 
 async function main() {
-  log.debug("Draw.io MCP Server starting");
-  await start_websocket_server();
-  log.debug("Draw.io MCP Server WebSocket started");
+  // Check if help was requested (before parsing config)
+  if (shouldShowHelp(process.argv.slice(2))) {
+    showHelp();
+    // never returns
+  }
+
+  // Build configuration from command line args
+  const configResult = buildConfig();
+
+  // Handle errors from configuration parsing
+  if (configResult instanceof Error) {
+    console.error(`Error: ${configResult.message}`);
+    process.exit(1);
+  }
+
+  const config: ServerConfig = configResult;
+
+  log.debug(`Draw.io MCP Server starting (WebSocket extension port: ${config.extensionPort})`);
+  await start_websocket_server(config.extensionPort);
+  log.debug(`Draw.io MCP Server WebSocket started on extension port ${config.extensionPort}`);
   const transport = new StdioServerTransport();
   await server.connect(transport);
   log.debug("Draw.io MCP Server running on stdio");
