@@ -23,9 +23,11 @@ const PORT_RANGE = {
 /**
  * Parse extension port value from string - pure function
  */
-export const parseExtensionPortValue = (value: string | undefined): number | Error => {
+export const parseExtensionPortValue = (
+  value: string | undefined,
+): number | Error => {
   if (!value) {
-    return new Error('--extension-port flag requires a port number');
+    return new Error("--extension-port flag requires a port number");
   }
 
   const port = parseInt(value, 10);
@@ -36,7 +38,7 @@ export const parseExtensionPortValue = (value: string | undefined): number | Err
 
   if (port < PORT_RANGE.min || port > PORT_RANGE.max) {
     return new Error(
-      `Invalid port number "${value}". Port must be between ${PORT_RANGE.min} and ${PORT_RANGE.max}`
+      `Invalid port number "${value}". Port must be between ${PORT_RANGE.min} and ${PORT_RANGE.max}`,
     );
   }
 
@@ -46,23 +48,29 @@ export const parseExtensionPortValue = (value: string | undefined): number | Err
 /**
  * Find argument value by flag name - pure function
  */
-export const findArgValue = (args: readonly string[], ...flags: string[]): string | undefined => {
-  const index = args.findIndex(arg => flags.includes(arg));
+export const findArgValue = (
+  args: readonly string[],
+  ...flags: string[]
+): string | undefined => {
+  const index = args.findIndex((arg) => flags.includes(arg));
   return index !== -1 ? args[index + 1] : undefined;
 };
 
 /**
  * Check if any flag exists in arguments - pure function
  */
-export const hasFlag = (args: readonly string[], ...flags: string[]): boolean => {
-  return args.some(arg => flags.includes(arg));
+export const hasFlag = (
+  args: readonly string[],
+  ...flags: string[]
+): boolean => {
+  return args.some((arg) => flags.includes(arg));
 };
 
 /**
  * Check if help was requested - pure function
  */
 export const shouldShowHelp = (args: readonly string[]): boolean => {
-  return hasFlag(args, '--help', '-h');
+  return hasFlag(args, "--help", "-h");
 };
 
 /**
@@ -76,11 +84,11 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
 
-    if (arg === '--extension-port' || arg === '-p') {
+    if (arg === "--extension-port" || arg === "-p") {
       const nextValue = args[i + 1];
 
       if (nextValue === undefined) {
-        return new Error('--extension-port flag requires a port number');
+        return new Error("--extension-port flag requires a port number");
       }
 
       portValue = nextValue;

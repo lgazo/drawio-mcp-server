@@ -130,7 +130,7 @@ describe("parseConfig", () => {
     const result = parseConfig(["--extension-port"]);
     expect(result).toBeInstanceOf(Error);
     expect((result as Error).message).toContain(
-      "--extension-port flag requires a port number"
+      "--extension-port flag requires a port number",
     );
   });
 
@@ -141,7 +141,9 @@ describe("parseConfig", () => {
   });
 
   test("multiple --extension-port flags uses last one", () => {
-    expect(parseConfig(["--extension-port", "8080", "--extension-port", "9090"])).toEqual({
+    expect(
+      parseConfig(["--extension-port", "8080", "--extension-port", "9090"]),
+    ).toEqual({
       extensionPort: 9090,
     });
   });

@@ -115,7 +115,9 @@ async function start_websocket_server(extensionPort: number) {
     .ws("/*", ws_handler)
     .listen(extensionPort, (token) => {
       if (token) {
-        log.debug(`[start_websocket_server] Listening to port ${extensionPort}`);
+        log.debug(
+          `[start_websocket_server] Listening to port ${extensionPort}`,
+        );
       } else {
         console.error(
           `[start_websocket_server] Error: Failed to listen on port ${extensionPort}`,
@@ -510,9 +512,13 @@ async function main() {
 
   const config: ServerConfig = configResult;
 
-  log.debug(`Draw.io MCP Server starting (WebSocket extension port: ${config.extensionPort})`);
+  log.debug(
+    `Draw.io MCP Server starting (WebSocket extension port: ${config.extensionPort})`,
+  );
   await start_websocket_server(config.extensionPort);
-  log.debug(`Draw.io MCP Server WebSocket started on extension port ${config.extensionPort}`);
+  log.debug(
+    `Draw.io MCP Server WebSocket started on extension port ${config.extensionPort}`,
+  );
   const transport = new StdioServerTransport();
   await server.connect(transport);
   log.debug("Draw.io MCP Server running on stdio");
