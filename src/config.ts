@@ -70,8 +70,23 @@ export const shouldShowHelp = (args: readonly string[]): boolean => {
  * Pure function - no side effects, deterministic output
  */
 export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
-  // Parse extension port if provided
-  const portValue = findArgValue(args, '--extension-port', '-p');
+  // Walk arguments so repeated flags allow "last wins" semantics
+  let portValue: string | undefined;
+
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i];
+
+    if (arg === '--extension-port' || arg === '-p') {
+      const nextValue = args[i + 1];
+
+      if (nextValue === undefined) {
+        return new Error('--extension-port flag requires a port number');
+      }
+
+      portValue = nextValue;
+      i += 1; // Skip the value we just consumed
+    }
+  }
 
   if (portValue !== undefined) {
     const extensionPort = parseExtensionPortValue(portValue);
