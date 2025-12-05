@@ -23,6 +23,7 @@ import {
   create_logger as create_server_logger,
   validLogLevels,
 } from "./mcp_server_logger.js";
+import { registerBpmnTools } from "./bpmn_tools.js";
 
 /**
  * Display help message and exit
@@ -493,6 +494,9 @@ server.tool(
   },
   default_tool(TOOL_list_paged_model, context),
 );
+
+// Register BPMN 2.0 tools
+registerBpmnTools(server, context);
 
 async function main() {
   // Check if help was requested (before parsing config)
