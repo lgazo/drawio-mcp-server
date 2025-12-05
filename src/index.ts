@@ -481,15 +481,15 @@ server.tool(
           .describe(
             "Filter by cell type: 'edge' for connection lines, 'vertex' for vertices/shapes, 'object' for any cell type, 'layer' for layer cells, 'group' for grouped cells",
           ),
-        attributes: Attributes.optional()
+        attributes: z
+          .union([Attributes, z.undefined()])
           .describe(
             'Boolean logic array expressions for filtering cell attributes. Format: ["and" | "or", ...expressions] or ["equal", key, value]. Matches against cell attributes and parsed style properties.',
           )
           .default([]),
       })
       .optional()
-      .describe("Optional filter criteria to apply to cells before pagination")
-      .default({}),
+      .describe("Optional filter criteria to apply to cells before pagination"),
   },
   default_tool(TOOL_list_paged_model, context),
 );
