@@ -1,10 +1,12 @@
 import {
   parseExtensionPortValue,
+  parseHttpPortValue,
   findArgValue,
   hasFlag,
   shouldShowHelp,
   parseConfig,
   buildConfig,
+  parseTransports,
 } from "./config.js";
 
 describe("parseExtensionPortValue", () => {
@@ -34,6 +36,52 @@ describe("parseExtensionPortValue", () => {
 
   test("port 65535 is valid", () => {
     expect(parseExtensionPortValue("65535")).toBe(65535);
+  });
+});
+
+describe("parseHttpPortValue", () => {
+  test("valid port returns number", () => {
+    expect(parseHttpPortValue("3000")).toBe(3000);
+  });
+
+  test("undefined input returns Error", () => {
+    expect(parseHttpPortValue(undefined)).toBeInstanceOf(Error);
+  });
+
+  test("non-numeric string returns Error", () => {
+    expect(parseHttpPortValue("abc")).toBeInstanceOf(Error);
+  });
+
+  test("out of range returns Error", () => {
+    expect(parseHttpPortValue("70000")).toBeInstanceOf(Error);
+  });
+});
+
+describe("parseTransports", () => {
+  test("returns default when undefined", () => {
+    expect(parseTransports(undefined)).toEqual(["stdio"]);
+  });
+
+  test("parses single transport", () => {
+    expect(parseTransports(["stdio"])).toEqual(["stdio"]);
+  });
+
+  test("parses comma separated list", () => {
+    expect(parseTransports(["stdio,http"])).toEqual(["stdio", "http"]);
+  });
+
+  test("deduplicates transports", () => {
+    expect(parseTransports(["stdio", "stdio"])).toEqual(["stdio"]);
+  });
+
+  test("rejects empty string", () => {
+    const result = parseTransports([""]);
+    expect(result).toBeInstanceOf(Error);
+  });
+
+  test("rejects unknown transport", () => {
+    const result = parseTransports(["foo"]);
+    expect(result).toBeInstanceOf(Error);
   });
 });
 
@@ -103,21 +151,53 @@ describe("shouldShowHelp", () => {
 
 describe("parseConfig", () => {
   test("no args returns default config", () => {
-    expect(parseConfig([])).toEqual({ extensionPort: 3333 });
+    expect(parseConfig([])).toEqual({
+      extensionPort: 3333,
+      httpPort: 3000,
+      transports: ["stdio"],
+    });
   });
 
   test("--extension-port flag sets custom port", () => {
     expect(parseConfig(["--extension-port", "8080"])).toEqual({
       extensionPort: 8080,
+      httpPort: 3000,
+      transports: ["stdio"],
     });
   });
 
   test("-p flag sets custom port", () => {
-    expect(parseConfig(["-p", "8080"])).toEqual({ extensionPort: 8080 });
+    expect(parseConfig(["-p", "8080"])).toEqual({
+      extensionPort: 8080,
+      httpPort: 3000,
+      transports: ["stdio"],
+    });
+  });
+
+  test("--http-port flag sets custom port", () => {
+    expect(parseConfig(["--http-port", "4242"])).toEqual({
+      extensionPort: 3333,
+      httpPort: 4242,
+      transports: ["stdio"],
+    });
+  });
+
+  test("both ports can be configured", () => {
+    expect(
+      parseConfig(["--extension-port", "8080", "--http-port", "4242"]),
+    ).toEqual({
+      extensionPort: 8080,
+      httpPort: 4242,
+      transports: ["stdio"],
+    });
   });
 
   test("help flag is ignored in config parsing", () => {
-    expect(parseConfig(["--help"])).toEqual({ extensionPort: 3333 });
+    expect(parseConfig(["--help"])).toEqual({
+      extensionPort: 3333,
+      httpPort: 3000,
+      transports: ["stdio"],
+    });
   });
 
   test("invalid port returns Error", () => {
@@ -134,6 +214,14 @@ describe("parseConfig", () => {
     );
   });
 
+  test("missing http port value returns Error", () => {
+    const result = parseConfig(["--http-port"]);
+    expect(result).toBeInstanceOf(Error);
+    expect((result as Error).message).toContain(
+      "--http-port flag requires a port number",
+    );
+  });
+
   test("out of range port returns Error", () => {
     const result = parseConfig(["--extension-port", "70000"]);
     expect(result).toBeInstanceOf(Error);
@@ -145,13 +233,48 @@ describe("parseConfig", () => {
       parseConfig(["--extension-port", "8080", "--extension-port", "9090"]),
     ).toEqual({
       extensionPort: 9090,
+      httpPort: 3000,
+      transports: ["stdio"],
     });
   });
 
   test("short and long form both work, last wins", () => {
     expect(parseConfig(["--extension-port", "8080", "-p", "9090"])).toEqual({
       extensionPort: 9090,
+      httpPort: 3000,
+      transports: ["stdio"],
     });
+  });
+
+  test("last http-port flag wins", () => {
+    expect(
+      parseConfig(["--http-port", "4000", "--http-port", "5000"]),
+    ).toEqual({
+      extensionPort: 3333,
+      httpPort: 5000,
+      transports: ["stdio"],
+    });
+  });
+
+  test("sets single transport", () => {
+    expect(parseConfig(["--transport", "stdio"])).toEqual({
+      extensionPort: 3333,
+      httpPort: 3000,
+      transports: ["stdio"],
+    });
+  });
+
+  test("sets multiple transports", () => {
+    expect(parseConfig(["--transport", "stdio,http"])).toEqual({
+      extensionPort: 3333,
+      httpPort: 3000,
+      transports: ["stdio", "http"],
+    });
+  });
+
+  test("rejects unknown transport", () => {
+    const result = parseConfig(["--transport", "foo"]);
+    expect(result).toBeInstanceOf(Error);
   });
 });
 
@@ -165,13 +288,31 @@ describe("buildConfig", () => {
   test("uses default config with empty args", () => {
     process.argv = ["node", "script.js"];
     const result = buildConfig();
-    expect(result).toEqual({ extensionPort: 3333 });
+    expect(result).toEqual({
+      extensionPort: 3333,
+      httpPort: 3000,
+      transports: ["stdio"],
+    });
   });
 
   test("parses custom port from argv", () => {
     process.argv = ["node", "script.js", "--extension-port", "8080"];
     const result = buildConfig();
-    expect(result).toEqual({ extensionPort: 8080 });
+    expect(result).toEqual({
+      extensionPort: 8080,
+      httpPort: 3000,
+      transports: ["stdio"],
+    });
+  });
+
+  test("parses custom http port from argv", () => {
+    process.argv = ["node", "script.js", "--http-port", "4242"];
+    const result = buildConfig();
+    expect(result).toEqual({
+      extensionPort: 3333,
+      httpPort: 4242,
+      transports: ["stdio"],
+    });
   });
 
   test("returns Error for invalid config", () => {

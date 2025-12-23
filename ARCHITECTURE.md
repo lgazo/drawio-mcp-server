@@ -8,7 +8,7 @@
 
 ## Architecture Highlights
 - Event-driven system using Node.js EventEmitter
-- uWebSockets.js for high-performance WebSocket connections
+- `ws` WebSocket server for extension connectivity
 - Zod schema validation for all tool parameters
 - Plugin-ready design for additional tool development
 

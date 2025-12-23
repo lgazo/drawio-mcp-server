@@ -70,6 +70,25 @@ When Extension connects, you should see:
 DEBUG: [ws_handler] A WebSocket client #0 connected, presumably MCP Extension!
 ```
 
+### Streamable HTTP transport
+
+The HTTP transport is opt-in. If your MCP client tries to reach `/mcp` and gets `ECONNREFUSED` or a 404, confirm you started the server with `--transport http` (or `--transport stdio,http`). Example output when HTTP is enabled:
+
+```
+DEBUG: Draw.io MCP Server Streamable HTTP transport active
+DEBUG: Health check: http://localhost:3000/health
+DEBUG: MCP endpoint: http://localhost:3000/mcp
+DEBUG: Draw.io MCP Server running on stdio,http
+```
+
+Use the health check to verify connectivity:
+
+```sh
+curl http://localhost:3000/health
+```
+
+If it responds with `{"status":"mcp not ready"}`, the server has not fully started. Wait a moment or restart with the correct flags.
+
 ## Port Already in Use
 
 **Error**: `Error: Port 3333 is already in use`
@@ -90,3 +109,5 @@ Example with custom extension port:
   }
 }
 ```
+
+**HTTP transport port clash**: If port 3000 is busy, either stop the conflicting service or change the HTTP port with `--http-port <number>` and update your MCP client to the new `/mcp` URL.

@@ -3,13 +3,19 @@
  */
 export interface ServerConfig {
   readonly extensionPort: number;
+  readonly httpPort: number;
+  readonly transports: TransportType[];
 }
+
+export type TransportType = "stdio" | "http";
 
 /**
  * Default configuration values
  */
 const DEFAULT_CONFIG: ServerConfig = {
   extensionPort: 3333,
+  httpPort: 3000,
+  transports: ["stdio"],
 } as const;
 
 /**
@@ -43,6 +49,61 @@ export const parseExtensionPortValue = (
   }
 
   return port;
+};
+
+/**
+ * Parse http port value from string - pure function
+ */
+export const parseHttpPortValue = (value: string | undefined): number | Error => {
+  if (!value) {
+    return new Error("--http-port flag requires a port number");
+  }
+
+  const port = parseInt(value, 10);
+
+  if (isNaN(port)) {
+    return new Error(`Invalid port number "${value}". Port must be a number`);
+  }
+
+  if (port < PORT_RANGE.min || port > PORT_RANGE.max) {
+    return new Error(
+      `Invalid port number "${value}". Port must be between ${PORT_RANGE.min} and ${PORT_RANGE.max}`,
+    );
+  }
+
+  return port;
+};
+
+export const parseTransports = (
+  values: string[] | undefined,
+): TransportType[] | Error => {
+  if (!values || values.length === 0) {
+    return DEFAULT_CONFIG.transports;
+  }
+
+  const normalized = values
+    .flatMap((value) => value.split(","))
+    .map((value) => value.trim().toLowerCase())
+    .filter((value) => value.length > 0);
+
+  if (normalized.length === 0) {
+    return new Error("At least one transport must be specified");
+  }
+
+  const validTransports: TransportType[] = [];
+
+  for (const value of normalized) {
+    if (value === "stdio" || value === "http") {
+      validTransports.push(value);
+    } else {
+      return new Error(
+        `Invalid transport "${value}". Supported transports: stdio, http`,
+      );
+    }
+  }
+
+  // Remove duplicates while preserving order
+  return Array.from(new Set(validTransports));
 };
 
 /**
@@ -80,6 +141,9 @@ export const shouldShowHelp = (args: readonly string[]): boolean => {
 export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
   // Walk arguments so repeated flags allow "last wins" semantics
   let portValue: string | undefined;
+  let httpPortValue: string | undefined;
+  let parsedHttpPort: number | undefined;
+  let transportValues: string[] | undefined;
 
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
@@ -93,7 +157,33 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
 
       portValue = nextValue;
       i += 1; // Skip the value we just consumed
+    } else if (arg === "--http-port") {
+      const nextValue = args[i + 1];
+
+      if (nextValue === undefined) {
+        return new Error("--http-port flag requires a port number");
+      }
+
+      httpPortValue = nextValue;
+      i += 1;
+    } else if (arg === "--transport") {
+      const nextValue = args[i + 1];
+
+      if (nextValue === undefined) {
+        return new Error("--transport flag requires a transport name");
+      }
+
+      transportValues = [nextValue];
+      i += 1;
     }
+  }
+
+  if (httpPortValue !== undefined) {
+    const httpPort = parseHttpPortValue(httpPortValue);
+    if (httpPort instanceof Error) {
+      return httpPort;
+    }
+    parsedHttpPort = httpPort;
   }
 
   if (portValue !== undefined) {
@@ -103,14 +193,43 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
       return extensionPort;
     }
 
+    const transports = parseTransports(transportValues);
+    if (transports instanceof Error) {
+      return transports;
+    }
+
     return {
       ...DEFAULT_CONFIG,
       extensionPort,
+      httpPort:
+        parsedHttpPort !== undefined ? parsedHttpPort : DEFAULT_CONFIG.httpPort,
+      transports,
     };
   }
 
+  if (httpPortValue !== undefined) {
+    const transports = parseTransports(transportValues);
+    if (transports instanceof Error) {
+      return transports;
+    }
+
+    return {
+      ...DEFAULT_CONFIG,
+      httpPort: parsedHttpPort as number,
+      transports,
+    };
+  }
+
+  const transports = parseTransports(transportValues);
+  if (transports instanceof Error) {
+    return transports;
+  }
+
   // Return default configuration
-  return DEFAULT_CONFIG;
+  return {
+    ...DEFAULT_CONFIG,
+    transports,
+  };
 };
 
 /**

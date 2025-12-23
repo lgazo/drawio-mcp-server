@@ -71,6 +71,49 @@ The server listens on port 3333 by default for WebSocket connections from the br
 
 **Note**: When using a custom port, ensure the browser extension is configured to connect to the same port.
 
+### HTTP Transport Port
+
+The server can expose a streamable HTTP MCP transport on port 3000. Change this using the `--http-port` flag:
+
+```json
+{
+  "mcpServers": {
+    "drawio": {
+      "command": "npx",
+      "args": ["-y", "drawio-mcp-server", "--transport", "http", "--http-port", "4000"]
+    }
+  }
+}
+```
+
+### Transport Selection
+
+By default only the stdio transport starts. Limit or combine transports with the `--transport` flag:
+
+- `--transport stdio` – start only stdio (CLI-friendly)
+- `--transport http` – start only the HTTP transport (for remote clients)
+- `--transport stdio,http` – start both transports
+
+### Running the streamable HTTP transport
+
+Use the streamable HTTP transport when you need to reach the MCP server over the network (for example from a remote agent runtime). The Draw.io browser extension is still required, and you must opt in to the HTTP transport.
+
+1. Start the server with HTTP enabled (optionally alongside stdio):
+
+```sh
+npx -y drawio-mcp-server --transport http --http-port 3000
+# or both: npx -y drawio-mcp-server --transport stdio,http --http-port 4000
+```
+
+2. Verify the health endpoint:
+
+```sh
+curl http://localhost:3000/health
+# { "status": "ok" }
+```
+
+3. Point your MCP client to the `/mcp` endpoint (`http://localhost:3000/mcp` by default). CORS is enabled for all origins so you can call it from a browser-based client as well.
+
 ## Installation
 
 ### Connecting with Claude Desktop
