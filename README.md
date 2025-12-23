@@ -297,6 +297,61 @@ To use a custom extension port (e.g., 8080), add `"--extension-port", "8080"` to
 }
 ```
 
+### Connecting with Codex
+
+Edit the configuration usually located in: ~/.codex/config.toml
+
+<details>
+  <summary>Using <code>npm</code></summary>
+
+```toml
+[mcp_servers.drawio]
+command = "npx"
+args = [
+    "-y",
+    "drawio-mcp-server"
+]
+```
+</details>
+
+<details>
+  <summary>Using <code>pnpm</code></summary>
+
+```toml
+[mcp_servers.drawio]
+command = "pnpm"
+args = [
+    "dlx",
+    "drawio-mcp-server"
+]
+```
+</details>
+
+To use a custom extension port (e.g., 8080), add `"--extension-port", "8080"` to the args array:
+
+<details>
+  <summary>Using <code>npm</code></summary>
+
+```toml
+[mcp_servers.drawio]
+command = "npx"
+args = [
+    "-y",
+    "drawio-mcp-server",
+    "--extension-port",
+    "8080"
+]
+```
+</details>
+
+To connect to a locally running MCP with Streamable HTTP transport:
+
+```toml
+[mcp_servers.drawio]
+url = "http://localhost:3000/mcp"
+```
+
+
 ### Browser Extension Setup
 
 In order to control the Draw.io diagram, you need to install dedicated Browser Extension.
