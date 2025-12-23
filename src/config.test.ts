@@ -247,13 +247,13 @@ describe("parseConfig", () => {
   });
 
   test("last http-port flag wins", () => {
-    expect(
-      parseConfig(["--http-port", "4000", "--http-port", "5000"]),
-    ).toEqual({
-      extensionPort: 3333,
-      httpPort: 5000,
-      transports: ["stdio"],
-    });
+    expect(parseConfig(["--http-port", "4000", "--http-port", "5000"])).toEqual(
+      {
+        extensionPort: 3333,
+        httpPort: 5000,
+        transports: ["stdio"],
+      },
+    );
   });
 
   test("sets single transport", () => {

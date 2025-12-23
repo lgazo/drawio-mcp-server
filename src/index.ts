@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
-import { serve } from '@hono/node-server';
+import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
+import { serve } from "@hono/node-server";
 import { z } from "zod";
-import { Hono } from 'hono';
-import { cors } from 'hono/cors';
+import { Hono } from "hono";
+import { cors } from "hono/cors";
 
 import EventEmitter from "node:events";
 import { createServer } from "node:net";
@@ -467,7 +467,8 @@ const Attributes: z.ZodType<any> = z.lazy(() =>
     )
     .refine((arr) => arr.length === 0 || typeof arr[0] === "string", {
       message: "If not empty, the first element must be a string operator",
-    }).default([]),
+    })
+    .default([]),
 );
 
 const TOOL_list_paged_model = "list-paged-model";
@@ -497,10 +498,9 @@ server.tool(
           .describe(
             "Filter by cell type: 'edge' for connection lines, 'vertex' for vertices/shapes, 'object' for any cell type, 'layer' for layer cells, 'group' for grouped cells",
           ),
-        attributes: Attributes.optional()
-          .describe(
-            'Boolean logic array expressions for filtering cell attributes. Format: ["and" | "or", ...expressions] or ["equal", key, value]. Matches against cell attributes and parsed style properties.',
-          )
+        attributes: Attributes.optional().describe(
+          'Boolean logic array expressions for filtering cell attributes. Format: ["and" | "or", ...expressions] or ["equal", key, value]. Matches against cell attributes and parsed style properties.',
+        ),
       })
       .optional()
       .describe("Optional filter criteria to apply to cells before pagination")
@@ -524,24 +524,31 @@ async function start_streamable_http_transport(http_port: number) {
 
   // Enable CORS for all origins
   app.use(
-    '*',
+    "*",
     cors({
-      origin: '*',
-      allowMethods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
-      allowHeaders: ['Content-Type', 'mcp-session-id', 'Last-Event-ID', 'mcp-protocol-version'],
-      exposeHeaders: ['mcp-session-id', 'mcp-protocol-version']
-    })
+      origin: "*",
+      allowMethods: ["GET", "POST", "DELETE", "OPTIONS"],
+      allowHeaders: [
+        "Content-Type",
+        "mcp-session-id",
+        "Last-Event-ID",
+        "mcp-protocol-version",
+      ],
+      exposeHeaders: ["mcp-session-id", "mcp-protocol-version"],
+    }),
   );
 
-  app.get('/health', (c) => c.json({ status: server.isConnected() ? 'ok' : 'mcp not ready' }));
+  app.get("/health", (c) =>
+    c.json({ status: server.isConnected() ? "ok" : "mcp not ready" }),
+  );
 
-  app.all('/mcp', c => transport.handleRequest(c.req.raw));
+  app.all("/mcp", (c) => transport.handleRequest(c.req.raw));
 
   await server.connect(transport);
 
   serve({
     fetch: app.fetch,
-    port: http_port
+    port: http_port,
   });
   log.debug(`Draw.io MCP Server Streamable HTTP transport active`);
   log.debug(`Health check: http://localhost:${http_port}/health`);

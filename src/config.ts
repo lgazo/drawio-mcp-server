@@ -54,7 +54,9 @@ export const parseExtensionPortValue = (
 /**
  * Parse http port value from string - pure function
  */
-export const parseHttpPortValue = (value: string | undefined): number | Error => {
+export const parseHttpPortValue = (
+  value: string | undefined,
+): number | Error => {
   if (!value) {
     return new Error("--http-port flag requires a port number");
   }
