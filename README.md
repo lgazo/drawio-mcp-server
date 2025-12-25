@@ -246,14 +246,15 @@ To use a custom extension port (e.g., 8080), add `"--extension-port", "8080"` to
 {
   /// The name of your MCP server
   "drawio": {
-    "command": {
-      /// The path to the executable
-      "path": "npx",
-      /// The arguments to pass to the executable
-      "args": ["-y","drawio-mcp-server"],
-      /// The environment variables to set for the executable
-      "env": {}
-    }
+	/// The path to the executable
+	"command": "npx",
+	/// The arguments to pass to the executable
+	"args": [
+	  "-y",
+	  "drawio-mcp-server"
+	],
+	/// The environment variables to set for the executable
+    "env": {}
   }
 }
 ```
@@ -266,14 +267,15 @@ To use a custom extension port (e.g., 8080), add `"--extension-port", "8080"` to
 {
   /// The name of your MCP server
   "drawio": {
-    "command": {
-      /// The path to the executable
-      "path": "pnpm",
-      /// The arguments to pass to the executable
-      "args": ["dlx","drawio-mcp-server"],
-      /// The environment variables to set for the executable
-      "env": {}
-    }
+	/// The path to the executable
+	"command": "pnpm",
+	/// The arguments to pass to the executable
+	"args": [
+	  "dlx",
+	  "drawio-mcp-server"
+	],
+	/// The environment variables to set for the executable
+    "env": {}
   }
 }
 ```
@@ -283,16 +285,15 @@ To use a custom extension port (e.g., 8080), add `"--extension-port", "8080"` to
 
 ```json
 {
-  /// The name of your MCP server
   "drawio": {
-    "command": {
-      /// The path to the executable
-      "path": "npx",
-      /// The arguments to pass to the executable
-      "args": ["-y","drawio-mcp-server","--extension-port","8080"],
-      /// The environment variables to set for the executable
-      "env": {}
-    }
+    "command": "npx",
+    "args": [
+      "-y",
+      "drawio-mcp-server",
+      "--extension-port",
+      "8080"
+    ],
+    "env": {}
   }
 }
 ```
