@@ -1,10 +1,9 @@
-[![MSeeP.ai Security Assessment Badge](https://mseep.net/pr/lgazo-drawio-mcp-server-badge.png)](https://mseep.ai/app/lgazo-drawio-mcp-server)
 
 # Draw.io MCP server
 
 Let's do some Vibe Diagramming with the most wide-spread diagramming tool called Draw.io (Diagrams.net).
 
-[![Discord channel](https://shields.io/static/v1?logo=discord&message=draw.io%20mcp&label=chat&color=5865F2&logoColor=white)](https://discord.gg/dM4PWdf42q) [![Build project](https://github.com/lgazo/drawio-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/lgazo/drawio-mcp-server/actions/workflows/ci.yml)
+[![Discord channel](https://shields.io/static/v1?logo=discord&message=draw.io%20mcp&label=chat&color=5865F2&logoColor=white)](https://discord.gg/dM4PWdf42q) [![Build project](https://github.com/lgazo/drawio-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/lgazo/drawio-mcp-server/actions/workflows/ci.yml) [![MSeep.AI Assessment](https://shields.io/static/v1?logo=mseepai&message=audited&label=mseep.ai&color=2AAF49&logoColor=white)](https://mseep.ai/app/lgazo-drawio-mcp-server)
 
 ## Introduction
 
@@ -506,3 +505,7 @@ The Draw.io MCP server provides the following tools for programmatic diagram int
    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=lgazo/drawio-mcp-server&type=Date" />
  </picture>
 </a>
+
+## Assessments
+
+[![MSeeP.ai Security Assessment Badge](https://mseep.net/pr/lgazo-drawio-mcp-server-badge.png)](https://mseep.ai/app/lgazo-drawio-mcp-server)
