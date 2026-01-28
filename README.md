@@ -484,6 +484,34 @@ The Draw.io MCP server provides the following tools for programmatic diagram int
     - `source_id`, `target_id`: Optional IDs of new source/target cells
     - `style`: Optional replacement style string
 
+### Layer Management Tools
+- **`list-layers`**
+  Lists all available layers in the diagram with their IDs and names
+  *Returns*: Array of layer objects with properties (ID, name, visibility, locked status)
+
+- **`set-active-layer`**
+  Sets the active layer for creating new elements. All subsequent element creation will happen in this layer
+  *Parameters*:
+    - `layer_id`: ID of the layer to set as active
+  *Returns*: Information about the newly active layer
+
+- **`move-cell-to-layer`**
+  Moves a cell from its current layer to a target layer
+  *Parameters*:
+    - `cell_id`: ID of the cell to move
+    - `target_layer_id`: ID of the target layer where the cell will be moved
+  *Returns*: Confirmation of the move operation
+
+- **`get-active-layer`**
+  Gets the currently active layer information
+  *Returns*: Information about the current active layer (ID and name)
+
+- **`create-layer`**
+  Creates a new layer in the diagram
+  *Parameters*:
+    - `name`: Name for the new layer
+  *Returns*: Information about the newly created layer
+
 ## Related Resources
 
 [Troubleshooting](./TROUBLESHOOTING.md)

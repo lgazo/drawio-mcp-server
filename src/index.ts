@@ -509,6 +509,61 @@ server.tool(
   default_tool(TOOL_list_paged_model, context),
 );
 
+const TOOL_list_layers = "list-layers";
+server.tool(
+  TOOL_list_layers,
+  "Lists all available layers in the diagram with their IDs and names.",
+  {},
+  default_tool(TOOL_list_layers, context),
+);
+
+const TOOL_set_active_layer = "set-active-layer";
+server.tool(
+  TOOL_set_active_layer,
+  "Sets the active layer for creating new elements. All subsequent element creation will happen in this layer.",
+  {
+    layer_id: z
+      .string()
+      .describe("ID of the layer to set as active"),
+  },
+  default_tool(TOOL_set_active_layer, context),
+);
+
+const TOOL_move_cell_to_layer = "move-cell-to-layer";
+server.tool(
+  TOOL_move_cell_to_layer,
+  "Moves a cell from its current layer to a target layer.",
+  {
+    cell_id: z
+      .string()
+      .describe("ID of the cell to move"),
+    target_layer_id: z
+      .string()
+      .describe("ID of the target layer where the cell will be moved"),
+  },
+  default_tool(TOOL_move_cell_to_layer, context),
+);
+
+const TOOL_get_active_layer = "get-active-layer";
+server.tool(
+  TOOL_get_active_layer,
+  "Gets the currently active layer information.",
+  {},
+  default_tool(TOOL_get_active_layer, context),
+);
+
+const TOOL_create_layer = "create-layer";
+server.tool(
+  TOOL_create_layer,
+  "Creates a new layer in the diagram.",
+  {
+    name: z
+      .string()
+      .describe("Name for the new layer"),
+  },
+  default_tool(TOOL_create_layer, context),
+);
+
 async function start_stdio_transport() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
