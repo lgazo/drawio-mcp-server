@@ -164,7 +164,7 @@ if (logger_type === "mcp_server") {
 const server = new McpServer(
   {
     name: "drawio-mcp-server",
-    version: "1.4.0",
+    version: "1.6.0",
   },
   {
     capabilities,
