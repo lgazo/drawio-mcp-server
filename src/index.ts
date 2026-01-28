@@ -522,9 +522,7 @@ server.tool(
   TOOL_set_active_layer,
   "Sets the active layer for creating new elements. All subsequent element creation will happen in this layer.",
   {
-    layer_id: z
-      .string()
-      .describe("ID of the layer to set as active"),
+    layer_id: z.string().describe("ID of the layer to set as active"),
   },
   default_tool(TOOL_set_active_layer, context),
 );
@@ -534,9 +532,7 @@ server.tool(
   TOOL_move_cell_to_layer,
   "Moves a cell from its current layer to a target layer.",
   {
-    cell_id: z
-      .string()
-      .describe("ID of the cell to move"),
+    cell_id: z.string().describe("ID of the cell to move"),
     target_layer_id: z
       .string()
       .describe("ID of the target layer where the cell will be moved"),
@@ -557,9 +553,7 @@ server.tool(
   TOOL_create_layer,
   "Creates a new layer in the diagram.",
   {
-    name: z
-      .string()
-      .describe("Name for the new layer"),
+    name: z.string().describe("Name for the new layer"),
   },
   default_tool(TOOL_create_layer, context),
 );
