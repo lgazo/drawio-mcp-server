@@ -28,7 +28,6 @@ import {
   validLogLevels,
 } from "./mcp_server_logger.js";
 
-
 const VERSION = "1.6.1";
 
 /**
