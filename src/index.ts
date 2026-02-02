@@ -28,12 +28,15 @@ import {
   validLogLevels,
 } from "./mcp_server_logger.js";
 
+
+const VERSION = "1.6.1";
+
 /**
  * Display help message and exit
  */
 function showHelp(): never {
   console.log(`
-Draw.io MCP Server
+Draw.io MCP Server (${VERSION})
 
 Usage: drawio-mcp-server [options]
 
@@ -89,7 +92,7 @@ emitter.on(bus_request_stream, bus_to_ws_forwarder_listener);
 
 async function start_websocket_server(extensionPort: number) {
   log.debug(
-    `Draw.io MCP Server starting (WebSocket extension port: ${extensionPort})`,
+    `Draw.io MCP Server (${VERSION}) starting (WebSocket extension port: ${extensionPort})`,
   );
   const isPortAvailable = await checkPortAvailable(extensionPort);
 
@@ -164,7 +167,7 @@ if (logger_type === "mcp_server") {
 const server = new McpServer(
   {
     name: "drawio-mcp-server",
-    version: "1.6.0",
+    version: VERSION,
   },
   {
     capabilities,
