@@ -8,6 +8,9 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       - name: Install pnpm
@@ -19,6 +22,7 @@ jobs:
           node-version: "23.x"
           registry-url: "https://registry.npmjs.org"
           cache: "pnpm"
+          provenance: true
 
       - name: Install dependencies
         run: pnpm install
@@ -28,5 +32,3 @@ jobs:
 
       - name: Publish
         run: pnpm publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
