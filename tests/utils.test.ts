@@ -1,66 +1,69 @@
-import { describe, test, expect } from "vitest";
-import * as path from "node:path";
-import * as fs from "node:fs";
-import { esmDirname, readRelativeFile } from "../src/utils.js";
+import { describe, it } from "@std/testing/bdd";
+import { assertEquals, assert, assertMatch, assertThrows } from "@std/assert";
+import { isAbsolute, resolve, SEPARATOR } from "@std/path";
+import { esmDirname, readRelativeFile } from "../src/utils.ts";
 
 // ─── esmDirname ────────────────────────────────────────────────
 
 describe("esmDirname", () => {
-  test("returns the directory of the calling module", () => {
+  it("returns the directory of the calling module", () => {
     const dir = esmDirname(import.meta.url);
     // This test file lives in tests/, so esmDirname should resolve to that folder
-    expect(dir).toMatch(/tests$/);
+    assertMatch(dir, /tests$/);
   });
 
-  test("returns an absolute path", () => {
+  it("returns an absolute path", () => {
     const dir = esmDirname(import.meta.url);
-    expect(path.isAbsolute(dir)).toBe(true);
+    assertEquals(isAbsolute(dir), true);
   });
 
-  test("does not include a trailing separator", () => {
+  it("does not include a trailing separator", () => {
     const dir = esmDirname(import.meta.url);
-    expect(dir.endsWith(path.sep)).toBe(false);
+    assertEquals(dir.endsWith(SEPARATOR), false);
   });
 });
 
 // ─── readRelativeFile ──────────────────────────────────────────
 
 describe("readRelativeFile", () => {
-  test("reads a file relative to the calling module", () => {
-    // Read package.json from tests/ → ..
-    const content = readRelativeFile(import.meta.url, "..", "package.json");
-    const pkg = JSON.parse(content);
-    expect(pkg.name).toBe("drawio-mcp-server");
+  it("reads a file relative to the calling module", () => {
+    // Read deno.json from tests/ → ..
+    const content = readRelativeFile(import.meta.url, "..", "deno.json");
+    const config = JSON.parse(content);
+    assertEquals(config.name, "@drawio/mcp-server");
   });
 
-  test("supports multiple path segments", () => {
+  it("supports multiple path segments", () => {
     // Read the instructions file through two segments: "..", "src"
     const content = readRelativeFile(import.meta.url, "..", "src", "instructions.md");
-    expect(content.length).toBeGreaterThan(0);
+    assert(content.length > 0);
   });
 
-  test("returns UTF-8 string content", () => {
-    const content = readRelativeFile(import.meta.url, "..", "package.json");
-    expect(typeof content).toBe("string");
+  it("returns UTF-8 string content", () => {
+    const content = readRelativeFile(import.meta.url, "..", "deno.json");
+    assertEquals(typeof content, "string");
     // Ensure it's not garbled — valid JSON means valid UTF-8
-    expect(() => JSON.parse(content)).not.toThrow();
+    JSON.parse(content); // throws if invalid
   });
 
-  test("throws for non-existent file", () => {
-    expect(() =>
+  it("throws for non-existent file", () => {
+    assertThrows(() =>
       readRelativeFile(import.meta.url, "this-file-does-not-exist.txt"),
-    ).toThrow();
+    );
   });
 
-  test("resolves relative to the module, not cwd", () => {
+  it("resolves relative to the module, not cwd", () => {
     // Verify the resolution is module-relative by checking the resolved path
     const dir = esmDirname(import.meta.url);
-    const expectedPath = path.resolve(dir, "..", "package.json");
-    expect(fs.existsSync(expectedPath)).toBe(true);
+    const expectedPath = resolve(dir, "..", "deno.json");
+
+    // File should exist at the expected path
+    const stat = Deno.statSync(expectedPath);
+    assert(stat.isFile);
 
     // Reading via readRelativeFile should produce the same content
-    const viaUtil = readRelativeFile(import.meta.url, "..", "package.json");
-    const viaDirect = fs.readFileSync(expectedPath, "utf-8");
-    expect(viaUtil).toBe(viaDirect);
+    const viaUtil = readRelativeFile(import.meta.url, "..", "deno.json");
+    const viaDirect = Deno.readTextFileSync(expectedPath);
+    assertEquals(viaUtil, viaDirect);
   });
 });

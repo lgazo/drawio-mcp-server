@@ -1,6 +1,5 @@
 services:
   drawio-mcp-server:
-    # Build
     build:
       context: .
       dockerfile: Dockerfile
@@ -9,11 +8,10 @@ services:
         - ${REGISTRY}/drawio-mcp-server:${IMAGE_VERSION:-latest}
     image: ${REGISTRY}/drawio-mcp-server:${IMAGE_VERSION:-latest}
     ports:
-      # HTTP for MCP server
       - "8080:8080"
     restart: unless-stopped
 
-    # Resource limits - SWAG starting point - should be evaluated for accuracy
+    # Resource limits — starting point; tune based on workload profiling.
     deploy:
       resources:
         limits:
@@ -23,10 +21,9 @@ services:
           cpus: '0.5'
           memory: 512M
 
-    # Health check
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
+    # NOTE: The production image uses gcr.io/distroless — it has no shell,
+    # wget, or curl, so in-container HEALTHCHECK is intentionally omitted.
+    # Configure health probes externally:
+    #   • Kubernetes: httpGet liveness/readiness probe on /health
+    #   • Load balancer: HTTP 200 check on http://<host>:8080/health
+    #   • Docker Desktop: use an external curl-based health check script

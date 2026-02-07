@@ -1,13 +1,23 @@
-import { createRequire } from "node:module";
-import { parseArgs } from "node:util";
+/**
+ * Application configuration — CLI flags, environment variables, defaults.
+ *
+ * All parsing functions are pure (no side effects, deterministic output).
+ * The only Deno-specific calls are in `buildConfig()` which reads `Deno.args`
+ * and `Deno.env`.
+ *
+ * Uses `@std/cli/parse-args` (minimist-style) for CLI argument parsing.
+ */
 
-const require = createRequire(import.meta.url);
-const pkg = require("../package.json") as { version: string };
+import { parseArgs as denoParseArgs } from "@std/cli/parse-args";
+
+// Import version from deno.json (single source of truth).
+// Deno resolves this via static JSON import — no filesystem read at runtime.
+import denoConfig from "../deno.json" with { type: "json" };
 
 /**
- * Application version — read from package.json (single source of truth).
+ * Application version — read from deno.json (single source of truth).
  */
-export const VERSION: string = pkg.version;
+export const VERSION: string = denoConfig.version;
 
 /**
  * Application configuration interface
@@ -43,14 +53,13 @@ const PORT_RANGE = {
 const VALID_LOGGER_TYPES: readonly LoggerType[] = ["console", "mcp_server"] as const;
 
 /**
- * CLI option definitions for node:util parseArgs.
+ * CLI option definitions for `@std/cli/parse-args`.
  * Declared once so parseConfig and shouldShowHelp share the same schema.
+ *
+ * Note: `@std/cli/parse-args` (minimist-style) returns the last value for
+ * repeated flags automatically — no need for a `multiple` option.  The
+ * `collect` option gathers repeated flags into arrays when needed.
  */
-const CLI_OPTIONS = {
-  "http-port": { type: "string", multiple: true },
-  transport: { type: "string", multiple: true },
-  help: { type: "boolean", short: "h" },
-} as const;
 
 /**
  * Parse http port value from string - pure function
@@ -136,37 +145,42 @@ export const shouldShowHelp = (args: readonly string[]): boolean => {
 
 /**
  * Parse command line arguments into configuration object.
- * Uses node:util parseArgs for robust argument parsing.
- * Pure function - no side effects, deterministic output.
+ * Uses `@std/cli/parse-args` (minimist-style) for argument parsing.
+ * Pure function — no side effects, deterministic output.
  */
 export const parseConfig = (
   args: readonly string[],
   env: Record<string, string | undefined> = {},
 ): ServerConfig | Error => {
-  // Parse CLI arguments using Node.js built-in parser.
-  // strict:false silently ignores unknown flags and turns "--flag" (missing
-  // value) into boolean `true` instead of throwing, so no try-catch needed.
-  const { values } = parseArgs({
-    args: args as string[],
-    options: CLI_OPTIONS,
-    strict: false,
+  // Parse CLI arguments using Deno standard library.
+  // `@std/cli/parse-args` follows minimist conventions:
+  //  - Unknown flags are silently stored in `_` or as properties.
+  //  - `--flag` without a value is `true` (when not declared as `string`).
+  //  - Repeated `string` flags keep the last value; with `collect`, they
+  //    accumulate into arrays.
+  const parsed = denoParseArgs(args as string[], {
+    string: ["http-port", "transport"],
+    boolean: ["help"],
+    alias: { h: "help" },
+    collect: ["http-port", "transport"],
   });
 
-  // parseArgs with strict:false silently turns --flag (no value) into boolean `true`.
-  // Detect that and surface a clear error before passing values onward.
-  const httpPortArr = values["http-port"] as (string | boolean)[] | undefined;
-  const transportArr = values.transport as (string | boolean)[] | undefined;
+  // `collect` mode gathers repeated flags into arrays.
+  // A bare `--flag` (no value) produces an empty string "" in the array.
+  const httpPortArr = parsed["http-port"] as string[] | undefined;
+  const transportArr = parsed["transport"] as string[] | undefined;
 
-  if (httpPortArr?.some((v) => typeof v !== "string")) {
+  // Detect bare flags (--http-port with no value → empty string)
+  if (httpPortArr?.some((v) => v === "")) {
     return new Error("--http-port flag requires a port number");
   }
-  if (transportArr?.some((v) => typeof v !== "string")) {
+  if (transportArr?.some((v) => v === "")) {
     return new Error("--transport flag requires a transport name");
   }
 
   // Last-wins semantics for repeated flags
   // ── HTTP port: CLI > env > default ──
-  let httpPortValue = (httpPortArr as string[] | undefined)?.at(-1);
+  let httpPortValue = httpPortArr?.at(-1);
   if (httpPortValue === undefined && env.HTTP_PORT) {
     httpPortValue = env.HTTP_PORT;
   }
@@ -180,8 +194,8 @@ export const parseConfig = (
   }
 
   // ── Transport: CLI > env > default ──
-  let transportValues = (transportArr as string[] | undefined)?.length
-    ? [(transportArr as string[]).at(-1)!]
+  let transportValues = transportArr?.length
+    ? [transportArr.at(-1)!]
     : undefined;
   if (transportValues === undefined && env.TRANSPORT) {
     transportValues = [env.TRANSPORT];
@@ -211,11 +225,17 @@ export const parseConfig = (
 };
 
 /**
- * Build configuration from process.argv
- * This is the main entry point for configuration
- * Returns Error for invalid config, or ServerConfig
+ * Build configuration from Deno runtime context.
+ *
+ * Accepts optional overrides for testability — production code calls
+ * `buildConfig()` with no arguments, which reads `Deno.args` and `Deno.env`.
+ *
+ * @param args — CLI arguments (defaults to `Deno.args`)
+ * @param env  — environment variables (defaults to `Deno.env.toObject()`)
  */
-export const buildConfig = (): ServerConfig | Error => {
-  const args = process.argv.slice(2);
-  return parseConfig(args, process.env);
+export const buildConfig = (
+  args: readonly string[] = Deno.args,
+  env: Record<string, string | undefined> = Deno.env.toObject(),
+): ServerConfig | Error => {
+  return parseConfig(args, env);
 };

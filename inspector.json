@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "drawio": {
-      "command": "node",
-      "args": ["--inspect", "build/index.js"]
+      "command": "deno",
+      "args": ["run", "--allow-net", "--allow-read", "--allow-env", "src/index.ts"]
     }
   }
 }

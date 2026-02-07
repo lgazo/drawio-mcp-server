@@ -4,16 +4,19 @@
  */
 
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { diagram, StructuredError } from "./diagram_model.js";
+import { diagram, StructuredError } from "./diagram_model.ts";
 import {
   getAzureCategories,
   getShapesInCategory,
   getAzureShapeByName,
   searchAzureIcons,
-} from "./shapes/azure_icon_library.js";
-import { BASIC_SHAPES, BASIC_SHAPE_CATEGORIES, getBasicShape } from "./shapes/basic_shapes.js";
-import type { ToolLogger } from "./tool_handler.js";
-import { formatBytes, timestamp } from "./tool_handler.js";
+} from "./shapes/azure_icon_library.ts";
+import { BASIC_SHAPES, BASIC_SHAPE_CATEGORIES, getBasicShape } from "./shapes/basic_shapes.ts";
+import type { ToolLogger } from "./tool_handler.ts";
+import { formatBytes, timestamp } from "./tool_handler.ts";
+
+/** Shared TextEncoder for UTF-8 byte length calculations (replaces Node's Buffer.byteLength) */
+const textEncoder = new TextEncoder();
 
 /**
  * Resolved shape with unified dimensions and style, regardless of source (basic or Azure).
@@ -236,8 +239,8 @@ export function createHandlers(log: ToolLogger) {
     if (compressed) {
       const prefix = "[tool:export-diagram]".padEnd(30);
       const originalXml = diagram.toXml({ compress: false });
-      const originalSize = Buffer.byteLength(originalXml, "utf-8");
-      const compressedSize = Buffer.byteLength(xml, "utf-8");
+      const originalSize = textEncoder.encode(originalXml).length;
+      const compressedSize = textEncoder.encode(xml).length;
       const reduction = ((1 - compressedSize / originalSize) * 100).toFixed(2);
       log.debug(`${timestamp()} ${prefix} original size: ${formatBytes(originalSize)}`);
       log.debug(`${timestamp()} ${prefix} compression reduced size by ${reduction}% (${formatBytes(originalSize)} → ${formatBytes(compressedSize)})`);

@@ -1,28 +1,37 @@
-#!/usr/bin/env node
+#!/usr/bin/env -S deno run --allow-net --allow-read --allow-env
+/**
+ * Entry point — server lifecycle, transport setup, and shutdown.
+ *
+ * This file is the only place with side effects (signal handlers, I/O).
+ * All business logic lives in the other modules.
+ *
+ * Transports:
+ *   - stdio  — for IDE / CLI integrations (via MCP SDK StdioServerTransport)
+ *   - http   — Streamable HTTP via Deno.serve + Hono router
+ */
+
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
-import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 
-import type { ServerType } from "@hono/node-server";
-import { buildConfig, shouldShowHelp, parseLoggerType, VERSION, type ServerConfig } from "./config.js";
+import { buildConfig, shouldShowHelp, parseLoggerType, VERSION, type ServerConfig } from "./config.ts";
 import {
-  create_logger as create_console_logger } from "./loggers/mcp_console_logger.js";
+  create_logger as create_console_logger } from "./loggers/mcp_console_logger.ts";
 import {
   create_logger as create_server_logger,
   validLogLevels,
-} from "./loggers/mcp_server_logger.js";
-import { createHandlers } from "./tools.js";
-import { createToolHandlerFactory } from "./tool_handler.js";
-import { initializeShapes, resetAzureIconLibrary } from "./shapes/azure_icon_library.js";
-import { diagram } from "./diagram_model.js";
-import { registerTools } from "./tool_registrations.js";
-import { readRelativeFile } from "./utils.js";
+} from "./loggers/mcp_server_logger.ts";
+import { createHandlers } from "./tools.ts";
+import { createToolHandlerFactory } from "./tool_handler.ts";
+import { initializeShapes, resetAzureIconLibrary } from "./shapes/azure_icon_library.ts";
+import { diagram } from "./diagram_model.ts";
+import { registerTools } from "./tool_registrations.ts";
+import { readRelativeFile } from "./utils.ts";
 
 /**
- * Display help message and exit
+ * Display help message and exit.
  */
 function showHelp(): never {
   console.log(`
@@ -47,14 +56,16 @@ Examples:
   drawio-mcp-server --http-port 4000          # Use HTTP on port 4000
   drawio-mcp-server --transport stdio,http    # Use both transports
   `);
-  process.exit(0);
+  Deno.exit(0);
 }
 
+// ─── Logger Setup ────────────────────────────────────────────
 // Resolve logger type early so server capabilities are set correctly.
 // Validation is centralized in config.ts via parseLoggerType.
-const loggerTypeResult = parseLoggerType(process.env.LOGGER_TYPE);
+const loggerTypeResult = parseLoggerType(Deno.env.get("LOGGER_TYPE"));
 const loggerType = loggerTypeResult instanceof Error ? "console" : loggerTypeResult;
 
+// deno-lint-ignore no-explicit-any
 let capabilities: any = {
   resources: {},
   tools: {},
@@ -104,7 +115,7 @@ registerTools(server, createToolHandler);
 // ─── Shutdown Infrastructure ───────────────────────────────────
 
 /** HTTP server reference, captured for graceful shutdown */
-let httpServer: ServerType | undefined;
+let httpServer: Deno.HttpServer | undefined;
 
 /** Guard against double-shutdown (signal re-delivery, etc.) */
 let isShuttingDown = false;
@@ -121,11 +132,11 @@ async function shutdown(reason: string): Promise<void> {
 
   // 1. Stop accepting new HTTP connections
   if (httpServer) {
-    await new Promise<void>((resolve) => {
-      httpServer!.close(() => resolve());
-      // Force-close after 5 s so we don't hang indefinitely
-      setTimeout(resolve, 5_000).unref();
-    });
+    try {
+      await httpServer.shutdown();
+    } catch {
+      // best-effort — server may already be closed
+    }
     httpServer = undefined;
     log.debug("HTTP server closed");
   }
@@ -145,22 +156,33 @@ async function shutdown(reason: string): Promise<void> {
   log.debug("Shutdown complete");
 }
 
-// ─── Signal & Process Error Handlers ───────────────────────────
-
-for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"] as const) {
-  process.on(signal, () => {
-    shutdown(signal).finally(() => process.exit(0));
-  });
-}
-
-process.on("uncaughtException", (error) => {
-  console.error("Uncaught exception:", error);
-  shutdown("uncaughtException").finally(() => process.exit(1));
+// ─── Signal & Error Handlers ──────────────────────────────────
+// Deno uses `addSignalListener` instead of Node's `process.on`.
+// Windows only supports SIGINT and SIGBREAK; SIGTERM and SIGHUP are Unix-only.
+Deno.addSignalListener("SIGINT", () => {
+  shutdown("SIGINT").finally(() => Deno.exit(0));
 });
 
-process.on("unhandledRejection", (reason) => {
-  console.error("Unhandled rejection:", reason);
-  shutdown("unhandledRejection").finally(() => process.exit(1));
+// On Unix, also listen for SIGTERM (graceful termination) and SIGHUP (terminal hangup)
+if (Deno.build.os !== "windows") {
+  for (const signal of ["SIGTERM", "SIGHUP"] as const) {
+    Deno.addSignalListener(signal, () => {
+      shutdown(signal).finally(() => Deno.exit(0));
+    });
+  }
+}
+
+// Global error handlers — Deno equivalents of Node's uncaughtException / unhandledRejection
+globalThis.addEventListener("error", (event) => {
+  console.error("Uncaught exception:", event.error);
+  event.preventDefault();
+  shutdown("uncaughtException").finally(() => Deno.exit(1));
+});
+
+globalThis.addEventListener("unhandledrejection", (event) => {
+  console.error("Unhandled rejection:", event.reason);
+  event.preventDefault();
+  shutdown("unhandledRejection").finally(() => Deno.exit(1));
 });
 
 // ─── Transport Startup ────────────────────────────────────────
@@ -202,10 +224,8 @@ async function start_streamable_http_transport(http_port: number) {
 
   await server.connect(transport);
 
-  httpServer = serve({
-    fetch: app.fetch,
-    port: http_port,
-  });
+  // Deno.serve replaces @hono/node-server — zero extra dependencies
+  httpServer = Deno.serve({ port: http_port }, app.fetch);
   log.debug(`Draw.io MCP Server Streamable HTTP transport active`);
   log.debug(`Health check: http://localhost:${http_port}/health`);
   log.debug(`MCP endpoint: http://localhost:${http_port}/mcp`);
@@ -213,18 +233,18 @@ async function start_streamable_http_transport(http_port: number) {
 
 async function main() {
   // Check if help was requested (before parsing config)
-  if (shouldShowHelp(process.argv.slice(2))) {
+  if (shouldShowHelp(Deno.args)) {
     showHelp();
     // never returns
   }
 
-  // Build configuration from command line args
+  // Build configuration from Deno.args + Deno.env
   const configResult = buildConfig();
 
   // Handle errors from configuration parsing
   if (configResult instanceof Error) {
     console.error(`Error: ${configResult.message}`);
-    process.exit(1);
+    Deno.exit(1);
   }
 
   const config: ServerConfig = configResult;
@@ -250,5 +270,5 @@ async function main() {
 
 main().catch((error) => {
   log.debug("Fatal error in main():", error);
-  process.exit(1);
+  Deno.exit(1);
 });

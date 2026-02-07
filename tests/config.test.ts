@@ -1,3 +1,5 @@
+import { describe, it } from "@std/testing/bdd";
+import { assertEquals, assertInstanceOf, assert } from "@std/assert";
 import {
   parseHttpPortValue,
   shouldShowHelp,
@@ -5,322 +7,232 @@ import {
   buildConfig,
   parseTransports,
   parseLoggerType,
-} from "../src/config.js";
+  type ServerConfig,
+} from "../src/config.ts";
 
 describe("parseHttpPortValue", () => {
-  test("valid port returns number", () => {
-    expect(parseHttpPortValue("8080")).toBe(8080);
+  it("valid port returns number", () => {
+    assertEquals(parseHttpPortValue("8080"), 8080);
   });
-
-  test("undefined input returns Error", () => {
-    expect(parseHttpPortValue(undefined)).toBeInstanceOf(Error);
+  it("undefined input returns Error", () => {
+    assertInstanceOf(parseHttpPortValue(undefined), Error);
   });
-
-  test("non-numeric string returns Error", () => {
-    expect(parseHttpPortValue("abc")).toBeInstanceOf(Error);
+  it("non-numeric string returns Error", () => {
+    assertInstanceOf(parseHttpPortValue("abc"), Error);
   });
-
-  test("out of range returns Error", () => {
-    expect(parseHttpPortValue("70000")).toBeInstanceOf(Error);
+  it("out of range returns Error", () => {
+    assertInstanceOf(parseHttpPortValue("70000"), Error);
   });
 });
 
 describe("parseTransports", () => {
-  test("returns default when undefined", () => {
-    expect(parseTransports(undefined)).toEqual(["stdio"]);
+  it("returns default when undefined", () => {
+    assertEquals(parseTransports(undefined), ["stdio"]);
   });
-
-  test("parses single transport", () => {
-    expect(parseTransports(["stdio"])).toEqual(["stdio"]);
+  it("parses single transport", () => {
+    assertEquals(parseTransports(["stdio"]), ["stdio"]);
   });
-
-  test("parses comma separated list", () => {
-    expect(parseTransports(["stdio,http"])).toEqual(["stdio", "http"]);
+  it("parses comma separated list", () => {
+    assertEquals(parseTransports(["stdio,http"]), ["stdio", "http"]);
   });
-
-  test("deduplicates transports", () => {
-    expect(parseTransports(["stdio", "stdio"])).toEqual(["stdio"]);
+  it("deduplicates transports", () => {
+    assertEquals(parseTransports(["stdio", "stdio"]), ["stdio"]);
   });
-
-  test("rejects empty string", () => {
+  it("rejects empty string", () => {
     const result = parseTransports([""]);
-    expect(result).toBeInstanceOf(Error);
+    assertInstanceOf(result, Error);
   });
-
-  test("rejects unknown transport", () => {
+  it("rejects unknown transport", () => {
     const result = parseTransports(["foo"]);
-    expect(result).toBeInstanceOf(Error);
+    assertInstanceOf(result, Error);
   });
 });
 
 describe("parseLoggerType", () => {
-  test("returns default for undefined", () => {
-    expect(parseLoggerType(undefined)).toBe("console");
+  it("returns default for undefined", () => {
+    assertEquals(parseLoggerType(undefined), "console");
   });
-
-  test("returns default for empty string", () => {
-    expect(parseLoggerType("")).toBe("console");
+  it("returns default for empty string", () => {
+    assertEquals(parseLoggerType(""), "console");
   });
-
-  test("returns default for whitespace-only string", () => {
-    expect(parseLoggerType("   ")).toBe("console");
+  it("returns default for whitespace-only string", () => {
+    assertEquals(parseLoggerType("   "), "console");
   });
-
-  test("accepts console", () => {
-    expect(parseLoggerType("console")).toBe("console");
+  it("accepts console", () => {
+    assertEquals(parseLoggerType("console"), "console");
   });
-
-  test("accepts mcp_server", () => {
-    expect(parseLoggerType("mcp_server")).toBe("mcp_server");
+  it("accepts mcp_server", () => {
+    assertEquals(parseLoggerType("mcp_server"), "mcp_server");
   });
-
-  test("is case-insensitive", () => {
-    expect(parseLoggerType("MCP_SERVER")).toBe("mcp_server");
+  it("is case-insensitive", () => {
+    assertEquals(parseLoggerType("MCP_SERVER"), "mcp_server");
   });
-
-  test("trims whitespace", () => {
-    expect(parseLoggerType("  console  ")).toBe("console");
+  it("trims whitespace", () => {
+    assertEquals(parseLoggerType("  console  "), "console");
   });
-
-  test("rejects invalid value", () => {
+  it("rejects invalid value", () => {
     const result = parseLoggerType("invalid");
-    expect(result).toBeInstanceOf(Error);
-    expect((result as Error).message).toContain("Invalid logger type");
+    assertInstanceOf(result, Error);
+    assert((result as Error).message.includes("Invalid logger type"));
   });
 });
 
 describe("shouldShowHelp", () => {
-  test("returns true for --help", () => {
-    expect(shouldShowHelp(["--help"])).toBe(true);
+  it("returns true for --help", () => {
+    assertEquals(shouldShowHelp(["--help"]), true);
   });
-
-  test("returns true for -h", () => {
-    expect(shouldShowHelp(["-h"])).toBe(true);
+  it("returns true for -h", () => {
+    assertEquals(shouldShowHelp(["-h"]), true);
   });
-
-  test("returns false for no help flag", () => {
-    expect(shouldShowHelp(["--http-port", "8080"])).toBe(false);
+  it("returns false for no help flag", () => {
+    assertEquals(shouldShowHelp(["--http-port", "8080"]), false);
   });
-
-  test("returns false for empty args", () => {
-    expect(shouldShowHelp([])).toBe(false);
+  it("returns false for empty args", () => {
+    assertEquals(shouldShowHelp([]), false);
   });
 });
 
 describe("parseConfig", () => {
-  const DEFAULT_RESULT = {
+  const DEFAULT_RESULT: ServerConfig = {
     httpPort: 8080,
     transports: ["stdio"],
     loggerType: "console",
     azureIconLibraryPath: undefined,
   };
 
-  test("no args returns default config", () => {
-    expect(parseConfig([])).toEqual(DEFAULT_RESULT);
+  it("no args returns default config", () => {
+    assertEquals(parseConfig([]), DEFAULT_RESULT);
   });
-
-  test("--http-port flag sets custom port", () => {
-    expect(parseConfig(["--http-port", "4242"])).toEqual({
+  it("--http-port flag sets custom port", () => {
+    assertEquals(parseConfig(["--http-port", "4242"]), {
       ...DEFAULT_RESULT,
       httpPort: 4242,
     });
   });
-
-  test("help flag is ignored in config parsing", () => {
-    expect(parseConfig(["--help"])).toEqual(DEFAULT_RESULT);
+  it("help flag is ignored in config parsing", () => {
+    assertEquals(parseConfig(["--help"]), DEFAULT_RESULT);
   });
-
-  test("invalid port returns Error", () => {
+  it("invalid port returns Error", () => {
     const result = parseConfig(["--http-port", "abc"]);
-    expect(result).toBeInstanceOf(Error);
-    expect((result as Error).message).toContain("Invalid port number");
+    assertInstanceOf(result, Error);
+    assert((result as Error).message.includes("Invalid port number"));
   });
-
-  test("missing http port value returns Error", () => {
+  it("missing http port value returns Error", () => {
     const result = parseConfig(["--http-port"]);
-    expect(result).toBeInstanceOf(Error);
+    assertInstanceOf(result, Error);
   });
-
-  test("out of range port returns Error", () => {
+  it("out of range port returns Error", () => {
     const result = parseConfig(["--http-port", "70000"]);
-    expect(result).toBeInstanceOf(Error);
-    expect((result as Error).message).toContain("Invalid port number");
+    assertInstanceOf(result, Error);
+    assert((result as Error).message.includes("Invalid port number"));
   });
-
-  test("last http-port flag wins", () => {
-    expect(parseConfig(["--http-port", "4000", "--http-port", "5000"])).toEqual(
-      {
-        ...DEFAULT_RESULT,
-        httpPort: 5000,
-      },
-    );
-  });
-
-  test("sets single transport", () => {
-    expect(parseConfig(["--transport", "stdio"])).toEqual(DEFAULT_RESULT);
-  });
-
-  test("sets multiple transports", () => {
-    expect(parseConfig(["--transport", "stdio,http"])).toEqual({
-      ...DEFAULT_RESULT,
-      transports: ["stdio", "http"],
-    });
-  });
-
-  test("rejects unknown transport", () => {
-    const result = parseConfig(["--transport", "foo"]);
-    expect(result).toBeInstanceOf(Error);
-  });
-
-  test("missing transport value returns Error", () => {
-    const result = parseConfig(["--transport"]);
-    expect(result).toBeInstanceOf(Error);
-  });
-
-  // ── Environment variable tests ──
-
-  test("reads HTTP_PORT from env when no CLI flag", () => {
-    const result = parseConfig([], { HTTP_PORT: "3000" });
-    expect(result).toEqual({
-      ...DEFAULT_RESULT,
-      httpPort: 3000,
-    });
-  });
-
-  test("CLI --http-port takes precedence over env HTTP_PORT", () => {
-    const result = parseConfig(["--http-port", "5000"], { HTTP_PORT: "3000" });
-    expect(result).toEqual({
+  it("last http-port flag wins", () => {
+    assertEquals(parseConfig(["--http-port", "4000", "--http-port", "5000"]), {
       ...DEFAULT_RESULT,
       httpPort: 5000,
     });
   });
-
-  test("reads TRANSPORT from env when no CLI flag", () => {
+  it("sets single transport", () => {
+    assertEquals(parseConfig(["--transport", "stdio"]), DEFAULT_RESULT);
+  });
+  it("sets multiple transports", () => {
+    assertEquals(parseConfig(["--transport", "stdio,http"]), {
+      ...DEFAULT_RESULT,
+      transports: ["stdio", "http"],
+    });
+  });
+  it("rejects unknown transport", () => {
+    const result = parseConfig(["--transport", "foo"]);
+    assertInstanceOf(result, Error);
+  });
+  it("missing transport value returns Error", () => {
+    const result = parseConfig(["--transport"]);
+    assertInstanceOf(result, Error);
+  });
+  // env variable tests
+  it("reads HTTP_PORT from env when no CLI flag", () => {
+    const result = parseConfig([], { HTTP_PORT: "3000" });
+    assertEquals(result, { ...DEFAULT_RESULT, httpPort: 3000 });
+  });
+  it("CLI --http-port takes precedence over env HTTP_PORT", () => {
+    const result = parseConfig(["--http-port", "5000"], { HTTP_PORT: "3000" });
+    assertEquals(result, { ...DEFAULT_RESULT, httpPort: 5000 });
+  });
+  it("reads TRANSPORT from env when no CLI flag", () => {
     const result = parseConfig([], { TRANSPORT: "http" });
-    expect(result).toEqual({
-      ...DEFAULT_RESULT,
-      transports: ["http"],
-    });
+    assertEquals(result, { ...DEFAULT_RESULT, transports: ["http"] });
   });
-
-  test("CLI --transport takes precedence over env TRANSPORT", () => {
+  it("CLI --transport takes precedence over env TRANSPORT", () => {
     const result = parseConfig(["--transport", "stdio"], { TRANSPORT: "http" });
-    expect(result).toEqual(DEFAULT_RESULT);
+    assertEquals(result, DEFAULT_RESULT);
   });
-
-  test("reads LOGGER_TYPE from env", () => {
+  it("reads LOGGER_TYPE from env", () => {
     const result = parseConfig([], { LOGGER_TYPE: "mcp_server" });
-    expect(result).toEqual({
-      ...DEFAULT_RESULT,
-      loggerType: "mcp_server",
-    });
+    assertEquals(result, { ...DEFAULT_RESULT, loggerType: "mcp_server" });
   });
-
-  test("invalid LOGGER_TYPE in env returns Error", () => {
+  it("invalid LOGGER_TYPE in env returns Error", () => {
     const result = parseConfig([], { LOGGER_TYPE: "invalid" });
-    expect(result).toBeInstanceOf(Error);
-    expect((result as Error).message).toContain("Invalid logger type");
+    assertInstanceOf(result, Error);
+    assert((result as Error).message.includes("Invalid logger type"));
   });
-
-  test("reads AZURE_ICON_LIBRARY_PATH from env", () => {
+  it("reads AZURE_ICON_LIBRARY_PATH from env", () => {
     const result = parseConfig([], { AZURE_ICON_LIBRARY_PATH: "/custom/path.xml" });
-    expect(result).toEqual({
-      ...DEFAULT_RESULT,
-      azureIconLibraryPath: "/custom/path.xml",
-    });
+    assertEquals(result, { ...DEFAULT_RESULT, azureIconLibraryPath: "/custom/path.xml" });
   });
-
-  test("trims whitespace from AZURE_ICON_LIBRARY_PATH", () => {
+  it("trims whitespace from AZURE_ICON_LIBRARY_PATH", () => {
     const result = parseConfig([], { AZURE_ICON_LIBRARY_PATH: "  /path.xml  " });
-    expect(result).toEqual({
-      ...DEFAULT_RESULT,
-      azureIconLibraryPath: "/path.xml",
-    });
+    assertEquals(result, { ...DEFAULT_RESULT, azureIconLibraryPath: "/path.xml" });
   });
-
-  test("treats empty AZURE_ICON_LIBRARY_PATH as undefined", () => {
+  it("treats empty AZURE_ICON_LIBRARY_PATH as undefined", () => {
     const result = parseConfig([], { AZURE_ICON_LIBRARY_PATH: "" });
-    expect(result).toEqual(DEFAULT_RESULT);
+    assertEquals(result, DEFAULT_RESULT);
   });
-
-  test("treats whitespace-only AZURE_ICON_LIBRARY_PATH as undefined", () => {
+  it("treats whitespace-only AZURE_ICON_LIBRARY_PATH as undefined", () => {
     const result = parseConfig([], { AZURE_ICON_LIBRARY_PATH: "   " });
-    expect(result).toEqual(DEFAULT_RESULT);
+    assertEquals(result, DEFAULT_RESULT);
   });
-
-  test("combines CLI and env settings", () => {
+  it("combines CLI and env settings", () => {
     const result = parseConfig(
       ["--http-port", "9000"],
       { TRANSPORT: "http", LOGGER_TYPE: "mcp_server", AZURE_ICON_LIBRARY_PATH: "/icons.xml" },
     );
-    expect(result).toEqual({
+    assertEquals(result, {
       httpPort: 9000,
       transports: ["http"],
       loggerType: "mcp_server",
       azureIconLibraryPath: "/icons.xml",
     });
   });
-
-  test("invalid HTTP_PORT in env returns Error", () => {
+  it("invalid HTTP_PORT in env returns Error", () => {
     const result = parseConfig([], { HTTP_PORT: "abc" });
-    expect(result).toBeInstanceOf(Error);
+    assertInstanceOf(result, Error);
   });
-
-  test("invalid TRANSPORT in env returns Error", () => {
+  it("invalid TRANSPORT in env returns Error", () => {
     const result = parseConfig([], { TRANSPORT: "websocket" });
-    expect(result).toBeInstanceOf(Error);
+    assertInstanceOf(result, Error);
   });
 });
 
 describe("buildConfig", () => {
-  const originalArgv = process.argv;
-  const originalEnv = { ...process.env };
-
-  afterEach(() => {
-    process.argv = originalArgv;
-    // Restore env vars
-    for (const key of ["HTTP_PORT", "TRANSPORT", "LOGGER_TYPE", "AZURE_ICON_LIBRARY_PATH"]) {
-      if (originalEnv[key] !== undefined) {
-        process.env[key] = originalEnv[key];
-      } else {
-        delete process.env[key];
-      }
-    }
+  it("uses default config with empty args", () => {
+    const result = buildConfig(["deno", "script.ts"]);
+    assert(!(result instanceof Error));
+    assertEquals(result.httpPort, 8080);
+    assertEquals(result.transports, ["stdio"]);
+    assertEquals(result.loggerType, "console");
   });
-
-  test("uses default config with empty args", () => {
-    process.argv = ["node", "script.js"];
-    const result = buildConfig();
-    expect(result).not.toBeInstanceOf(Error);
-    if (!(result instanceof Error)) {
-      expect(result.httpPort).toBe(8080);
-      expect(result.transports).toEqual(["stdio"]);
-      expect(result.loggerType).toBe("console");
-    }
+  it("parses custom http port from argv", () => {
+    const result = buildConfig(["deno", "script.ts", "--http-port", "4242"]);
+    assert(!(result instanceof Error));
+    assertEquals(result.httpPort, 4242);
   });
-
-  test("parses custom http port from argv", () => {
-    process.argv = ["node", "script.js", "--http-port", "4242"];
-    const result = buildConfig();
-    expect(result).not.toBeInstanceOf(Error);
-    if (!(result instanceof Error)) {
-      expect(result.httpPort).toBe(4242);
-    }
+  it("returns Error for invalid config", () => {
+    const result = buildConfig(["deno", "script.ts", "--http-port", "abc"]);
+    assertInstanceOf(result, Error);
   });
-
-  test("returns Error for invalid config", () => {
-    process.argv = ["node", "script.js", "--http-port", "abc"];
-    const result = buildConfig();
-    expect(result).toBeInstanceOf(Error);
-  });
-
-  test("reads LOGGER_TYPE from process.env", () => {
-    process.argv = ["node", "script.js"];
-    process.env.LOGGER_TYPE = "mcp_server";
-    const result = buildConfig();
-    expect(result).not.toBeInstanceOf(Error);
-    if (!(result instanceof Error)) {
-      expect(result.loggerType).toBe("mcp_server");
-    }
+  it("reads LOGGER_TYPE from env param", () => {
+    const result = buildConfig(["deno", "script.ts"], { LOGGER_TYPE: "mcp_server" });
+    assert(!(result instanceof Error));
+    assertEquals(result.loggerType, "mcp_server");
   });
 });

@@ -1,31 +1,35 @@
-import { vi } from "vitest";
-import { create_logger } from "../src/loggers/mcp_console_logger.js";
+/**
+ * Tests for the MCP console logger.
+ * Verifies that log() and debug() correctly delegate to console.error
+ * with proper level prefixes and spread data arguments.
+ */
+import { describe, it, beforeEach, afterEach } from "@std/testing/bdd";
+import { assertEquals, assert } from "@std/assert";
+import { spy, assertSpyCalls, assertSpyCallArgs, type Spy } from "@std/testing/mock";
+import { create_logger } from "../src/loggers/mcp_console_logger.ts";
 
 describe("create_logger", () => {
   let originalConsoleError: typeof console.error;
-  let mockConsoleError: ReturnType<typeof vi.fn>;
+  let mockConsoleError: Spy;
 
   beforeEach(() => {
-    // Save original console.error
+    // Save original console.error and replace with a spy
     originalConsoleError = console.error;
-    // Create mock for console.error
-    mockConsoleError = vi.fn();
+    mockConsoleError = spy();
     console.error = mockConsoleError;
   });
 
   afterEach(() => {
     // Restore original console.error
     console.error = originalConsoleError;
-    // Clear all mocks
-    vi.clearAllMocks();
   });
 
   it("should return a Logger object with log and debug methods", () => {
     const logger = create_logger();
 
-    expect(logger).toBeDefined();
-    expect(typeof logger.log).toBe("function");
-    expect(typeof logger.debug).toBe("function");
+    assert(logger !== undefined);
+    assertEquals(typeof logger.log, "function");
+    assertEquals(typeof logger.debug, "function");
   });
 
   it("log method should call console.error with message and data", () => {
@@ -36,11 +40,11 @@ describe("create_logger", () => {
 
     logger.log(testLevel, testMessage, testData);
 
-    expect(mockConsoleError).toHaveBeenCalledTimes(1);
-    expect(mockConsoleError).toHaveBeenCalledWith(
+    assertSpyCalls(mockConsoleError, 1);
+    assertSpyCallArgs(mockConsoleError, 0, [
       `${testLevel.toUpperCase()}: ${testMessage}`,
       testData,
-    );
+    ]);
   });
 
   it("debug method should call console.error with message and data", () => {
@@ -50,11 +54,11 @@ describe("create_logger", () => {
 
     logger.debug(testMessage, testData);
 
-    expect(mockConsoleError).toHaveBeenCalledTimes(1);
-    expect(mockConsoleError).toHaveBeenCalledWith(
+    assertSpyCalls(mockConsoleError, 1);
+    assertSpyCallArgs(mockConsoleError, 0, [
       `DEBUG: ${testMessage}`,
       testData,
-    );
+    ]);
   });
 
   it("should handle no additional data parameters", () => {
@@ -62,12 +66,14 @@ describe("create_logger", () => {
     const testMessage = "message without data";
 
     logger.log("warn", testMessage);
-    expect(mockConsoleError).toHaveBeenCalledWith(`WARN: ${testMessage}`);
+    assertSpyCallArgs(mockConsoleError, 0, [`WARN: ${testMessage}`]);
 
-    mockConsoleError.mockClear();
+    // Reset by creating a fresh spy
+    mockConsoleError = spy();
+    console.error = mockConsoleError;
 
     logger.debug(testMessage);
-    expect(mockConsoleError).toHaveBeenCalledWith(`DEBUG: ${testMessage}`);
+    assertSpyCallArgs(mockConsoleError, 0, [`DEBUG: ${testMessage}`]);
   });
 
   it("should handle multiple data parameters", () => {
@@ -78,21 +84,23 @@ describe("create_logger", () => {
     const data3 = "string data";
 
     logger.log("error", testMessage, data1, data2, data3);
-    expect(mockConsoleError).toHaveBeenCalledWith(
+    assertSpyCallArgs(mockConsoleError, 0, [
       `ERROR: ${testMessage}`,
       data1,
       data2,
       data3,
-    );
+    ]);
 
-    mockConsoleError.mockClear();
+    // Reset by creating a fresh spy
+    mockConsoleError = spy();
+    console.error = mockConsoleError;
 
     logger.debug(testMessage, data1, data2, data3);
-    expect(mockConsoleError).toHaveBeenCalledWith(
+    assertSpyCallArgs(mockConsoleError, 0, [
       `DEBUG: ${testMessage}`,
       data1,
       data2,
       data3,
-    );
+    ]);
   });
 });

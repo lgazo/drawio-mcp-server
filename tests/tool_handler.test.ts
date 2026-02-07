@@ -1,32 +1,47 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createToolHandlerFactory, formatBytes, timestamp, type ToolLogger, type ToolHandlerMap } from "../src/tool_handler.js";
+/**
+ * Tests for the tool handler factory.
+ * Verifies handler dispatch, structured errors for unknown tools,
+ * logging (tool prefix padding, duration, payload size), and helper functions.
+ */
+import { describe, it, beforeEach } from "@std/testing/bdd";
+import { assertEquals, assert, assertExists } from "@std/assert";
+import { spy, assertSpyCalls, type Spy } from "@std/testing/mock";
+import {
+  createToolHandlerFactory,
+  formatBytes,
+  timestamp,
+  type ToolLogger,
+  type ToolHandlerMap,
+} from "../src/tool_handler.ts";
 
 describe("createToolHandlerFactory", () => {
+  let debugSpy: Spy;
   let log: ToolLogger;
   const mockExtra = { sessionId: "test-session", requestId: "req-1" };
 
   beforeEach(() => {
-    log = { debug: vi.fn() };
+    debugSpy = spy((..._args: any[]) => {});
+    log = { debug: debugSpy };
   });
 
   describe("formatBytes", () => {
     it("should format small values in KB", () => {
-      expect(formatBytes(500)).toBe("0.49 KB");
+      assertEquals(formatBytes(500), "0.49 KB");
     });
 
     it("should format exact kilobytes", () => {
-      expect(formatBytes(2048)).toBe("2.00 KB");
+      assertEquals(formatBytes(2048), "2.00 KB");
     });
 
     it("should format large values in KB", () => {
-      expect(formatBytes(1048576)).toBe("1024.00 KB");
+      assertEquals(formatBytes(1048576), "1024.00 KB");
     });
   });
 
   describe("timestamp", () => {
     it("should return an ISO 8601 string", () => {
       const ts = timestamp();
-      expect(ts).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+      assert(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(ts));
     });
 
     it("should return a recent timestamp", () => {
@@ -34,8 +49,8 @@ describe("createToolHandlerFactory", () => {
       const ts = timestamp();
       const after = Date.now();
       const parsed = new Date(ts).getTime();
-      expect(parsed).toBeGreaterThanOrEqual(before);
-      expect(parsed).toBeLessThanOrEqual(after);
+      assert(parsed >= before);
+      assert(parsed <= after);
     });
   });
 
@@ -44,32 +59,32 @@ describe("createToolHandlerFactory", () => {
       const mockResult = {
         content: [{ type: "text" as const, text: '{"success":true}' }],
       };
-      const handlerMap: ToolHandlerMap = {
-        "my-tool": vi.fn().mockResolvedValue(mockResult),
-      };
+      const handlerSpy = spy((_args: any) => Promise.resolve(mockResult));
+      const handlerMap: ToolHandlerMap = { "my-tool": handlerSpy };
 
       const createToolHandler = createToolHandlerFactory(handlerMap, log);
       const handler = createToolHandler("my-tool", true);
       const result = await handler({ x: 100, y: 200 }, mockExtra);
 
-      expect(handlerMap["my-tool"]).toHaveBeenCalledWith({ x: 100, y: 200 });
-      expect(result).toBe(mockResult);
+      assertSpyCalls(handlerSpy, 1);
+      assertEquals(handlerSpy.calls[0].args[0], { x: 100, y: 200 });
+      assertEquals(result, mockResult);
     });
 
     it("should pass empty args when hasArgs is false", async () => {
       const mockResult = {
         content: [{ type: "text" as const, text: '{"data":"ok"}' }],
       };
-      const handlerMap: ToolHandlerMap = {
-        "no-args-tool": vi.fn().mockResolvedValue(mockResult),
-      };
+      const handlerSpy = spy((_args: any) => Promise.resolve(mockResult));
+      const handlerMap: ToolHandlerMap = { "no-args-tool": handlerSpy };
 
       const createToolHandler = createToolHandlerFactory(handlerMap, log);
       const handler = createToolHandler("no-args-tool");
       const result = await handler(mockExtra);
 
-      expect(handlerMap["no-args-tool"]).toHaveBeenCalledWith({});
-      expect(result).toBe(mockResult);
+      assertSpyCalls(handlerSpy, 1);
+      assertEquals(handlerSpy.calls[0].args[0], {});
+      assertEquals(result, mockResult);
     });
 
     it("should return structured error for unknown tool name", async () => {
@@ -77,11 +92,11 @@ describe("createToolHandlerFactory", () => {
       const handler = createToolHandler("nonexistent-tool", true);
       const result = await handler({}, mockExtra);
 
-      expect(result.isError).toBe(true);
-      expect(result.content[0].type).toBe("text");
+      assertEquals(result.isError, true);
+      assertEquals(result.content[0].type, "text");
       const parsed = JSON.parse(result.content[0].text);
-      expect(parsed.error).toContain("nonexistent-tool");
-      expect(parsed.error).toContain("not available");
+      assert(parsed.error.includes("nonexistent-tool"));
+      assert(parsed.error.includes("not available"));
     });
 
     it("should return structured error for unknown tool without args", async () => {
@@ -89,9 +104,9 @@ describe("createToolHandlerFactory", () => {
       const handler = createToolHandler("missing-tool");
       const result = await handler(mockExtra);
 
-      expect(result.isError).toBe(true);
+      assertEquals(result.isError, true);
       const parsed = JSON.parse(result.content[0].text);
-      expect(parsed.error).toContain("missing-tool");
+      assert(parsed.error.includes("missing-tool"));
     });
   });
 
@@ -100,108 +115,101 @@ describe("createToolHandlerFactory", () => {
       const mockResult = {
         content: [{ type: "text" as const, text: "{}" }],
       };
-      const handlerMap: ToolHandlerMap = {
-        "logged-tool": vi.fn().mockResolvedValue(mockResult),
-      };
+      const handlerSpy = spy((_args: any) => Promise.resolve(mockResult));
+      const handlerMap: ToolHandlerMap = { "logged-tool": handlerSpy };
 
       const createToolHandler = createToolHandlerFactory(handlerMap, log);
       const handler = createToolHandler("logged-tool", true);
       await handler({}, mockExtra);
 
-      const debugCalls = (log.debug as ReturnType<typeof vi.fn>).mock.calls;
-      const firstCallArgs = debugCalls[0];
-      expect(firstCallArgs[0]).not.toContain("session=");
-      expect(firstCallArgs[0]).toContain("req=req-1");
+      const firstCallMsg = debugSpy.calls[0].args[0] as string;
+      assert(!firstCallMsg.includes("session="));
+      assert(firstCallMsg.includes("req=req-1"));
     });
 
     it("should handle missing sessionId without logging session", async () => {
       const mockResult = {
         content: [{ type: "text" as const, text: "{}" }],
       };
-      const handlerMap: ToolHandlerMap = {
-        "tool": vi.fn().mockResolvedValue(mockResult),
-      };
+      const handlerSpy = spy((_args: any) => Promise.resolve(mockResult));
+      const handlerMap: ToolHandlerMap = { "tool": handlerSpy };
 
       const createToolHandler = createToolHandlerFactory(handlerMap, log);
       const handler = createToolHandler("tool", true);
       await handler({}, { requestId: "r1" });
 
-      const debugCalls = (log.debug as ReturnType<typeof vi.fn>).mock.calls;
-      const firstCallMsg = debugCalls[0][0];
-      expect(firstCallMsg).not.toContain("session=");
-      expect(firstCallMsg).toContain("req=r1");
+      const firstCallMsg = debugSpy.calls[0].args[0] as string;
+      assert(!firstCallMsg.includes("session="));
+      assert(firstCallMsg.includes("req=r1"));
     });
 
     it("should handle undefined extra without logging session", async () => {
       const mockResult = {
         content: [{ type: "text" as const, text: "{}" }],
       };
-      const handlerMap: ToolHandlerMap = {
-        "tool": vi.fn().mockResolvedValue(mockResult),
-      };
+      const handlerSpy = spy((_args: any) => Promise.resolve(mockResult));
+      const handlerMap: ToolHandlerMap = { "tool": handlerSpy };
 
       const createToolHandler = createToolHandlerFactory(handlerMap, log);
       const handler = createToolHandler("tool");
       await handler(undefined);
 
-      const debugCalls = (log.debug as ReturnType<typeof vi.fn>).mock.calls;
-      const firstCallMsg = debugCalls[0][0];
-      expect(firstCallMsg).not.toContain("session=");
+      const firstCallMsg = debugSpy.calls[0].args[0] as string;
+      assert(!firstCallMsg.includes("session="));
     });
 
     it("should log input args as JSON in the called log line", async () => {
       const mockResult = {
         content: [{ type: "text" as const, text: "{}" }],
       };
-      const handlerMap: ToolHandlerMap = {
-        "args-tool": vi.fn().mockResolvedValue(mockResult),
-      };
+      const handlerSpy = spy((_args: any) => Promise.resolve(mockResult));
+      const handlerMap: ToolHandlerMap = { "args-tool": handlerSpy };
 
       const createToolHandler = createToolHandlerFactory(handlerMap, log);
       const handler = createToolHandler("args-tool", true);
       await handler({ x: 100, text: "hello" }, mockExtra);
 
-      const debugCalls = (log.debug as ReturnType<typeof vi.fn>).mock.calls;
-      const calledCall = debugCalls.find(c => (c[0] as string).includes("called"));
-      expect(calledCall).toBeDefined();
-      expect(calledCall![1]).toBe(JSON.stringify({ x: 100, text: "hello" }));
+      const calledCall = debugSpy.calls.find(
+        (c: any) => (c.args[0] as string).includes("called"),
+      );
+      assertExists(calledCall);
+      assertEquals(calledCall!.args[1], JSON.stringify({ x: 100, text: "hello" }));
     });
 
     it("should log empty args when hasArgs is false", async () => {
       const mockResult = {
         content: [{ type: "text" as const, text: "{}" }],
       };
-      const handlerMap: ToolHandlerMap = {
-        "no-args": vi.fn().mockResolvedValue(mockResult),
-      };
+      const handlerSpy = spy((_args: any) => Promise.resolve(mockResult));
+      const handlerMap: ToolHandlerMap = { "no-args": handlerSpy };
 
       const createToolHandler = createToolHandlerFactory(handlerMap, log);
       const handler = createToolHandler("no-args");
       await handler(mockExtra);
 
-      const debugCalls = (log.debug as ReturnType<typeof vi.fn>).mock.calls;
-      const calledCall = debugCalls.find(c => (c[0] as string).includes("called"));
-      expect(calledCall).toBeDefined();
-      expect(calledCall![1]).toBe("{}");
+      const calledCall = debugSpy.calls.find(
+        (c: any) => (c.args[0] as string).includes("called"),
+      );
+      assertExists(calledCall);
+      assertEquals(calledCall!.args[1], "{}");
     });
 
     it("should log 'ok' with payload size for successful handler results", async () => {
       const successResult = {
         content: [{ type: "text" as const, text: "{}" }],
       };
-      const handlerMap: ToolHandlerMap = {
-        "ok-tool": vi.fn().mockResolvedValue(successResult),
-      };
+      const handlerSpy = spy((_args: any) => Promise.resolve(successResult));
+      const handlerMap: ToolHandlerMap = { "ok-tool": handlerSpy };
 
       const createToolHandler = createToolHandlerFactory(handlerMap, log);
       const handler = createToolHandler("ok-tool", true);
       await handler({}, mockExtra);
 
-      const debugCalls = (log.debug as ReturnType<typeof vi.fn>).mock.calls.map(c => c[0]);
-      const resultLog = debugCalls.find((msg: string) => msg.includes("ok in"));
-      expect(resultLog).toBeDefined();
-      expect(resultLog).toContain("[tool:ok-tool]");
-      expect(resultLog).toMatch(/[\d.]+ KB/);
+      const debugMessages = debugSpy.calls.map((c: any) => c.args[0] as string);
+      const resultLog = debugMessages.find((msg: string) => msg.includes("ok in"));
+      assertExists(resultLog);
+      assert(resultLog!.includes("[tool:ok-tool]"));
+      assert(/[\d.]+ KB/.test(resultLog!));
     });
 
     it("should log 'error' with payload size for handler results with isError=true", async () => {
@@ -209,19 +217,18 @@ describe("createToolHandlerFactory", () => {
         content: [{ type: "text" as const, text: '{"error":"fail"}' }],
         isError: true,
       };
-      const handlerMap: ToolHandlerMap = {
-        "error-tool": vi.fn().mockResolvedValue(errorResult),
-      };
+      const handlerSpy = spy((_args: any) => Promise.resolve(errorResult));
+      const handlerMap: ToolHandlerMap = { "error-tool": handlerSpy };
 
       const createToolHandler = createToolHandlerFactory(handlerMap, log);
       const handler = createToolHandler("error-tool", true);
       await handler({}, mockExtra);
 
-      const debugCalls = (log.debug as ReturnType<typeof vi.fn>).mock.calls.map(c => c[0]);
-      const resultLog = debugCalls.find((msg: string) => msg.includes("error in"));
-      expect(resultLog).toBeDefined();
-      expect(resultLog).toContain("[tool:error-tool]");
-      expect(resultLog).toMatch(/[\d.]+ KB/);
+      const debugMessages = debugSpy.calls.map((c: any) => c.args[0] as string);
+      const resultLog = debugMessages.find((msg: string) => msg.includes("error in"));
+      assertExists(resultLog);
+      assert(resultLog!.includes("[tool:error-tool]"));
+      assert(/[\d.]+ KB/.test(resultLog!));
     });
 
     it("should log 'not found' for unknown tools", async () => {
@@ -229,9 +236,10 @@ describe("createToolHandlerFactory", () => {
       const handler = createToolHandler("missing", true);
       await handler({}, mockExtra);
 
-      expect(log.debug).toHaveBeenCalledWith(
-        expect.stringContaining("not found"),
+      const hasNotFound = debugSpy.calls.some(
+        (c: any) => typeof c.args[0] === "string" && (c.args[0] as string).includes("not found"),
       );
+      assert(hasNotFound);
     });
 
     it("should format payload size in KB for larger payloads", async () => {
@@ -239,58 +247,55 @@ describe("createToolHandlerFactory", () => {
       const largeResult = {
         content: [{ type: "text" as const, text: largeText }],
       };
-      const handlerMap: ToolHandlerMap = {
-        "large-tool": vi.fn().mockResolvedValue(largeResult),
-      };
+      const handlerSpy = spy((_args: any) => Promise.resolve(largeResult));
+      const handlerMap: ToolHandlerMap = { "large-tool": handlerSpy };
 
       const createToolHandler = createToolHandlerFactory(handlerMap, log);
       const handler = createToolHandler("large-tool", true);
       await handler({}, mockExtra);
 
-      const debugCalls = (log.debug as ReturnType<typeof vi.fn>).mock.calls.map(c => c[0]);
-      const resultLog = debugCalls.find((msg: string) => msg.includes("ok in"));
-      expect(resultLog).toBeDefined();
-      expect(resultLog).toMatch(/[\d.]+ KB/);
+      const debugMessages = debugSpy.calls.map((c: any) => c.args[0] as string);
+      const resultLog = debugMessages.find((msg: string) => msg.includes("ok in"));
+      assertExists(resultLog);
+      assert(/[\d.]+ KB/.test(resultLog!));
     });
 
     it("should include duration in success log", async () => {
       const mockResult = {
         content: [{ type: "text" as const, text: "{}" }],
       };
-      const handlerMap: ToolHandlerMap = {
-        "timed-tool": vi.fn().mockResolvedValue(mockResult),
-      };
+      const handlerSpy = spy((_args: any) => Promise.resolve(mockResult));
+      const handlerMap: ToolHandlerMap = { "timed-tool": handlerSpy };
 
       const createToolHandler = createToolHandlerFactory(handlerMap, log);
       const handler = createToolHandler("timed-tool", true);
       await handler({}, mockExtra);
 
-      const debugCalls = (log.debug as ReturnType<typeof vi.fn>).mock.calls.map(c => c[0]);
-      const resultLog = debugCalls.find((msg: string) => msg.includes("ms"));
-      expect(resultLog).toBeDefined();
-      expect(resultLog).toMatch(/\d+ms/);
+      const debugMessages = debugSpy.calls.map((c: any) => c.args[0] as string);
+      const resultLog = debugMessages.find((msg: string) => msg.includes("ms"));
+      assertExists(resultLog);
+      assert(/\d+ms/.test(resultLog!));
     });
 
     it("should pad tool prefix to align status words", async () => {
       const mockResult = {
         content: [{ type: "text" as const, text: "{}" }],
       };
-      const handlerMap: ToolHandlerMap = {
-        "a": vi.fn().mockResolvedValue(mockResult),
-      };
+      const handlerSpy = spy((_args: any) => Promise.resolve(mockResult));
+      const handlerMap: ToolHandlerMap = { "a": handlerSpy };
 
       const createToolHandler = createToolHandlerFactory(handlerMap, log);
       const handler = createToolHandler("a", true);
       await handler({}, mockExtra);
 
-      const debugCalls = (log.debug as ReturnType<typeof vi.fn>).mock.calls.map(c => c[0]);
-      const calledLog = debugCalls.find((msg: string) => msg.includes("called"));
-      const okLog = debugCalls.find((msg: string) => msg.includes("ok in"));
+      const debugMessages = debugSpy.calls.map((c: any) => c.args[0] as string);
+      const calledLog = debugMessages.find((msg: string) => msg.includes("called"));
+      const okLog = debugMessages.find((msg: string) => msg.includes("ok in"));
       // Both lines should start with an ISO timestamp followed by the padded tool prefix
-      expect(calledLog).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z \[tool:a\]\s+called/);
-      expect(okLog).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z \[tool:a\]\s+ok in/);
+      assert(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z \[tool:a\]\s+called/.test(calledLog!));
+      assert(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z \[tool:a\]\s+ok in/.test(okLog!));
       // "called" and "ok in" should start at the same column (aligned by padEnd)
-      expect(calledLog!.indexOf("called")).toBe(okLog!.indexOf("ok in"));
+      assertEquals(calledLog!.indexOf("called"), okLog!.indexOf("ok in"));
     });
   });
 });

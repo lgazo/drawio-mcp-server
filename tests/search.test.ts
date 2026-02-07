@@ -1,4 +1,6 @@
-import { searchAzureIcons, getAzureIconLibrary } from "../src/shapes/azure_icon_library.js";
+import { describe, it } from "@std/testing/bdd";
+import { assertGreater, assertLessOrEqual } from "@std/assert";
+import { searchAzureIcons, getAzureIconLibrary } from "../src/shapes/azure_icon_library.ts";
 
 const testQueries = [
   "container",
@@ -14,18 +16,21 @@ const testQueries = [
 ];
 
 describe("searchAzureIcons integration", () => {
-  test.each(testQueries)('query "%s" returns at least one result', (query) => {
-    const results = searchAzureIcons(query, 5);
-    expect(results.length).toBeGreaterThan(0);
-  });
+  // Replaces test.each — Deno uses a simple for loop
+  for (const query of testQueries) {
+    it(`query "${query}" returns at least one result`, () => {
+      const results = searchAzureIcons(query, 5);
+      assertGreater(results.length, 0);
+    });
 
-  test.each(testQueries)('query "%s" returns at most 5 results', (query) => {
-    const results = searchAzureIcons(query, 5);
-    expect(results.length).toBeLessThanOrEqual(5);
-  });
+    it(`query "${query}" returns at most 5 results`, () => {
+      const results = searchAzureIcons(query, 5);
+      assertLessOrEqual(results.length, 5);
+    });
+  }
 
-  test("library has a non-trivial number of shapes", () => {
+  it("library has a non-trivial number of shapes", () => {
     const iconLib = getAzureIconLibrary();
-    expect(iconLib.shapes.length).toBeGreaterThan(100);
+    assertGreater(iconLib.shapes.length, 100);
   });
 });

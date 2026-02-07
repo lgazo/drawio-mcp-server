@@ -1,5 +1,5 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { Logger } from "./mcp_console_logger.js";
+import type { Logger } from "./mcp_console_logger.ts";
 import { z } from "zod";
 
 // Log levels (lower is more severe)

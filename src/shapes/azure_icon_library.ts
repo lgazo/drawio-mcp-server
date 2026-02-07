@@ -2,15 +2,30 @@
  * Azure Icon Library Loader
  * Loads and parses the complete Azure architecture icons from the dwarfered repository
  * https://github.com/dwarfered/azure-architecture-icons-for-drawio
+ *
+ * Uses Deno-native APIs for filesystem access and `@std/path` for path manipulation.
  */
 
-import * as fs from "fs";
-import * as path from "path";
+import { join } from "@std/path";
+// @deno-types="npm:@types/fuzzy-search@2.1.5"
 import FuzzySearch from "fuzzy-search";
-import { esmDirname } from "../utils.js";
+import { esmDirname } from "../utils.ts";
 
 // ESM __dirname via shared utility
 const __dirname = esmDirname(import.meta.url);
+
+/**
+ * Check if a file exists at the given path (synchronous).
+ * Avoids importing `@std/fs` for a single utility.
+ */
+function fileExistsSync(path: string): boolean {
+  try {
+    Deno.statSync(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export interface AzureIconShape {
   id: string;
@@ -180,18 +195,18 @@ export function loadAzureIconLibrary(libraryPath?: string): AzureIconLibrary {
   // Try multiple possible paths to locate the icon library
   const possiblePaths = [
     // ESM __dirname based path (from src/shapes/)
-    path.join(__dirname, "..", "..", "assets", "azure-public-service-icons", "000 all azure public service icons.xml"),
+    join(__dirname, "..", "..", "assets", "azure-public-service-icons", "000 all azure public service icons.xml"),
     // From build/ directory
-    path.join(__dirname, "..", "..", "..", "assets", "azure-public-service-icons", "000 all azure public service icons.xml"),
+    join(__dirname, "..", "..", "..", "assets", "azure-public-service-icons", "000 all azure public service icons.xml"),
     // From project root (cwd)
-    path.join(process.cwd(), "assets", "azure-public-service-icons", "000 all azure public service icons.xml"),
+    join(Deno.cwd(), "assets", "azure-public-service-icons", "000 all azure public service icons.xml"),
   ];
 
-  const filePath = libraryPath || possiblePaths.find(p => fs.existsSync(p));
+  const filePath = libraryPath || possiblePaths.find(p => fileExistsSync(p));
 
-  if (!filePath || !fs.existsSync(filePath)) {
+  if (!filePath || !fileExistsSync(filePath)) {
     console.warn(`Azure icon library not found. Tried paths:`, possiblePaths);
-    console.warn(`Current working directory: ${process.cwd()}`);
+    console.warn(`Current working directory: ${Deno.cwd()}`);
     console.warn(`__dirname: ${__dirname}`);
     return {
       shapes: [],
@@ -203,7 +218,7 @@ export function loadAzureIconLibrary(libraryPath?: string): AzureIconLibrary {
   console.log(`Loading Azure icon library from: ${filePath}`);
 
   try {
-    const content = fs.readFileSync(filePath, "utf-8");
+    const content = Deno.readTextFileSync(filePath);
     const shapes = parseLibraryXml(content);
     const categories = categorizeShapes(shapes);
 
@@ -383,7 +398,7 @@ export function searchAzureIcons(
 
   const searcher = getSearchIndex();
   const normalizedQuery = normalizeForSearch(query);
-  let results = searcher.search(normalizedQuery).slice(0, limit);
+  const results = searcher.search(normalizedQuery).slice(0, limit);
 
   // Calculate confidence scores based on match position and query length
   const searchResults: SearchResult[] = results.map((item, index) => {

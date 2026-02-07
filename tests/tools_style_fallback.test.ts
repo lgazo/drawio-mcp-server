@@ -1,80 +1,77 @@
 /**
  * Tests for resolveShape style fallback branches in tools.ts.
  *
- * These tests mock the Azure icon library to return shapes with
- * undefined style, exercising the `?? ""` fallback on lines 53 and 66.
+ * In Node.js/Vitest, these tests used vi.mock() to stub the Azure icon library.
+ * In Deno, we instead create a temp XML library file with shapes that lack
+ * image data URLs (so extractStyle() returns undefined), load it via
+ * initializeShapes(tempFile), and exercise the `?? ""` fallback on lines 53 and 66
+ * through the real handler functions.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, afterAll } from "@std/testing/bdd";
+import { assertEquals } from "@std/assert";
+import { resolve } from "@std/path";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { handlers } from "../src/tools.ts";
+import { diagram } from "../src/diagram_model.ts";
+import {
+  initializeShapes,
+  setAzureIconLibraryPath,
+  resetAzureIconLibrary,
+} from "../src/shapes/azure_icon_library.ts";
 
-// Mock azure_icon_library before importing tools — vitest hoists vi.mock
-vi.mock("../src/shapes/azure_icon_library.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../src/shapes/azure_icon_library.js")>();
-  return {
-    ...actual,
-    getAzureShapeByName: vi.fn(),
-    searchAzureIcons: vi.fn(),
-  };
-});
-
-import { handlers } from "../src/tools.js";
-import { diagram } from "../src/diagram_model.js";
-import { getAzureShapeByName, searchAzureIcons } from "../src/shapes/azure_icon_library.js";
-
-const mockGetAzureShapeByName = vi.mocked(getAzureShapeByName);
-const mockSearchAzureIcons = vi.mocked(searchAzureIcons);
-
+/** Parse the JSON payload out of a handler result. */
 function parseResult(result: CallToolResult): any {
   const content = result.content[0];
   if (content.type !== "text") throw new Error(`Expected text content, got ${content.type}`);
   return JSON.parse(content.text);
 }
 
-beforeEach(() => {
-  diagram.clear();
-  mockGetAzureShapeByName.mockReset();
-  mockSearchAzureIcons.mockReset();
+/**
+ * XML library that defines shapes WITHOUT image data URLs in their style.
+ * When the library parser extracts styles, it looks for a `data:image` URL
+ * inside a `style` attribute. These shapes have `fillColor` only, so
+ * `extractStyle()` returns `undefined`, exercising the `?? ""` fallback.
+ *
+ * We include two uniquely-named shapes:
+ * - "ExactMatchNoStyle" — will be found by exact title lookup
+ * - "FuzzyMatchNoStyle" — will be found by fuzzy search when a partial query is used
+ */
+const TEMP_XML = `<mxlibrary>[
+  {"xml":"<mxGraphModel><root><mxCell style=\\"fillColor=#FF0000\\"/></root></mxGraphModel>","w":50,"h":50,"title":"ExactMatchNoStyle"},
+  {"xml":"<mxGraphModel><root><mxCell style=\\"fillColor=#00FF00\\"/></root></mxGraphModel>","w":60,"h":60,"title":"FuzzyMatchNoStyle"}
+]</mxlibrary>`;
+
+// Create the temp XML file and load the custom library
+const tmpFile = Deno.makeTempFileSync({ suffix: ".xml" });
+Deno.writeTextFileSync(tmpFile, TEMP_XML);
+initializeShapes(tmpFile);
+
+// Restore the real library after all tests in this file
+afterAll(() => {
+  Deno.removeSync(tmpFile);
+  setAzureIconLibraryPath(
+    resolve("assets/azure-public-service-icons/000 all azure public service icons.xml"),
+  );
+  resetAzureIconLibrary();
 });
 
 describe("resolveShape style ?? fallback", () => {
   it("should default to empty string when Azure exact match has undefined style", async () => {
-    mockGetAzureShapeByName.mockReturnValue({
-      id: "no-style-shape",
-      title: "No Style Shape",
-      style: undefined,
-      width: 50,
-      height: 50,
-      xml: "<test/>",
-    });
-
-    const result = await handlers["get-shape-by-name"]({ shape_name: "no-style-azure-shape" });
+    diagram.clear();
+    const result = await handlers["get-shape-by-name"]({ shape_name: "ExactMatchNoStyle" });
     const parsed = parseResult(result);
-    expect(parsed.success).toBe(true);
-    expect(parsed.data.shape.style).toBe("");
-    expect(parsed.data.shape.name).toBe("No Style Shape");
+    assertEquals(parsed.success, true);
+    assertEquals(parsed.data.shape.style, "");
+    assertEquals(parsed.data.shape.name, "ExactMatchNoStyle");
   });
 
   it("should default to empty string when Azure fuzzy match has undefined style", async () => {
-    // No exact match
-    mockGetAzureShapeByName.mockReturnValue(undefined);
-    // Fuzzy returns shape without style
-    mockSearchAzureIcons.mockReturnValue([
-      {
-        id: "fuzzy-no-style",
-        title: "Fuzzy No Style",
-        style: undefined,
-        width: 60,
-        height: 60,
-        score: 0.8,
-        xml: "<mxGraphModel/>",
-      },
-    ]);
-
-    // Use a name that won't match basic shapes
-    const result = await handlers["get-shape-by-name"]({ shape_name: "xyzunknown" });
+    diagram.clear();
+    // Use a query that won't match basic shapes but will fuzzy-match "FuzzyMatchNoStyle"
+    const result = await handlers["get-shape-by-name"]({ shape_name: "FuzzyMatchNo" });
     const parsed = parseResult(result);
-    expect(parsed.success).toBe(true);
-    expect(parsed.data.shape.style).toBe("");
-    expect(parsed.data.shape.name).toBe("Fuzzy No Style");
+    assertEquals(parsed.success, true);
+    assertEquals(parsed.data.shape.style, "");
+    assertEquals(parsed.data.shape.name, "FuzzyMatchNoStyle");
   });
 });

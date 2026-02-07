@@ -1,0 +1,63 @@
+{
+  "name": "@drawio/mcp-server",
+  "version": "1.0.0",
+  "exports": "./src/index.ts",
+  "tasks": {
+    "start": "deno run --allow-net --allow-read --allow-env src/index.ts",
+    "start:http": "deno run --allow-net --allow-read --allow-env src/index.ts --transport http --http-port 8080",
+    "start:both": "deno run --allow-net --allow-read --allow-env src/index.ts --transport stdio,http --http-port 8080",
+    "dev": "deno run --watch --allow-net --allow-read --allow-env src/index.ts",
+    "test": "deno test --allow-read --allow-write --allow-env",
+    "test:watch": "deno test --allow-read --allow-write --allow-env --watch",
+    "test:coverage": "deno test --allow-read --allow-write --allow-env --coverage=coverage/ && deno coverage coverage/ --exclude='index\\.ts' --html",
+    "lint": "deno lint && deno check src/ tests/",
+    "fmt": "deno fmt",
+    "fmt:check": "deno fmt --check",
+    "compile": "deno compile --allow-net --allow-read --allow-env --include=src/instructions.md --include=assets/ --output=build/drawio-mcp-server src/index.ts",
+    "inspect": "deno run --allow-all npm:@modelcontextprotocol/inspector --config ./inspector.json --server drawio"
+  },
+  "imports": {
+    "@modelcontextprotocol/sdk/server/mcp.js": "npm:@modelcontextprotocol/sdk@^1.25/server/mcp.js",
+    "@modelcontextprotocol/sdk/server/stdio.js": "npm:@modelcontextprotocol/sdk@^1.25/server/stdio.js",
+    "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js": "npm:@modelcontextprotocol/sdk@^1.25/server/webStandardStreamableHttp.js",
+    "@modelcontextprotocol/sdk/types.js": "npm:@modelcontextprotocol/sdk@^1.25/types.js",
+    "hono": "npm:hono@4.11.1",
+    "hono/cors": "npm:hono@4.11.1/cors",
+    "fast-xml-parser": "npm:fast-xml-parser@^5.3.4",
+    "fuzzy-search": "npm:fuzzy-search@3.2.1",
+    "zod": "npm:zod@4.2.1",
+    "@std/path": "jsr:@std/path@^1",
+    "@std/assert": "jsr:@std/assert@^1",
+    "@std/testing/bdd": "jsr:@std/testing@^1/bdd",
+    "@std/testing/mock": "jsr:@std/testing@^1/mock",
+    "@std/encoding/base64": "jsr:@std/encoding@^1/base64",
+    "@std/cli/parse-args": "jsr:@std/cli@^1/parse-args"
+  },
+  "compilerOptions": {
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "lint": {
+    "rules": {
+      "tags": ["recommended"],
+      "exclude": ["require-await", "no-explicit-any"]
+    }
+  },
+  "fmt": {
+    "lineWidth": 120,
+    "indentWidth": 2,
+    "singleQuote": false,
+    "proseWrap": "preserve"
+  },
+  "test": {
+    "include": ["tests/"]
+  },
+  "exclude": [
+    "build/",
+    "coverage/",
+    "node_modules/"
+  ]
+}

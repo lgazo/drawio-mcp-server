@@ -1,10 +1,15 @@
 /**
  * Draw.io diagram model that generates XML without requiring
  * the browser extension or Draw.io application.
+ *
+ * Compression uses `node:zlib` (Deno Node-compat) for raw deflate
+ * because the Web Compression API does not expose a synchronous API.
+ * Encoding uses `@std/encoding/base64` and standard `TextEncoder` /
+ * `TextDecoder` — no Node.js `Buffer` dependency.
  */
 
 import { deflateRawSync, inflateRawSync } from "node:zlib";
-import { Buffer } from "node:buffer";
+import { encodeBase64, decodeBase64 } from "@std/encoding/base64";
 import { XMLParser } from "fast-xml-parser";
 
 /** Shared XML parser instance for importing Draw.io XML */
@@ -938,9 +943,10 @@ export class DiagramModel {
    * then deflates the URL-encoded bytes, then base64-encodes the result.
    */
   static compressXml(xml: string): string {
+    const encoder = new TextEncoder();
     const uriEncoded = encodeURIComponent(xml);
-    const deflated = deflateRawSync(Buffer.from(uriEncoded, "utf-8"));
-    return Buffer.from(deflated).toString("base64");
+    const deflated = deflateRawSync(encoder.encode(uriEncoded));
+    return encodeBase64(deflated);
   }
 
   /**
@@ -952,9 +958,10 @@ export class DiagramModel {
    * the original XML.
    */
   static decompressXml(compressed: string): string {
-    const deflated = Buffer.from(compressed, "base64");
+    const deflated = decodeBase64(compressed);
     const inflated = inflateRawSync(deflated);
-    return decodeURIComponent(inflated.toString("utf-8"));
+    const decoder = new TextDecoder();
+    return decodeURIComponent(decoder.decode(inflated));
   }
 
   /**

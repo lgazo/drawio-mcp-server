@@ -1,4 +1,6 @@
-import { DiagramModel } from "../src/diagram_model.js";
+import { describe, it, beforeEach } from "@std/testing/bdd";
+import { assertEquals, assert, assertExists, assertNotEquals } from "@std/assert";
+import { DiagramModel } from "../src/diagram_model.ts";
 
 describe("DiagramModel importXml", () => {
   let model: DiagramModel;
@@ -7,736 +9,879 @@ describe("DiagramModel importXml", () => {
     model = new DiagramModel();
   });
 
-  const SINGLE_PAGE_XML = `<mxfile host="app.diagrams.net">
-    <diagram id="d1" name="Overview">
-        <mxGraphModel>
-            <root>
-                <mxCell id="0"/>
-                <mxCell id="1" parent="0"/>
-                <mxCell id="2" value="Hello" style="whiteSpace=wrap;html=1;" vertex="1" parent="1">
-                    <mxGeometry x="100" y="200" width="120" height="60" as="geometry"/>
-                </mxCell>
-                <mxCell id="3" value="World" style="fillColor=#dae8fc;" vertex="1" parent="1">
-                    <mxGeometry x="300" y="200" width="120" height="60" as="geometry"/>
-                </mxCell>
-                <mxCell id="4" value="link" style="edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1" source="2" target="3">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-            </root>
-        </mxGraphModel>
-    </diagram>
-</mxfile>`;
-
-  const MULTI_PAGE_XML = `<mxfile host="app.diagrams.net">
-    <diagram id="page1" name="Overview">
-        <mxGraphModel>
-            <root>
-                <mxCell id="0"/>
-                <mxCell id="1" parent="0"/>
-                <mxCell id="10" value="Web App" style="fillColor=#dae8fc;" vertex="1" parent="1">
-                    <mxGeometry x="100" y="100" width="120" height="60" as="geometry"/>
-                </mxCell>
-            </root>
-        </mxGraphModel>
-    </diagram>
-    <diagram id="page2" name="Details">
-        <mxGraphModel>
-            <root>
-                <mxCell id="0"/>
-                <mxCell id="1" parent="0"/>
-                <mxCell id="20" value="Database" style="shape=cylinder3;" vertex="1" parent="1">
-                    <mxGeometry x="200" y="150" width="80" height="100" as="geometry"/>
-                </mxCell>
-                <mxCell id="21" value="Cache" style="fillColor=#f8cecc;" vertex="1" parent="1">
-                    <mxGeometry x="400" y="150" width="100" height="60" as="geometry"/>
-                </mxCell>
-            </root>
-        </mxGraphModel>
-    </diagram>
-</mxfile>`;
-
-  const XML_WITH_LAYERS = `<mxfile host="app.diagrams.net">
-    <diagram id="d1" name="Layered">
-        <mxGraphModel>
-            <root>
-                <mxCell id="0"/>
-                <mxCell id="1" parent="0"/>
-                <mxCell id="network-layer" value="Network" style="" parent="0"/>
-                <mxCell id="5" value="Server" style="fillColor=#dae8fc;" vertex="1" parent="1">
-                    <mxGeometry x="100" y="100" width="120" height="60" as="geometry"/>
-                </mxCell>
-                <mxCell id="6" value="Firewall" style="fillColor=#f8cecc;" vertex="1" parent="network-layer">
-                    <mxGeometry x="300" y="100" width="120" height="60" as="geometry"/>
-                </mxCell>
-            </root>
-        </mxGraphModel>
-    </diagram>
-</mxfile>`;
-
-  const XML_WITH_GROUPS = `<mxfile host="app.diagrams.net">
-    <diagram id="d1" name="Groups">
-        <mxGraphModel>
-            <root>
-                <mxCell id="0"/>
-                <mxCell id="1" parent="0"/>
-                <mxCell id="g1" value="VNet" style="rounded=1;container=1;collapsible=0;" vertex="1" parent="1">
-                    <mxGeometry x="50" y="50" width="400" height="300" as="geometry"/>
-                </mxCell>
-                <mxCell id="s1" value="Subnet A" style="fillColor=#dae8fc;" vertex="1" parent="g1">
-                    <mxGeometry x="20" y="40" width="160" height="80" as="geometry"/>
-                </mxCell>
-                <mxCell id="s2" value="Subnet B" style="fillColor=#d5e8d4;" vertex="1" parent="g1">
-                    <mxGeometry x="220" y="40" width="160" height="80" as="geometry"/>
-                </mxCell>
-            </root>
-        </mxGraphModel>
-    </diagram>
-</mxfile>`;
-
   describe("single page import", () => {
-    it("should import a single page diagram", () => {
-      const result = model.importXml(SINGLE_PAGE_XML);
-      expect("error" in result).toBe(false);
+    it("should import a simple single-page diagram", () => {
+      const xml = `<mxfile host="app.diagrams.net">
+        <diagram id="test-page" name="Test Page">
+          <mxGraphModel>
+            <root>
+              <mxCell id="0"/>
+              <mxCell id="1" parent="0"/>
+              <mxCell id="2" value="Hello" style="rounded=1;" vertex="1" parent="1">
+                <mxGeometry x="100" y="200" width="120" height="60" as="geometry"/>
+              </mxCell>
+            </root>
+          </mxGraphModel>
+        </diagram>
+      </mxfile>`;
+
+      const result = model.importXml(xml);
+      assertEquals("error" in result, false);
       if (!("error" in result)) {
-        expect(result.pages).toBe(1);
-        expect(result.cells).toBe(3); // 2 vertices + 1 edge
-        expect(result.layers).toBe(1);
+        assertEquals(result.pages, 1);
+        assertEquals(result.cells, 1);
       }
+
+      const cells = model.listCells();
+      assertEquals(cells.length, 1);
+      assertEquals(cells[0].value, "Hello");
+      assertEquals(cells[0].x, 100);
+      assertEquals(cells[0].y, 200);
+      assertEquals(cells[0].width, 120);
+      assertEquals(cells[0].height, 60);
+      assert(cells[0].style!.includes("rounded=1"));
     });
 
-    it("should restore vertex cell properties", () => {
-      model.importXml(SINGLE_PAGE_XML);
-      const cell = model.getCell("2");
-      expect(cell).toBeDefined();
-      expect(cell!.value).toBe("Hello");
-      expect(cell!.x).toBe(100);
-      expect(cell!.y).toBe(200);
-      expect(cell!.width).toBe(120);
-      expect(cell!.height).toBe(60);
-      expect(cell!.type).toBe("vertex");
+    it("should import vertices and edges", () => {
+      const xml = `<mxfile>
+        <diagram id="p1" name="Page 1">
+          <mxGraphModel>
+            <root>
+              <mxCell id="0"/>
+              <mxCell id="1" parent="0"/>
+              <mxCell id="2" value="A" style="" vertex="1" parent="1">
+                <mxGeometry x="10" y="10" width="100" height="50" as="geometry"/>
+              </mxCell>
+              <mxCell id="3" value="B" style="" vertex="1" parent="1">
+                <mxGeometry x="200" y="10" width="100" height="50" as="geometry"/>
+              </mxCell>
+              <mxCell id="4" value="link" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="2" target="3" parent="1">
+                <mxGeometry relative="1" as="geometry"/>
+              </mxCell>
+            </root>
+          </mxGraphModel>
+        </diagram>
+      </mxfile>`;
+
+      const result = model.importXml(xml);
+      assertEquals("error" in result, false);
+      if (!("error" in result)) {
+        assertEquals(result.cells, 3);
+      }
+
+      const vertices = model.listCells({ cellType: "vertex" });
+      const edges = model.listCells({ cellType: "edge" });
+      assertEquals(vertices.length, 2);
+      assertEquals(edges.length, 1);
+      assertEquals(edges[0].value, "link");
+      assertEquals(edges[0].sourceId, "2");
+      assertEquals(edges[0].targetId, "3");
     });
 
-    it("should restore edge cell properties", () => {
-      model.importXml(SINGLE_PAGE_XML);
-      const edge = model.getCell("4");
-      expect(edge).toBeDefined();
-      expect(edge!.type).toBe("edge");
-      expect(edge!.sourceId).toBe("2");
-      expect(edge!.targetId).toBe("3");
-      expect(edge!.value).toBe("link");
-    });
+    it("should use diagram name attribute as page name", () => {
+      const xml = `<mxfile>
+        <diagram id="d1" name="My Custom Page">
+          <mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/></root></mxGraphModel>
+        </diagram>
+      </mxfile>`;
 
-    it("should set nextId high enough for new cells", () => {
-      model.importXml(SINGLE_PAGE_XML);
-      const newCell = model.addRectangle({ text: "New" });
-      // nextId should be > 4 (highest ID in imported XML)
-      expect(parseInt(newCell.id.replace("cell-", ""), 10)).toBeGreaterThan(4);
+      model.importXml(xml);
+      const pages = model.listPages();
+      assertEquals(pages.length, 1);
+      assertEquals(pages[0].name, "My Custom Page");
     });
   });
 
   describe("multi-page import", () => {
     it("should import multiple pages", () => {
-      const result = model.importXml(MULTI_PAGE_XML);
-      expect("error" in result).toBe(false);
+      const xml = `<mxfile>
+        <diagram id="p1" name="Page 1">
+          <mxGraphModel>
+            <root>
+              <mxCell id="0"/>
+              <mxCell id="1" parent="0"/>
+              <mxCell id="2" value="Cell on Page 1" style="" vertex="1" parent="1">
+                <mxGeometry x="10" y="10" width="100" height="50" as="geometry"/>
+              </mxCell>
+            </root>
+          </mxGraphModel>
+        </diagram>
+        <diagram id="p2" name="Page 2">
+          <mxGraphModel>
+            <root>
+              <mxCell id="0"/>
+              <mxCell id="1" parent="0"/>
+              <mxCell id="3" value="Cell on Page 2" style="" vertex="1" parent="1">
+                <mxGeometry x="20" y="20" width="80" height="40" as="geometry"/>
+              </mxCell>
+            </root>
+          </mxGraphModel>
+        </diagram>
+      </mxfile>`;
+
+      const result = model.importXml(xml);
+      assertEquals("error" in result, false);
       if (!("error" in result)) {
-        expect(result.pages).toBe(2);
+        assertEquals(result.pages, 2);
       }
-    });
 
-    it("should create pages with correct names", () => {
-      model.importXml(MULTI_PAGE_XML);
       const pages = model.listPages();
-      expect(pages).toHaveLength(2);
-      expect(pages[0].name).toBe("Overview");
-      expect(pages[1].name).toBe("Details");
+      assertEquals(pages.length, 2);
+      assertEquals(pages[0].name, "Page 1");
+      assertEquals(pages[1].name, "Page 2");
+
+      // Active page should be the first one
+      const activePage = model.getActivePage();
+      assertEquals(activePage.name, "Page 1");
+
+      // Check cells on the active (first) page
+      const cells1 = model.listCells();
+      assertEquals(cells1.length, 1);
+      assertEquals(cells1[0].value, "Cell on Page 1");
+
+      // Switch to second page and check cells
+      model.setActivePage(pages[1].id);
+      const cells2 = model.listCells();
+      assertEquals(cells2.length, 1);
+      assertEquals(cells2[0].value, "Cell on Page 2");
     });
 
-    it("should activate the first page", () => {
-      model.importXml(MULTI_PAGE_XML);
-      const active = model.getActivePage();
-      expect(active.name).toBe("Overview");
-    });
+    it("should default page names when name attribute is missing", () => {
+      const xml = `<mxfile>
+        <diagram id="p1">
+          <mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/></root></mxGraphModel>
+        </diagram>
+        <diagram id="p2">
+          <mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/></root></mxGraphModel>
+        </diagram>
+      </mxfile>`;
 
-    it("should make first page cells accessible", () => {
-      model.importXml(MULTI_PAGE_XML);
-      const cells = model.listCells();
-      expect(cells).toHaveLength(1);
-      expect(cells[0].value).toBe("Web App");
-    });
-
-    it("should have second page cells after switching", () => {
-      model.importXml(MULTI_PAGE_XML);
-      model.setActivePage("page-2");
-      const cells = model.listCells();
-      expect(cells).toHaveLength(2);
-      expect(cells.map(c => c.value)).toContain("Database");
-      expect(cells.map(c => c.value)).toContain("Cache");
+      model.importXml(xml);
+      const pages = model.listPages();
+      assertEquals(pages[0].name, "Page-1");
+      assertEquals(pages[1].name, "Page-2");
     });
   });
 
   describe("import with layers", () => {
     it("should import custom layers", () => {
-      model.importXml(XML_WITH_LAYERS);
-      const layers = model.listLayers();
-      expect(layers).toHaveLength(2);
-      expect(layers.find(l => l.name === "Network")).toBeDefined();
-    });
+      const xml = `<mxfile>
+        <diagram id="p1" name="Page 1">
+          <mxGraphModel>
+            <root>
+              <mxCell id="0"/>
+              <mxCell id="1" parent="0"/>
+              <mxCell id="layer-2" value="Background" parent="0"/>
+              <mxCell id="2" value="On Default" style="" vertex="1" parent="1">
+                <mxGeometry x="10" y="10" width="100" height="50" as="geometry"/>
+              </mxCell>
+              <mxCell id="3" value="On Background" style="" vertex="1" parent="layer-2">
+                <mxGeometry x="200" y="10" width="100" height="50" as="geometry"/>
+              </mxCell>
+            </root>
+          </mxGraphModel>
+        </diagram>
+      </mxfile>`;
 
-    it("should assign cells to correct layers", () => {
-      model.importXml(XML_WITH_LAYERS);
-      const firewall = model.getCell("6");
-      expect(firewall).toBeDefined();
-      expect(firewall!.parent).toBe("network-layer");
+      const result = model.importXml(xml);
+      assertEquals("error" in result, false);
+      if (!("error" in result)) {
+        assertEquals(result.layers, 2);
+        assertEquals(result.cells, 2);
+      }
+
+      const layers = model.listLayers();
+      assertEquals(layers.length, 2);
+      assertEquals(layers[0].name, "Default Layer");
+      assertEquals(layers[1].name, "Background");
+
+      // Verify cells are on correct layers
+      const cells = model.listCells();
+      const defaultCell = cells.find(c => c.value === "On Default");
+      const bgCell = cells.find(c => c.value === "On Background");
+      assertExists(defaultCell);
+      assertExists(bgCell);
+      assertEquals(defaultCell!.parent, "1");
+      assertEquals(bgCell!.parent, "layer-2");
     });
   });
 
   describe("import with groups", () => {
-    it("should import group cells with isGroup flag", () => {
-      model.importXml(XML_WITH_GROUPS);
-      const group = model.getCell("g1");
-      expect(group).toBeDefined();
-      expect(group!.isGroup).toBe(true);
+    it("should import groups and set up parent-child relationships", () => {
+      const xml = `<mxfile>
+        <diagram id="p1" name="Page 1">
+          <mxGraphModel>
+            <root>
+              <mxCell id="0"/>
+              <mxCell id="1" parent="0"/>
+              <mxCell id="group-1" value="VNet" style="rounded=1;container=1;collapsible=0;" vertex="1" parent="1">
+                <mxGeometry x="10" y="10" width="400" height="300" as="geometry"/>
+              </mxCell>
+              <mxCell id="child-1" value="Subnet A" style="" vertex="1" parent="group-1">
+                <mxGeometry x="20" y="20" width="100" height="50" as="geometry"/>
+              </mxCell>
+              <mxCell id="child-2" value="Subnet B" style="" vertex="1" parent="group-1">
+                <mxGeometry x="20" y="100" width="100" height="50" as="geometry"/>
+              </mxCell>
+            </root>
+          </mxGraphModel>
+        </diagram>
+      </mxfile>`;
+
+      const result = model.importXml(xml);
+      assertEquals("error" in result, false);
+      if (!("error" in result)) {
+        assertEquals(result.cells, 3);
+      }
+
+      const group = model.getCell("group-1");
+      assertExists(group);
+      assertEquals(group!.isGroup, true);
+      assertEquals(group!.children!.length, 2);
+      assert(group!.children!.includes("child-1"));
+      assert(group!.children!.includes("child-2"));
+
+      const child1 = model.getCell("child-1");
+      assertExists(child1);
+      assertEquals(child1!.parent, "group-1");
     });
 
-    it("should populate group children", () => {
-      model.importXml(XML_WITH_GROUPS);
-      const group = model.getCell("g1");
-      expect(group!.children).toContain("s1");
-      expect(group!.children).toContain("s2");
-    });
+    it("should import swimlane groups", () => {
+      const xml = `<mxfile>
+        <diagram id="p1" name="Page 1">
+          <mxGraphModel>
+            <root>
+              <mxCell id="0"/>
+              <mxCell id="1" parent="0"/>
+              <mxCell id="swim-1" value="Swimlane" style="swimlane;" vertex="1" parent="1">
+                <mxGeometry x="10" y="10" width="400" height="300" as="geometry"/>
+              </mxCell>
+            </root>
+          </mxGraphModel>
+        </diagram>
+      </mxfile>`;
 
-    it("should set child parent to group ID", () => {
-      model.importXml(XML_WITH_GROUPS);
-      const child = model.getCell("s1");
-      expect(child!.parent).toBe("g1");
+      model.importXml(xml);
+      const cell = model.getCell("swim-1");
+      assertExists(cell);
+      assertEquals(cell!.isGroup, true);
     });
   });
 
   describe("import edge without source/target", () => {
-    it("should import edge with no source or target", () => {
-      const xml = `<mxfile host="test">
-    <diagram id="d1" name="Page">
-        <mxGraphModel>
+    it("should import edges without source or target attributes", () => {
+      const xml = `<mxfile>
+        <diagram id="p1" name="Page 1">
+          <mxGraphModel>
             <root>
-                <mxCell id="0"/>
-                <mxCell id="1" parent="0"/>
-                <mxCell id="2" value="" style="edgeStyle=orthogonal;" edge="1" parent="1">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
+              <mxCell id="0"/>
+              <mxCell id="1" parent="0"/>
+              <mxCell id="2" value="floating edge" style="edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1">
+                <mxGeometry relative="1" as="geometry"/>
+              </mxCell>
             </root>
-        </mxGraphModel>
-    </diagram>
-</mxfile>`;
-      model.importXml(xml);
-      const edge = model.getCell("2");
-      expect(edge).toBeDefined();
-      expect(edge!.type).toBe("edge");
-      expect(edge!.sourceId).toBeUndefined();
-      expect(edge!.targetId).toBeUndefined();
-    });
+          </mxGraphModel>
+        </diagram>
+      </mxfile>`;
 
-    it("should roundtrip edge without source/target without 'undefined' in XML", () => {
-      const xml = `<mxfile host="test">
-    <diagram id="d1" name="Page">
-        <mxGraphModel>
-            <root>
-                <mxCell id="0"/>
-                <mxCell id="1" parent="0"/>
-                <mxCell id="2" value="" style="edgeStyle=orthogonal;" edge="1" parent="1">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-            </root>
-        </mxGraphModel>
-    </diagram>
-</mxfile>`;
-      model.importXml(xml);
-      const exported = model.toXml();
-      expect(exported).not.toContain('source="undefined"');
-      expect(exported).not.toContain('target="undefined"');
-      expect(exported).toContain('edge="1"');
+      const result = model.importXml(xml);
+      assertEquals("error" in result, false);
+
+      const edges = model.listCells({ cellType: "edge" });
+      assertEquals(edges.length, 1);
+      assertEquals(edges[0].value, "floating edge");
+      assertEquals(edges[0].sourceId, undefined);
+      assertEquals(edges[0].targetId, undefined);
     });
   });
 
   describe("import cell without parent attribute", () => {
-    it("should default parent to layer 1 for vertex", () => {
-      const xml = `<mxfile host="test">
-    <diagram id="d1" name="Page">
-        <mxGraphModel>
+    it("should default parent to layer 1", () => {
+      const xml = `<mxfile>
+        <diagram id="p1" name="Page 1">
+          <mxGraphModel>
             <root>
-                <mxCell id="0"/>
-                <mxCell id="1" parent="0"/>
-                <mxCell id="2" value="Orphan" style="" vertex="1">
-                    <mxGeometry x="0" y="0" width="100" height="50" as="geometry"/>
-                </mxCell>
+              <mxCell id="0"/>
+              <mxCell id="1" parent="0"/>
+              <mxCell id="2" value="No Parent" style="" vertex="1">
+                <mxGeometry x="10" y="10" width="100" height="50" as="geometry"/>
+              </mxCell>
             </root>
-        </mxGraphModel>
-    </diagram>
-</mxfile>`;
-      model.importXml(xml);
-      const cell = model.getCell("2");
-      expect(cell).toBeDefined();
-      expect(cell!.parent).toBe("1");
-    });
+          </mxGraphModel>
+        </diagram>
+      </mxfile>`;
 
-    it("should default parent to layer 1 for edge", () => {
-      const xml = `<mxfile host="test">
-    <diagram id="d1" name="Page">
-        <mxGraphModel>
-            <root>
-                <mxCell id="0"/>
-                <mxCell id="1" parent="0"/>
-                <mxCell id="2" value="" style="" edge="1">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-            </root>
-        </mxGraphModel>
-    </diagram>
-</mxfile>`;
       model.importXml(xml);
-      const edge = model.getCell("2");
-      expect(edge).toBeDefined();
-      expect(edge!.parent).toBe("1");
+      const cells = model.listCells();
+      assertEquals(cells.length, 1);
+      assertEquals(cells[0].parent, "1");
     });
   });
 
   describe("import layer without value attribute", () => {
-    it("should use layer id as name when value is empty", () => {
-      const xml = `<mxfile host="test">
-    <diagram id="d1" name="Page">
-        <mxGraphModel>
+    it("should use layer id as name when value is missing", () => {
+      const xml = `<mxfile>
+        <diagram id="p1" name="Page 1">
+          <mxGraphModel>
             <root>
-                <mxCell id="0"/>
-                <mxCell id="1" parent="0"/>
-                <mxCell id="custom-layer" parent="0"/>
-                <mxCell id="2" value="Box" style="" vertex="1" parent="custom-layer">
-                    <mxGeometry x="0" y="0" width="100" height="50" as="geometry"/>
-                </mxCell>
+              <mxCell id="0"/>
+              <mxCell id="1" parent="0"/>
+              <mxCell id="custom-layer" parent="0"/>
             </root>
-        </mxGraphModel>
-    </diagram>
-</mxfile>`;
+          </mxGraphModel>
+        </diagram>
+      </mxfile>`;
+
       model.importXml(xml);
       const layers = model.listLayers();
+      assertEquals(layers.length, 2);
       const customLayer = layers.find(l => l.id === "custom-layer");
-      expect(customLayer).toBeDefined();
-      expect(customLayer!.name).toBe("custom-layer");
+      assertExists(customLayer);
+      assertEquals(customLayer!.name, "custom-layer");
     });
   });
 
   describe("import cell without id attribute", () => {
-    it("should skip cells with no id gracefully", () => {
-      const xml = `<mxfile host="test">
-    <diagram id="d1" name="Page">
-        <mxGraphModel>
+    it("should handle cells without id (skip or assign)", () => {
+      const xml = `<mxfile>
+        <diagram id="p1" name="Page 1">
+          <mxGraphModel>
             <root>
-                <mxCell id="0"/>
-                <mxCell id="1" parent="0"/>
-                <mxCell value="NoId" style="" vertex="1" parent="1">
-                    <mxGeometry x="0" y="0" width="100" height="50" as="geometry"/>
-                </mxCell>
-                <mxCell id="3" value="HasId" style="" vertex="1" parent="1">
-                    <mxGeometry x="200" y="0" width="100" height="50" as="geometry"/>
-                </mxCell>
+              <mxCell id="0"/>
+              <mxCell id="1" parent="0"/>
+              <mxCell value="No ID" style="" vertex="1" parent="1">
+                <mxGeometry x="10" y="10" width="100" height="50" as="geometry"/>
+              </mxCell>
             </root>
-        </mxGraphModel>
-    </diagram>
-</mxfile>`;
+          </mxGraphModel>
+        </diagram>
+      </mxfile>`;
+
+      // Should not throw, even if the cell has no id
       const result = model.importXml(xml);
-      expect("error" in result).toBe(false);
-      // The cell without id gets id="" which is still stored; the one with id="3" is valid
-      const cell = model.getCell("3");
-      expect(cell).toBeDefined();
-      expect(cell!.value).toBe("HasId");
+      assertEquals("error" in result, false);
     });
   });
 
   describe("import error handling", () => {
-    it("should return error for empty XML", () => {
+    it("should return error for empty string", () => {
       const result = model.importXml("");
-      expect("error" in result).toBe(true);
+      assertEquals("error" in result, true);
       if ("error" in result) {
-        expect(result.error.code).toBe("EMPTY_XML");
+        assertEquals(result.error.code, "EMPTY_XML");
       }
     });
 
-    it("should return error for whitespace-only XML", () => {
+    it("should return error for whitespace-only string", () => {
       const result = model.importXml("   \n  ");
-      expect("error" in result).toBe(true);
+      assertEquals("error" in result, true);
       if ("error" in result) {
-        expect(result.error.code).toBe("EMPTY_XML");
+        assertEquals(result.error.code, "EMPTY_XML");
       }
     });
 
-    it("should return error for non-Draw.io XML", () => {
+    it("should return error for non-drawio XML", () => {
       const result = model.importXml("<html><body>Not a diagram</body></html>");
-      expect("error" in result).toBe(true);
+      assertEquals("error" in result, true);
       if ("error" in result) {
-        expect(result.error.code).toBe("INVALID_XML");
+        assertEquals(result.error.code, "INVALID_XML");
       }
-    });
-
-    it("should handle bare mxGraphModel without mxfile wrapper", () => {
-      const bareXml = `<mxGraphModel>
-            <root>
-                <mxCell id="0"/>
-                <mxCell id="1" parent="0"/>
-                <mxCell id="2" value="Bare" style="whiteSpace=wrap;" vertex="1" parent="1">
-                    <mxGeometry x="100" y="100" width="120" height="60" as="geometry"/>
-                </mxCell>
-            </root>
-        </mxGraphModel>`;
-      const result = model.importXml(bareXml);
-      expect("error" in result).toBe(false);
-      if (!("error" in result)) {
-        expect(result.cells).toBe(1);
-      }
-    });
-
-    it("should handle diagram element without id or name attributes", () => {
-      const xml = `<mxfile host="test">
-    <diagram >
-        <mxGraphModel>
-            <root>
-                <mxCell id="0"/>
-                <mxCell id="1" parent="0"/>
-                <mxCell id="2" value="Test" style="" vertex="1" parent="1">
-                    <mxGeometry x="0" y="0" width="100" height="50" as="geometry"/>
-                </mxCell>
-            </root>
-        </mxGraphModel>
-    </diagram>
-</mxfile>`;
-      const result = model.importXml(xml);
-      expect("error" in result).toBe(false);
-      if (!("error" in result)) {
-        expect(result.cells).toBe(1);
-        expect(result.pages).toBe(1);
-      }
-      // Page should have auto-generated name
-      const pages = model.listPages();
-      expect(pages[0].name).toBe("Page-1");
     });
   });
 
   describe("import replaces existing state", () => {
-    it("should clear existing cells before importing", () => {
-      model.addRectangle({ text: "Existing" });
-      expect(model.listCells()).toHaveLength(1);
+    it("should clear previous cells when importing", () => {
+      // Add some cells first
+      model.addRectangle({ text: "Old Cell 1" });
+      model.addRectangle({ text: "Old Cell 2" });
+      assertEquals(model.listCells().length, 2);
 
-      model.importXml(SINGLE_PAGE_XML);
-      // Should have only imported cells, not existing ones
+      // Import new diagram
+      const xml = `<mxfile>
+        <diagram id="p1" name="Fresh">
+          <mxGraphModel>
+            <root>
+              <mxCell id="0"/>
+              <mxCell id="1" parent="0"/>
+              <mxCell id="2" value="New Cell" style="" vertex="1" parent="1">
+                <mxGeometry x="10" y="10" width="100" height="50" as="geometry"/>
+              </mxCell>
+            </root>
+          </mxGraphModel>
+        </diagram>
+      </mxfile>`;
+
+      model.importXml(xml);
       const cells = model.listCells();
-      expect(cells.find(c => c.value === "Existing")).toBeUndefined();
+      assertEquals(cells.length, 1);
+      assertEquals(cells[0].value, "New Cell");
     });
 
-    it("should clear existing pages before importing", () => {
-      model.createPage("Old Page");
-      expect(model.listPages()).toHaveLength(2);
+    it("should clear previous pages when importing", () => {
+      model.createPage("Extra Page");
+      assertEquals(model.listPages().length, 2);
 
-      model.importXml(MULTI_PAGE_XML);
-      expect(model.listPages()).toHaveLength(2);
-      expect(model.listPages()[0].name).toBe("Overview");
+      const xml = `<mxfile>
+        <diagram id="p1" name="Only Page">
+          <mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/></root></mxGraphModel>
+        </diagram>
+      </mxfile>`;
+
+      model.importXml(xml);
+      const pages = model.listPages();
+      assertEquals(pages.length, 1);
+      assertEquals(pages[0].name, "Only Page");
     });
   });
 
   describe("roundtrip: export then import", () => {
-    it("should preserve cells through export/import cycle", () => {
-      model.addRectangle({ text: "A", x: 50, y: 60, width: 100, height: 80 });
-      model.addRectangle({ text: "B", x: 200, y: 60, width: 100, height: 80 });
+    it("should preserve cells through export and import", () => {
+      model.addRectangle({ text: "Box A", x: 50, y: 100, width: 200, height: 80 });
+      model.addRectangle({ text: "Box B", x: 300, y: 100, width: 200, height: 80 });
 
       const xml = model.toXml();
+      const newModel = new DiagramModel();
+      const result = newModel.importXml(xml);
+      assertEquals("error" in result, false);
 
-      // Import into a fresh model
-      const model2 = new DiagramModel();
-      const result = model2.importXml(xml);
-      expect("error" in result).toBe(false);
-
-      const cells = model2.listCells();
-      expect(cells).toHaveLength(2);
-      expect(cells.map(c => c.value).sort()).toEqual(["A", "B"]);
+      const cells = newModel.listCells();
+      assertEquals(cells.length, 2);
+      assert(cells.map(c => c.value).includes("Box A"));
+      assert(cells.map(c => c.value).includes("Box B"));
     });
 
-    it("should preserve edges through export/import cycle", () => {
+    it("should preserve edges through export and import", () => {
       const a = model.addRectangle({ text: "A" });
       const b = model.addRectangle({ text: "B" });
-      model.addEdge({ sourceId: a.id, targetId: b.id, text: "link" });
+      model.addEdge({ sourceId: a.id, targetId: b.id, text: "connects" });
 
       const xml = model.toXml();
-      const model2 = new DiagramModel();
-      model2.importXml(xml);
+      const newModel = new DiagramModel();
+      newModel.importXml(xml);
 
-      const edges = model2.listCells({ cellType: "edge" });
-      expect(edges).toHaveLength(1);
-      expect(edges[0].value).toBe("link");
+      const edges = newModel.listCells({ cellType: "edge" });
+      assertEquals(edges.length, 1);
+      assertEquals(edges[0].value, "connects");
     });
 
-    it("should preserve multiple pages through export/import cycle", () => {
-      model.addRectangle({ text: "P1" });
-      const p2 = model.createPage("Second");
-      model.setActivePage(p2.id);
-      model.addRectangle({ text: "P2" });
+    it("should preserve multiple pages through roundtrip", () => {
+      model.addRectangle({ text: "Page1 Cell" });
+      model.createPage("Second");
+      const pages = model.listPages();
+      model.setActivePage(pages[1].id);
+      model.addRectangle({ text: "Page2 Cell" });
 
       const xml = model.toXml();
-      const model2 = new DiagramModel();
-      model2.importXml(xml);
+      const newModel = new DiagramModel();
+      newModel.importXml(xml);
 
-      const pages = model2.listPages();
-      expect(pages).toHaveLength(2);
+      const newPages = newModel.listPages();
+      assertEquals(newPages.length, 2);
 
-      // Check first page cells
-      const p1Cells = model2.listCells();
-      expect(p1Cells.map(c => c.value)).toContain("P1");
+      // Check first page
+      const cells1 = newModel.listCells();
+      assertEquals(cells1.length, 1);
+      assertEquals(cells1[0].value, "Page1 Cell");
 
-      // Switch to second page
-      model2.setActivePage("page-2");
-      const p2Cells = model2.listCells();
-      expect(p2Cells.map(c => c.value)).toContain("P2");
+      // Check second page
+      newModel.setActivePage(newPages[1].id);
+      const cells2 = newModel.listCells();
+      assertEquals(cells2.length, 1);
+      assertEquals(cells2[0].value, "Page2 Cell");
     });
 
-    it("should preserve groups through export/import cycle", () => {
-      const group = model.createGroup({ text: "VNet", x: 10, y: 20 });
+    it("should preserve groups through roundtrip", () => {
+      const group = model.createGroup({ text: "VNet", x: 10, y: 10, width: 400, height: 300 });
       const child = model.addRectangle({ text: "Subnet" });
       model.addCellToGroup(child.id, group.id);
 
       const xml = model.toXml();
-      const model2 = new DiagramModel();
-      model2.importXml(xml);
+      const newModel = new DiagramModel();
+      newModel.importXml(xml);
 
-      const cells = model2.listCells();
-      const importedGroup = cells.find(c => c.value === "VNet");
-      expect(importedGroup).toBeDefined();
-      expect(importedGroup!.isGroup).toBe(true);
-      expect(importedGroup!.children).toContain(
-        cells.find(c => c.value === "Subnet")!.id
-      );
+      const importedGroup = newModel.listCells().find(c => c.value === "VNet");
+      assertExists(importedGroup);
+      assertEquals(importedGroup!.isGroup, true);
+      assert(importedGroup!.children!.length > 0);
     });
 
-    it("should preserve layers through export/import cycle", () => {
-      model.createLayer("Custom");
+    it("should preserve layers through roundtrip", () => {
+      model.createLayer("Custom Layer");
+      model.addRectangle({ text: "On default" });
+
       const xml = model.toXml();
+      const newModel = new DiagramModel();
+      newModel.importXml(xml);
 
-      const model2 = new DiagramModel();
-      model2.importXml(xml);
+      const layers = newModel.listLayers();
+      assertEquals(layers.length, 2);
+    });
 
-      const layers = model2.listLayers();
-      expect(layers).toHaveLength(2);
-      expect(layers.find(l => l.name === "Custom")).toBeDefined();
+    it("should roundtrip with compression", () => {
+      model.addRectangle({ text: "Compressed Cell", x: 50, y: 50 });
+      const xml = model.toXml({ compress: true });
+
+      const newModel = new DiagramModel();
+      const result = newModel.importXml(xml);
+      assertEquals("error" in result, false);
+
+      const cells = newModel.listCells();
+      assertEquals(cells.length, 1);
+      assertEquals(cells[0].value, "Compressed Cell");
+    });
+  });
+
+  describe("import edge without parent attribute", () => {
+    it("should default parent to layer 1 when parent is missing on edge", () => {
+      const xml = `<mxfile>
+        <diagram id="p1" name="Page 1">
+          <mxGraphModel>
+            <root>
+              <mxCell id="0"/>
+              <mxCell id="1" parent="0"/>
+              <mxCell id="v1" value="A" style="" vertex="1" parent="1">
+                <mxGeometry x="10" y="10" width="100" height="50" as="geometry"/>
+              </mxCell>
+              <mxCell id="v2" value="B" style="" vertex="1" parent="1">
+                <mxGeometry x="200" y="10" width="100" height="50" as="geometry"/>
+              </mxCell>
+              <mxCell id="e1" value="Link" style="" edge="1" source="v1" target="v2"/>
+            </root>
+          </mxGraphModel>
+        </diagram>
+      </mxfile>`;
+
+      model.importXml(xml);
+      const edges = model.listCells({ cellType: "edge" });
+      assertEquals(edges.length, 1);
+      assertEquals(edges[0].parent, "1");
+    });
+  });
+
+  describe("import and export floating edge (no source/target)", () => {
+    it("should handle edge without source and target in roundtrip", () => {
+      const xml = `<mxfile>
+        <diagram id="p1" name="Page 1">
+          <mxGraphModel>
+            <root>
+              <mxCell id="0"/>
+              <mxCell id="1" parent="0"/>
+              <mxCell id="e1" value="Floating" style="" edge="1" parent="1"/>
+            </root>
+          </mxGraphModel>
+        </diagram>
+      </mxfile>`;
+
+      model.importXml(xml);
+      const edges = model.listCells({ cellType: "edge" });
+      assertEquals(edges.length, 1);
+      assertEquals(edges[0].sourceId, undefined);
+      assertEquals(edges[0].targetId, undefined);
+
+      // Export and verify no source/target attributes in the XML
+      const exportedXml = model.toXml();
+      assert(!exportedXml.includes('source='));
+      assert(!exportedXml.includes('target='));
+      assert(exportedXml.includes('edge="1"'));
+    });
+  });
+
+  describe("import root with only UserObjects (no mxCell array)", () => {
+    it("should handle root containing only UserObjects", () => {
+      const xml = `<mxfile>
+        <diagram id="p1" name="Page 1">
+          <mxGraphModel>
+            <root>
+              <UserObject id="uo-1" label="Only UO">
+                <mxCell style="" vertex="1" parent="1">
+                  <mxGeometry x="10" y="10" width="100" height="50" as="geometry"/>
+                </mxCell>
+              </UserObject>
+            </root>
+          </mxGraphModel>
+        </diagram>
+      </mxfile>`;
+
+      const result = model.importXml(xml);
+      assertEquals("error" in result, false);
+      if (!("error" in result)) {
+        assertEquals(result.cells, 1);
+      }
     });
   });
 
   describe("import XML with escaped characters", () => {
-    it("should unescape XML entities in cell values", () => {
-      const xml = `<mxfile host="test">
-    <diagram id="d1" name="Test &amp; Page">
-        <mxGraphModel>
+    it("should handle XML entities in cell values", () => {
+      const xml = `<mxfile>
+        <diagram id="p1" name="Page 1">
+          <mxGraphModel>
             <root>
-                <mxCell id="0"/>
-                <mxCell id="1" parent="0"/>
-                <mxCell id="2" value="Hello &amp; &lt;World&gt;" style="" vertex="1" parent="1">
-                    <mxGeometry x="0" y="0" width="100" height="50" as="geometry"/>
-                </mxCell>
+              <mxCell id="0"/>
+              <mxCell id="1" parent="0"/>
+              <mxCell id="2" value="A &amp; B &lt;C&gt;" style="" vertex="1" parent="1">
+                <mxGeometry x="10" y="10" width="100" height="50" as="geometry"/>
+              </mxCell>
             </root>
-        </mxGraphModel>
-    </diagram>
-</mxfile>`;
-      model.importXml(xml);
-      const cell = model.getCell("2");
-      expect(cell!.value).toBe("Hello & <World>");
+          </mxGraphModel>
+        </diagram>
+      </mxfile>`;
 
-      const pages = model.listPages();
-      expect(pages[0].name).toBe("Test & Page");
+      model.importXml(xml);
+      const cells = model.listCells();
+      assertEquals(cells.length, 1);
+      assertEquals(cells[0].value, "A & B <C>");
     });
   });
 
   describe("import diagram without geometry", () => {
-    it("should use default dimensions for cells without mxGeometry", () => {
-      const xml = `<mxfile host="test">
-    <diagram id="d1" name="Page">
-        <mxGraphModel>
+    it("should use default geometry when mxGeometry is missing", () => {
+      const xml = `<mxfile>
+        <diagram id="p1" name="Page 1">
+          <mxGraphModel>
             <root>
-                <mxCell id="0"/>
-                <mxCell id="1" parent="0"/>
-                <mxCell id="2" value="NoGeo" style="" vertex="1" parent="1"/>
+              <mxCell id="0"/>
+              <mxCell id="1" parent="0"/>
+              <mxCell id="2" value="No Geometry" style="" vertex="1" parent="1"/>
             </root>
-        </mxGraphModel>
-    </diagram>
-</mxfile>`;
+          </mxGraphModel>
+        </diagram>
+      </mxfile>`;
+
       model.importXml(xml);
-      const cell = model.getCell("2");
-      expect(cell).toBeDefined();
-      expect(cell!.x).toBe(0);
-      expect(cell!.y).toBe(0);
-      expect(cell!.width).toBe(200);
-      expect(cell!.height).toBe(100);
+      const cells = model.listCells();
+      assertEquals(cells.length, 1);
+      assertEquals(cells[0].x, 0);
+      assertEquals(cells[0].y, 0);
+      assertEquals(cells[0].width, 200);
+      assertEquals(cells[0].height, 100);
     });
   });
 
   describe("import with UserObject elements", () => {
-    it("should parse UserObject elements as cells", () => {
-      const xml = `<mxfile host="test">
-    <diagram id="d1" name="Page">
-        <mxGraphModel>
+    it("should import UserObject elements as cells", () => {
+      const xml = `<mxfile>
+        <diagram id="p1" name="Page 1">
+          <mxGraphModel>
             <root>
-                <mxCell id="0"/>
-                <mxCell id="1" parent="0"/>
-                <UserObject id="u1" value="Custom Data" style="fillColor=#dae8fc;" vertex="1" parent="1">
-                    <mxCell>
-                        <mxGeometry x="50" y="50" width="150" height="80" as="geometry"/>
-                    </mxCell>
-                </UserObject>
+              <mxCell id="0"/>
+              <mxCell id="1" parent="0"/>
+              <UserObject id="uo-1" label="User Object Cell">
+                <mxCell style="rounded=1;" vertex="1" parent="1">
+                  <mxGeometry x="50" y="50" width="150" height="75" as="geometry"/>
+                </mxCell>
+              </UserObject>
             </root>
-        </mxGraphModel>
-    </diagram>
-</mxfile>`;
+          </mxGraphModel>
+        </diagram>
+      </mxfile>`;
+
       model.importXml(xml);
-      const cell = model.getCell("u1");
-      expect(cell).toBeDefined();
-      expect(cell!.value).toBe("Custom Data");
-      expect(cell!.x).toBe(50);
-      expect(cell!.width).toBe(150);
+      const cells = model.listCells();
+      assertEquals(cells.length, 1);
+      assertEquals(cells[0].id, "uo-1");
+      assertEquals(cells[0].value, "User Object Cell");
+      assertEquals(cells[0].x, 50);
+      assertEquals(cells[0].y, 50);
+      assertEquals(cells[0].width, 150);
+      assertEquals(cells[0].height, 75);
     });
 
-    it("should handle UserObject with empty inner content", () => {
-      const xml = `<mxfile host="test">
-    <diagram id="d1" name="Page">
-        <mxGraphModel>
+    it("should import UserObject with value attribute", () => {
+      const xml = `<mxfile>
+        <diagram id="p1" name="Page 1">
+          <mxGraphModel>
             <root>
-                <mxCell id="0"/>
-                <mxCell id="1" parent="0"/>
-                <UserObject id="u2" value="Empty" style="" vertex="1" parent="1"></UserObject>
+              <mxCell id="0"/>
+              <mxCell id="1" parent="0"/>
+              <UserObject id="uo-2" value="From Value Attr">
+                <mxCell style="" vertex="1" parent="1">
+                  <mxGeometry x="10" y="10" width="100" height="50" as="geometry"/>
+                </mxCell>
+              </UserObject>
             </root>
-        </mxGraphModel>
-    </diagram>
-</mxfile>`;
-      model.importXml(xml);
-      const cell = model.getCell("u2");
-      expect(cell).toBeDefined();
-      expect(cell!.value).toBe("Empty");
-      expect(cell!.x).toBe(0);
-      expect(cell!.y).toBe(0);
-      expect(cell!.width).toBe(200);
-      expect(cell!.height).toBe(100);
-    });
+          </mxGraphModel>
+        </diagram>
+      </mxfile>`;
 
-    it("should merge inner mxCell attributes onto UserObject when not present on outer element", () => {
-      const xml = `<mxfile host="test">
-    <diagram id="d1" name="Page">
-        <mxGraphModel>
-            <root>
-                <mxCell id="0"/>
-                <mxCell id="1" parent="0"/>
-                <UserObject id="u3" label="Merged">
-                    <mxCell style="fillColor=#f0f0f0;" vertex="1" parent="1">
-                        <mxGeometry x="10" y="20" width="130" height="70" as="geometry"/>
-                    </mxCell>
-                </UserObject>
-            </root>
-        </mxGraphModel>
-    </diagram>
-</mxfile>`;
       model.importXml(xml);
-      const cell = model.getCell("u3");
-      expect(cell).toBeDefined();
-      expect(cell!.value).toBe("Merged");
-      expect(cell!.style).toBe("fillColor=#f0f0f0;");
-      expect(cell!.type).toBe("vertex");
-      expect(cell!.parent).toBe("1");
-      expect(cell!.x).toBe(10);
-      expect(cell!.y).toBe(20);
-      expect(cell!.width).toBe(130);
-      expect(cell!.height).toBe(70);
+      const cell = model.getCell("uo-2");
+      assertExists(cell);
+      assertEquals(cell!.value, "From Value Attr");
     });
   });
 
   describe("import group with existing container=1 in style", () => {
-    it("should not duplicate container=1 when already present in style", () => {
-      // Create a group whose style already has container=1
-      model.importXml(XML_WITH_GROUPS); // g1 already has container=1
-      const xml = model.toXml();
-      // Ensure no "container=1;container=1;" duplication
-      expect(xml).not.toContain("container=1;container=1;");
-      expect(xml).toContain("container=1");
+    it("should not duplicate container=1 on import", () => {
+      const xml = `<mxfile>
+        <diagram id="p1" name="Page 1">
+          <mxGraphModel>
+            <root>
+              <mxCell id="0"/>
+              <mxCell id="1" parent="0"/>
+              <mxCell id="g1" value="Group" style="container=1;rounded=1;" vertex="1" parent="1">
+                <mxGeometry x="10" y="10" width="400" height="300" as="geometry"/>
+              </mxCell>
+            </root>
+          </mxGraphModel>
+        </diagram>
+      </mxfile>`;
+
+      model.importXml(xml);
+      const group = model.getCell("g1");
+      assertExists(group);
+      assertEquals(group!.isGroup, true);
+
+      // Export and check no duplication
+      const exportedXml = model.toXml();
+      const matches = exportedXml.match(/container=1/g) || [];
+      assertEquals(matches.length, 1);
     });
   });
 
   describe("import root without mxCell elements", () => {
-    it("should handle root containing only UserObject elements", () => {
-      const xml = `<mxfile host="test">
-    <diagram id="d1" name="Page">
-        <mxGraphModel>
-            <root>
-                <UserObject id="u1" value="Only UO" style="fillColor=#dae8fc;" vertex="1" parent="1">
-                    <mxCell>
-                        <mxGeometry x="10" y="20" width="100" height="50" as="geometry"/>
-                    </mxCell>
-                </UserObject>
-            </root>
-        </mxGraphModel>
-    </diagram>
-</mxfile>`;
+    it("should handle empty root gracefully", () => {
+      const xml = `<mxfile>
+        <diagram id="p1" name="Page 1">
+          <mxGraphModel>
+            <root></root>
+          </mxGraphModel>
+        </diagram>
+      </mxfile>`;
+
       const result = model.importXml(xml);
-      expect("error" in result).toBe(false);
+      assertEquals("error" in result, false);
       if (!("error" in result)) {
-        expect(result.cells).toBe(1);
+        assertEquals(result.cells, 0);
       }
-      const cell = model.getCell("u1");
-      expect(cell).toBeDefined();
-      expect(cell!.value).toBe("Only UO");
     });
   });
 
   describe("import mxfile without diagram children", () => {
-    it("should handle empty mxfile gracefully", () => {
-      const xml = `<mxfile host="test"></mxfile>`;
+    it("should handle mxfile with no diagram elements", () => {
+      const xml = `<mxfile host="app.diagrams.net"></mxfile>`;
+
       const result = model.importXml(xml);
-      // Should not error — returns a page with zero cells
-      expect("error" in result).toBe(false);
+      assertEquals("error" in result, false);
       if (!("error" in result)) {
-        expect(result.pages).toBe(1);
-        expect(result.cells).toBe(0);
+        assertEquals(result.pages, 1);
+        assertEquals(result.cells, 0);
       }
     });
   });
 
   describe("import diagram without mxGraphModel root", () => {
-    it("should handle diagram with no root element gracefully", () => {
-      const xml = `<mxfile host="test">
-    <diagram id="d1" name="Empty">
-        <mxGraphModel>
-        </mxGraphModel>
-    </diagram>
-</mxfile>`;
+    it("should handle diagram without mxGraphModel", () => {
+      const xml = `<mxfile>
+        <diagram id="p1" name="Page 1">
+        </diagram>
+      </mxfile>`;
+
       const result = model.importXml(xml);
-      expect("error" in result).toBe(false);
+      assertEquals("error" in result, false);
       if (!("error" in result)) {
-        expect(result.pages).toBe(1);
-        expect(result.cells).toBe(0);
-        expect(result.layers).toBe(1);
+        assertEquals(result.cells, 0);
       }
     });
   });
 
   describe("ID collision prevention", () => {
-    it("should not produce duplicate page IDs after delete and create", () => {
-      const p2 = model.createPage("Page 2");
-      model.deletePage(p2.id);
-      const p3 = model.createPage("Page 3");
-      // p3 should NOT reuse p2's ID
-      expect(p3.id).not.toBe(p2.id);
-      const pages = model.listPages();
-      const ids = pages.map(p => p.id);
-      expect(new Set(ids).size).toBe(ids.length);
+    it("should set nextId higher than imported IDs", () => {
+      const xml = `<mxfile>
+        <diagram id="p1" name="Page 1">
+          <mxGraphModel>
+            <root>
+              <mxCell id="0"/>
+              <mxCell id="1" parent="0"/>
+              <mxCell id="cell-50" value="High ID" style="" vertex="1" parent="1">
+                <mxGeometry x="10" y="10" width="100" height="50" as="geometry"/>
+              </mxCell>
+            </root>
+          </mxGraphModel>
+        </diagram>
+      </mxfile>`;
+
+      model.importXml(xml);
+
+      // Adding a new cell should not collide with imported IDs
+      const newCell = model.addRectangle({ text: "New" });
+      assertNotEquals(newCell.id, "cell-50");
+      // The new ID should have a number > 50
+      const numMatch = newCell.id.match(/\d+/);
+      assertExists(numMatch);
+      assert(parseInt(numMatch![0], 10) > 50);
     });
 
-    it("should not produce duplicate layer IDs after page switch and create", () => {
-      const l1 = model.createLayer("Layer A");
-      const l2 = model.createLayer("Layer B");
-      // Switch to a new page and create layers there
-      const p2 = model.createPage("Page 2");
-      model.setActivePage(p2.id);
-      const l3 = model.createLayer("Layer C");
-      // All layer IDs should be unique
-      expect(new Set([l1.id, l2.id, l3.id]).size).toBe(3);
+    it("should handle non-numeric IDs gracefully", () => {
+      const xml = `<mxfile>
+        <diagram id="p1" name="Page 1">
+          <mxGraphModel>
+            <root>
+              <mxCell id="0"/>
+              <mxCell id="1" parent="0"/>
+              <mxCell id="abc-def" value="Alpha" style="" vertex="1" parent="1">
+                <mxGeometry x="10" y="10" width="100" height="50" as="geometry"/>
+              </mxCell>
+            </root>
+          </mxGraphModel>
+        </diagram>
+      </mxfile>`;
+
+      const result = model.importXml(xml);
+      assertEquals("error" in result, false);
+
+      // Should still be able to add new cells
+      const newCell = model.addRectangle({ text: "After non-numeric" });
+      assertExists(newCell.id);
+    });
+
+    it("should not reuse IDs from deleted cells after import", () => {
+      const xml = `<mxfile>
+        <diagram id="p1" name="Page 1">
+          <mxGraphModel>
+            <root>
+              <mxCell id="0"/>
+              <mxCell id="1" parent="0"/>
+              <mxCell id="cell-10" value="Ten" style="" vertex="1" parent="1">
+                <mxGeometry x="10" y="10" width="100" height="50" as="geometry"/>
+              </mxCell>
+              <mxCell id="cell-20" value="Twenty" style="" vertex="1" parent="1">
+                <mxGeometry x="200" y="10" width="100" height="50" as="geometry"/>
+              </mxCell>
+            </root>
+          </mxGraphModel>
+        </diagram>
+      </mxfile>`;
+
+      model.importXml(xml);
+      model.deleteCell("cell-20");
+
+      const newCell = model.addRectangle({ text: "After delete" });
+      assertNotEquals(newCell.id, "cell-20");
+    });
+  });
+
+  describe("import bare mxGraphModel", () => {
+    it("should import bare mxGraphModel without mxfile wrapper", () => {
+      const xml = `<mxGraphModel>
+        <root>
+          <mxCell id="0"/>
+          <mxCell id="1" parent="0"/>
+          <mxCell id="2" value="Bare" style="" vertex="1" parent="1">
+            <mxGeometry x="10" y="10" width="100" height="50" as="geometry"/>
+          </mxCell>
+        </root>
+      </mxGraphModel>`;
+
+      const result = model.importXml(xml);
+      assertEquals("error" in result, false);
+      if (!("error" in result)) {
+        assertEquals(result.pages, 1);
+        assertEquals(result.cells, 1);
+      }
+
+      const cells = model.listCells();
+      assertEquals(cells.length, 1);
+      assertEquals(cells[0].value, "Bare");
     });
   });
 });

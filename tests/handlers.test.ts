@@ -1,7 +1,8 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, beforeEach } from "@std/testing/bdd";
+import { assertEquals, assert, assertExists } from "@std/assert";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { handlers } from "../src/tools.js";
-import { diagram } from "../src/diagram_model.js";
+import { handlers } from "../src/tools.ts";
+import { diagram } from "../src/diagram_model.ts";
 
 /**
  * Extract and parse the JSON text payload from a CallToolResult.
@@ -38,27 +39,25 @@ describe("tool handlers", () => {
   describe("delete-cell-by-id", () => {
     it("should delete an existing cell", async () => {
       const cell = await addVertex({ text: "ToDelete" });
-
       const result = await handlers["delete-cell-by-id"]({ cell_id: cell.id });
       const parsed = parseResult(result);
-      expect(parsed.success).toBe(true);
-      expect(parsed.data.deleted).toBe(cell.id);
+      assertEquals(parsed.success, true);
+      assertEquals(parsed.data.deleted, cell.id);
     });
 
     it("should return error for non-existent cell", async () => {
       const result = await handlers["delete-cell-by-id"]({ cell_id: "nope" });
-      expect(result.isError).toBe(true);
+      assertEquals(result.isError, true);
     });
 
     it("should report cascaded edge deletions", async () => {
       const a = await addVertex({ text: "A" });
       const b = await addVertex({ text: "B" });
       await addEdge(a.id, b.id);
-
       const result = await handlers["delete-cell-by-id"]({ cell_id: a.id });
       const parsed = parseResult(result);
-      expect(parsed.data.deleted).toBe(a.id);
-      expect(parsed.data.cascaded_edges).toHaveLength(1);
+      assertEquals(parsed.data.deleted, a.id);
+      assertEquals(parsed.data.cascaded_edges.length, 1);
     });
   });
 
@@ -67,29 +66,27 @@ describe("tool handlers", () => {
       const a = await addVertex({ text: "A" });
       const b = await addVertex({ text: "B" });
       const edge = await addEdge(a.id, b.id);
-
       const result = await handlers["delete-edge"]({ cell_id: edge.id });
       const parsed = parseResult(result);
-      expect(parsed.success).toBe(true);
-      expect(parsed.data.deleted).toBe(edge.id);
-      expect(parsed.data.remaining).toBeDefined();
+      assertEquals(parsed.success, true);
+      assertEquals(parsed.data.deleted, edge.id);
+      assertExists(parsed.data.remaining);
     });
 
     it("should return error for non-existent cell", async () => {
       const result = await handlers["delete-edge"]({ cell_id: "nope" });
-      expect(result.isError).toBe(true);
+      assertEquals(result.isError, true);
       const parsed = JSON.parse((result.content[0] as any).text);
-      expect(parsed.error.code).toBe("CELL_NOT_FOUND");
+      assertEquals(parsed.error.code, "CELL_NOT_FOUND");
     });
 
     it("should return error when target is a vertex, not an edge", async () => {
       const cell = await addVertex({ text: "NotAnEdge" });
-
       const result = await handlers["delete-edge"]({ cell_id: cell.id });
-      expect(result.isError).toBe(true);
+      assertEquals(result.isError, true);
       const parsed = JSON.parse((result.content[0] as any).text);
-      expect(parsed.error.code).toBe("NOT_AN_EDGE");
-      expect(parsed.error.message).toContain("vertex");
+      assertEquals(parsed.error.code, "NOT_AN_EDGE");
+      assert(parsed.error.message.includes("vertex"));
     });
   });
 
@@ -98,14 +95,13 @@ describe("tool handlers", () => {
       const a = await addVertex({ text: "A" });
       const b = await addVertex({ text: "B" });
       const edge = await addEdge(a.id, b.id, "old");
-
       const result = await handlers["edit-edge"]({
         cell_id: edge.id,
         text: "new label",
       });
       const parsed = parseResult(result);
-      expect(parsed.success).toBe(true);
-      expect(parsed.data.cell.value).toBe("new label");
+      assertEquals(parsed.success, true);
+      assertEquals(parsed.data.cell.value, "new label");
     });
 
     it("should return error for non-existent edge", async () => {
@@ -113,21 +109,20 @@ describe("tool handlers", () => {
         cell_id: "nonexistent",
         text: "X",
       });
-      expect(result.isError).toBe(true);
+      assertEquals(result.isError, true);
       const parsed = parseResult(result);
-      expect(parsed.error.code).toBe("CELL_NOT_FOUND");
+      assertEquals(parsed.error.code, "CELL_NOT_FOUND");
     });
 
     it("should return error when editing a vertex as an edge", async () => {
       const cell = await addVertex({ text: "A" });
-
       const result = await handlers["edit-edge"]({
         cell_id: cell.id,
         text: "X",
       });
-      expect(result.isError).toBe(true);
+      assertEquals(result.isError, true);
       const parsed = parseResult(result);
-      expect(parsed.error.code).toBe("WRONG_CELL_TYPE");
+      assertEquals(parsed.error.code, "WRONG_CELL_TYPE");
     });
   });
 
@@ -135,47 +130,43 @@ describe("tool handlers", () => {
     it("should return empty page for empty diagram", async () => {
       const result = await handlers["list-paged-model"]({});
       const parsed = parseResult(result);
-      expect(parsed.data.totalCells).toBe(0);
-      expect(parsed.data.cells).toHaveLength(0);
+      assertEquals(parsed.data.totalCells, 0);
+      assertEquals(parsed.data.cells.length, 0);
     });
 
     it("should paginate cells", async () => {
       for (let i = 0; i < 5; i++) {
         await addVertex({ text: `Cell ${i}` });
       }
-
       const page0 = await handlers["list-paged-model"]({ page: 0, page_size: 2 });
       const parsed0 = parseResult(page0);
-      expect(parsed0.data.cells).toHaveLength(2);
-      expect(parsed0.data.totalPages).toBe(3);
-
+      assertEquals(parsed0.data.cells.length, 2);
+      assertEquals(parsed0.data.totalPages, 3);
       const page2 = await handlers["list-paged-model"]({ page: 2, page_size: 2 });
       const parsed2 = parseResult(page2);
-      expect(parsed2.data.cells).toHaveLength(1);
+      assertEquals(parsed2.data.cells.length, 1);
     });
 
     it("should filter by cell type", async () => {
       const a = await addVertex({ text: "A" });
       const b = await addVertex({ text: "B" });
       await addEdge(a.id, b.id);
-
       const vertexResult = await handlers["list-paged-model"]({
         filter: { cell_type: "vertex" },
       });
       const parsed = parseResult(vertexResult);
-      expect(parsed.data.totalCells).toBe(2);
+      assertEquals(parsed.data.totalCells, 2);
     });
 
     it("should filter by edge type", async () => {
       const a = await addVertex({ text: "A" });
       const b = await addVertex({ text: "B" });
       await addEdge(a.id, b.id);
-
       const edgeResult = await handlers["list-paged-model"]({
         filter: { cell_type: "edge" },
       });
       const parsed = parseResult(edgeResult);
-      expect(parsed.data.totalCells).toBe(1);
+      assertEquals(parsed.data.totalCells, 1);
     });
   });
 
@@ -183,62 +174,56 @@ describe("tool handlers", () => {
     it("should create, list, set, and get active layer", async () => {
       const createResult = await handlers["create-layer"]({ name: "Network" });
       const created = parseResult(createResult);
-      expect(created.data.layer.name).toBe("Network");
-
+      assertEquals(created.data.layer.name, "Network");
       const listResult = await handlers["list-layers"]();
       const layers = parseResult(listResult).data.layers;
-      expect(layers.length).toBe(2); // Default + Network
-
+      assertEquals(layers.length, 2);
       await handlers["set-active-layer"]({ layer_id: created.data.layer.id });
       const activeResult = await handlers["get-active-layer"]();
       const active = parseResult(activeResult).data.layer;
-      expect(active.name).toBe("Network");
+      assertEquals(active.name, "Network");
     });
 
     it("should move cell to different layer", async () => {
       const layerResult = await handlers["create-layer"]({ name: "Target" });
       const layerId = parseResult(layerResult).data.layer.id;
-
       const cell = await addVertex({ text: "Movable" });
-
       const moveResult = await handlers["move-cell-to-layer"]({
         cell_id: cell.id,
         target_layer_id: layerId,
       });
       const moved = parseResult(moveResult);
-      expect(moved.data.cell.parent).toBe(layerId);
+      assertEquals(moved.data.cell.parent, layerId);
     });
 
     it("should return error for set-active-layer with non-existent layer", async () => {
       const result = await handlers["set-active-layer"]({ layer_id: "nonexistent" });
-      expect(result.isError).toBe(true);
+      assertEquals(result.isError, true);
       const parsed = parseResult(result);
-      expect(parsed.error.code).toBe("LAYER_NOT_FOUND");
+      assertEquals(parsed.error.code, "LAYER_NOT_FOUND");
     });
 
     it("should return error for move-cell-to-layer with non-existent cell", async () => {
       const layerResult = await handlers["create-layer"]({ name: "Target" });
       const layerId = parseResult(layerResult).data.layer.id;
-
       const result = await handlers["move-cell-to-layer"]({
         cell_id: "nonexistent",
         target_layer_id: layerId,
       });
-      expect(result.isError).toBe(true);
+      assertEquals(result.isError, true);
       const parsed = parseResult(result);
-      expect(parsed.error.code).toBe("CELL_NOT_FOUND");
+      assertEquals(parsed.error.code, "CELL_NOT_FOUND");
     });
 
     it("should return error for move-cell-to-layer with non-existent layer", async () => {
       const cell = await addVertex({ text: "A" });
-
       const result = await handlers["move-cell-to-layer"]({
         cell_id: cell.id,
         target_layer_id: "nonexistent",
       });
-      expect(result.isError).toBe(true);
+      assertEquals(result.isError, true);
       const parsed = parseResult(result);
-      expect(parsed.error.code).toBe("LAYER_NOT_FOUND");
+      assertEquals(parsed.error.code, "LAYER_NOT_FOUND");
     });
   });
 
@@ -247,9 +232,9 @@ describe("tool handlers", () => {
       await addVertex({ text: "Test" });
       const result = await handlers["export-diagram"]({});
       const parsed = parseResult(result);
-      expect(parsed.data.xml).toContain("<mxfile");
-      expect(parsed.data.xml).toContain("Test");
-      expect(parsed.data.compression).toEqual({ enabled: false });
+      assert(parsed.data.xml.includes("<mxfile"));
+      assert(parsed.data.xml.includes("Test"));
+      assertEquals(parsed.data.compression, { enabled: false });
     });
   });
 
@@ -258,10 +243,9 @@ describe("tool handlers", () => {
       await addVertex({ text: "A" });
       await addVertex({ text: "B" });
       await handlers["clear-diagram"]();
-
       const stats = await handlers["get-diagram-stats"]();
       const parsed = parseResult(stats);
-      expect(parsed.data.stats.total_cells).toBe(0);
+      assertEquals(parsed.data.stats.total_cells, 0);
     });
   });
 
@@ -269,12 +253,11 @@ describe("tool handlers", () => {
     it("should return correct stats", async () => {
       await addVertex({ text: "A" });
       await addVertex({ text: "B" });
-
       const result = await handlers["get-diagram-stats"]();
       const parsed = parseResult(result);
-      expect(parsed.data.stats.total_cells).toBe(2);
-      expect(parsed.data.stats.vertices).toBe(2);
-      expect(parsed.data.stats.edges).toBe(0);
+      assertEquals(parsed.data.stats.total_cells, 2);
+      assertEquals(parsed.data.stats.vertices, 2);
+      assertEquals(parsed.data.stats.edges, 0);
     });
   });
 
@@ -283,10 +266,9 @@ describe("tool handlers", () => {
       const result = await handlers["get-shape-categories"]();
       const parsed = parseResult(result);
       const categoryIds = parsed.data.categories.map((c: any) => c.id);
-      expect(categoryIds).toContain("general");
-      expect(categoryIds).toContain("flowchart");
-      // Should have Azure categories
-      expect(parsed.data.categories.length).toBeGreaterThan(5);
+      assert(categoryIds.includes("general"));
+      assert(categoryIds.includes("flowchart"));
+      assert(parsed.data.categories.length > 5);
     });
   });
 
@@ -294,30 +276,30 @@ describe("tool handlers", () => {
     it("should return shapes for general category", async () => {
       const result = await handlers["get-shapes-in-category"]({ category_id: "general" });
       const parsed = parseResult(result);
-      expect(parsed.data.total).toBeGreaterThan(0);
+      assert(parsed.data.total > 0);
     });
 
     it("should return error for unknown category", async () => {
       const result = await handlers["get-shapes-in-category"]({ category_id: "nonexistent" });
-      expect(result.isError).toBe(true);
+      assertEquals(result.isError, true);
       const parsed = parseResult(result);
-      expect(parsed.error.code).toBe("CATEGORY_NOT_FOUND");
+      assertEquals(parsed.error.code, "CATEGORY_NOT_FOUND");
     });
 
     it("should return shapes for an Azure category", async () => {
       const result = await handlers["get-shapes-in-category"]({ category_id: "compute" });
       const parsed = parseResult(result);
-      expect(parsed.success).toBe(true);
-      expect(parsed.data.total).toBeGreaterThan(0);
-      expect(parsed.data.shapes[0]).toHaveProperty("name");
-      expect(parsed.data.shapes[0]).toHaveProperty("id");
+      assertEquals(parsed.success, true);
+      assert(parsed.data.total > 0);
+      assert("name" in parsed.data.shapes[0]);
+      assert("id" in parsed.data.shapes[0]);
     });
 
     it("should return shapes for flowchart category", async () => {
       const result = await handlers["get-shapes-in-category"]({ category_id: "flowchart" });
       const parsed = parseResult(result);
-      expect(parsed.success).toBe(true);
-      expect(parsed.data.total).toBeGreaterThan(0);
+      assertEquals(parsed.success, true);
+      assert(parsed.data.total > 0);
     });
   });
 
@@ -325,49 +307,45 @@ describe("tool handlers", () => {
     it("should find basic shapes", async () => {
       const result = await handlers["get-shape-by-name"]({ shape_name: "rectangle" });
       const parsed = parseResult(result);
-      expect(parsed.success).toBe(true);
-      expect(parsed.data.shape.name).toBe("rectangle");
+      assertEquals(parsed.success, true);
+      assertEquals(parsed.data.shape.name, "rectangle");
     });
 
     it("should return error for unknown shape", async () => {
       const result = await handlers["get-shape-by-name"]({ shape_name: "xyznonexistent" });
-      expect(result.isError).toBe(true);
+      assertEquals(result.isError, true);
       const parsed = parseResult(result);
-      expect(parsed.error.code).toBe("SHAPE_NOT_FOUND");
+      assertEquals(parsed.error.code, "SHAPE_NOT_FOUND");
     });
 
     it("should find Azure shapes by exact title", async () => {
-      // Use search-shapes to get a real Azure shape name
       const searchResult = await handlers["search-shapes"]({ queries: ["virtual machine"], limit: 1 });
       const shapeName = parseResult(searchResult).data.results[0].matches[0].name;
-
       const result = await handlers["get-shape-by-name"]({ shape_name: shapeName });
       const parsed = parseResult(result);
-      expect(parsed.success).toBe(true);
-      expect(parsed.data.shape.name).toBe(shapeName);
+      assertEquals(parsed.success, true);
+      assertEquals(parsed.data.shape.name, shapeName);
     });
 
     it("should find Azure shapes via fuzzy search", async () => {
       const result = await handlers["get-shape-by-name"]({ shape_name: "storage account" });
       const parsed = parseResult(result);
-      expect(parsed.success).toBe(true);
-      expect(parsed.data.shape).toHaveProperty("style");
+      assertEquals(parsed.success, true);
+      assert("style" in parsed.data.shape);
     });
 
     it("should prioritize basic shapes over Azure fuzzy matches", async () => {
-      // "start" and "end" are basic shape names that could fuzzy-match Azure icons
       const startResult = await handlers["get-shape-by-name"]({ shape_name: "start" });
       const startParsed = parseResult(startResult);
-      expect(startParsed.success).toBe(true);
-      expect(startParsed.data.shape.name).toBe("start");
-      // Verify it's the basic flowchart shape, not an Azure icon
-      expect(startParsed.data.shape.style).toContain("ellipse");
+      assertEquals(startParsed.success, true);
+      assertEquals(startParsed.data.shape.name, "start");
+      assert(startParsed.data.shape.style.includes("ellipse"));
 
       const endResult = await handlers["get-shape-by-name"]({ shape_name: "end" });
       const endParsed = parseResult(endResult);
-      expect(endParsed.success).toBe(true);
-      expect(endParsed.data.shape.name).toBe("end");
-      expect(endParsed.data.shape.style).toContain("ellipse");
+      assertEquals(endParsed.success, true);
+      assertEquals(endParsed.data.shape.name, "end");
+      assert(endParsed.data.shape.style.includes("ellipse"));
     });
   });
 
@@ -381,35 +359,29 @@ describe("tool handlers", () => {
         ],
       });
       const parsed = parseResult(result);
-      expect(parsed.data.summary.succeeded).toBe(3);
-      expect(parsed.data.summary.failed).toBe(0);
+      assertEquals(parsed.data.summary.succeeded, 3);
+      assertEquals(parsed.data.summary.failed, 0);
     });
 
     it("should support dry_run mode", async () => {
       const result = await handlers["add-cells"]({
-        cells: [
-          { type: "vertex", x: 100, y: 100, text: "DryRun" },
-        ],
+        cells: [{ type: "vertex", x: 100, y: 100, text: "DryRun" }],
         dry_run: true,
       });
       const parsed = parseResult(result);
-      expect(parsed.data.dry_run).toBe(true);
-      expect(parsed.data.summary.succeeded).toBe(1);
-
-      // Diagram should still be empty
+      assertEquals(parsed.data.dry_run, true);
+      assertEquals(parsed.data.summary.succeeded, 1);
       const stats = await handlers["get-diagram-stats"]();
       const statsParsed = parseResult(stats);
-      expect(statsParsed.data.stats.total_cells).toBe(0);
+      assertEquals(statsParsed.data.stats.total_cells, 0);
     });
 
     it("should fail when edge references non-existent source", async () => {
       const result = await handlers["add-cells"]({
-        cells: [
-          { type: "edge", source_id: "nonexistent", target_id: "also-nonexistent" },
-        ],
+        cells: [{ type: "edge", source_id: "nonexistent", target_id: "also-nonexistent" }],
       });
       const parsed = parseResult(result);
-      expect(parsed.data.summary.failed).toBeGreaterThan(0);
+      assert(parsed.data.summary.failed > 0);
     });
 
     it("should resolve temp IDs for edges referencing earlier batch items", async () => {
@@ -421,10 +393,9 @@ describe("tool handlers", () => {
         ],
       });
       const parsed = parseResult(result);
-      expect(parsed.data.summary.succeeded).toBe(3);
-      // Edge should have resolved real cell IDs
+      assertEquals(parsed.data.summary.succeeded, 3);
       const edgeResult = parsed.data.results[2];
-      expect(edgeResult.success).toBe(true);
+      assertEquals(edgeResult.success, true);
     });
   });
 
@@ -432,7 +403,6 @@ describe("tool handlers", () => {
     it("should edit multiple cells", async () => {
       const a = await addVertex({ text: "A" });
       const b = await addVertex({ text: "B" });
-
       const result = await handlers["edit-cells"]({
         cells: [
           { cell_id: a.id, text: "Updated A" },
@@ -440,12 +410,11 @@ describe("tool handlers", () => {
         ],
       });
       const parsed = parseResult(result);
-      expect(parsed.data.summary.succeeded).toBe(2);
+      assertEquals(parsed.data.summary.succeeded, 2);
     });
 
     it("should report failure for non-existent cell in batch", async () => {
       const a = await addVertex({ text: "A" });
-
       const result = await handlers["edit-cells"]({
         cells: [
           { cell_id: a.id, text: "Updated" },
@@ -453,8 +422,8 @@ describe("tool handlers", () => {
         ],
       });
       const parsed = parseResult(result);
-      expect(parsed.data.summary.succeeded).toBe(1);
-      expect(parsed.data.summary.failed).toBe(1);
+      assertEquals(parsed.data.summary.succeeded, 1);
+      assertEquals(parsed.data.summary.failed, 1);
     });
   });
 
@@ -467,43 +436,36 @@ describe("tool handlers", () => {
         ],
       });
       const parsed = parseResult(result);
-      expect(parsed.data.summary.succeeded).toBe(2);
-      expect(parsed.data.summary.failed).toBe(0);
+      assertEquals(parsed.data.summary.succeeded, 2);
+      assertEquals(parsed.data.summary.failed, 0);
     });
 
     it("should return error for empty cells array", async () => {
-      const result = await handlers["add-cells-of-shape"]({
-        cells: [],
-      });
-      expect(result.isError).toBe(true);
+      const result = await handlers["add-cells-of-shape"]({ cells: [] });
+      assertEquals(result.isError, true);
       const parsed = parseResult(result);
-      expect(parsed.error.code).toBe("INVALID_INPUT");
+      assertEquals(parsed.error.code, "INVALID_INPUT");
     });
 
     it("should add Azure shape cells with info", async () => {
       const searchResult = await handlers["search-shapes"]({ queries: ["virtual machine"], limit: 1 });
       const azureName = parseResult(searchResult).data.results[0].matches[0].name;
-
       const result = await handlers["add-cells-of-shape"]({
-        cells: [
-          { shape_name: azureName, x: 100, y: 100 },
-        ],
+        cells: [{ shape_name: azureName, x: 100, y: 100 }],
       });
       const parsed = parseResult(result);
-      expect(parsed.data.summary.succeeded).toBe(1);
-      expect(parsed.data.results[0].info).toContain("Azure icon");
+      assertEquals(parsed.data.summary.succeeded, 1);
+      assert(parsed.data.results[0].info.includes("Azure icon"));
     });
 
     it("should include confidence for fuzzy-matched Azure shapes", async () => {
       const result = await handlers["add-cells-of-shape"]({
-        cells: [
-          { shape_name: "storage account", x: 100, y: 100 },
-        ],
+        cells: [{ shape_name: "storage account", x: 100, y: 100 }],
       });
       const parsed = parseResult(result);
-      expect(parsed.data.summary.succeeded).toBe(1);
-      expect(parsed.data.results[0].info).toContain("matched from search");
-      expect(parsed.data.results[0].confidence).toBeGreaterThan(0);
+      assertEquals(parsed.data.summary.succeeded, 1);
+      assert(parsed.data.results[0].info.includes("matched from search"));
+      assert(parsed.data.results[0].confidence > 0);
     });
 
     it("should handle mixed success and failure in batch", async () => {
@@ -515,11 +477,11 @@ describe("tool handlers", () => {
         ],
       });
       const parsed = parseResult(result);
-      expect(parsed.data.summary.succeeded).toBe(2);
-      expect(parsed.data.summary.failed).toBe(1);
-      expect(parsed.data.success).toBe(false);
-      expect(parsed.data.results[1].success).toBe(false);
-      expect(parsed.data.results[1].error.code).toBe("SHAPE_NOT_FOUND");
+      assertEquals(parsed.data.summary.succeeded, 2);
+      assertEquals(parsed.data.summary.failed, 1);
+      assertEquals(parsed.data.success, false);
+      assertEquals(parsed.data.results[1].success, false);
+      assertEquals(parsed.data.results[1].error.code, "SHAPE_NOT_FOUND");
     });
 
     it("should use custom dimensions over shape defaults", async () => {
@@ -529,10 +491,10 @@ describe("tool handlers", () => {
         ],
       });
       const parsed = parseResult(result);
-      expect(parsed.data.results[0].cell.width).toBe(400);
-      expect(parsed.data.results[0].cell.height).toBe(200);
-      expect(parsed.data.results[0].cell.value).toBe("Big");
-      expect(parsed.data.results[0].cell.style).toBe("fillColor=#ff0000;");
+      assertEquals(parsed.data.results[0].cell.width, 400);
+      assertEquals(parsed.data.results[0].cell.height, 200);
+      assertEquals(parsed.data.results[0].cell.value, "Big");
+      assertEquals(parsed.data.results[0].cell.style, "fillColor=#ff0000;");
     });
   });
 
@@ -540,8 +502,8 @@ describe("tool handlers", () => {
     it("should find shapes with queries array", async () => {
       const result = await handlers["search-shapes"]({ queries: ["storage"] });
       const parsed = parseResult(result);
-      expect(parsed.data.results).toHaveLength(1);
-      expect(parsed.data.results[0].matches.length).toBeGreaterThan(0);
+      assertEquals(parsed.data.results.length, 1);
+      assert(parsed.data.results[0].matches.length > 0);
     });
 
     it("should support multiple queries", async () => {
@@ -549,39 +511,39 @@ describe("tool handlers", () => {
         queries: ["storage", "compute"],
       });
       const parsed = parseResult(result);
-      expect(parsed.data.results).toHaveLength(2);
-      expect(parsed.data.totalQueries).toBe(2);
+      assertEquals(parsed.data.results.length, 2);
+      assertEquals(parsed.data.totalQueries, 2);
     });
 
     it("should error when queries array is empty", async () => {
       const result = await handlers["search-shapes"]({ queries: [] });
-      expect(result.isError).toBe(true);
+      assertEquals(result.isError, true);
       const parsed = parseResult(result);
-      expect(parsed.error.code).toBe("INVALID_INPUT");
+      assertEquals(parsed.error.code, "INVALID_INPUT");
     });
 
     it("should respect custom limit", async () => {
       const result = await handlers["search-shapes"]({ queries: ["azure"], limit: 3 });
       const parsed = parseResult(result);
-      expect(parsed.data.results[0].matches.length).toBeLessThanOrEqual(3);
+      assert(parsed.data.results[0].matches.length <= 3);
     });
 
     it("should include basic shapes in results", async () => {
       const result = await handlers["search-shapes"]({ queries: ["rectangle"] });
       const parsed = parseResult(result);
       const matches = parsed.data.results[0].matches;
-      expect(matches.length).toBeGreaterThan(0);
-      expect(matches[0].name).toBe("rectangle");
-      expect(matches[0].category).toBe("basic");
-      expect(matches[0].confidence).toBe(1.0);
+      assert(matches.length > 0);
+      assertEquals(matches[0].name, "rectangle");
+      assertEquals(matches[0].category, "basic");
+      assertEquals(matches[0].confidence, 1.0);
     });
 
     it("should return basic shapes before Azure icons for matching queries", async () => {
       const result = await handlers["search-shapes"]({ queries: ["diamond"] });
       const parsed = parseResult(result);
       const matches = parsed.data.results[0].matches;
-      expect(matches.length).toBeGreaterThan(0);
-      expect(matches[0].category).toBe("basic");
+      assert(matches.length > 0);
+      assertEquals(matches[0].category, "basic");
     });
 
     it("should find basic shapes with partial match", async () => {
@@ -589,20 +551,18 @@ describe("tool handlers", () => {
       const parsed = parseResult(result);
       const matches = parsed.data.results[0].matches;
       const basicMatch = matches.find((m: any) => m.name === "rectangle");
-      expect(basicMatch).toBeDefined();
-      expect(basicMatch.category).toBe("basic");
+      assertExists(basicMatch);
+      assertEquals(basicMatch.category, "basic");
     });
 
     it("should combine basic and Azure results in a single query", async () => {
       const result = await handlers["search-shapes"]({ queries: ["circle", "storage"] });
       const parsed = parseResult(result);
-      expect(parsed.data.results).toHaveLength(2);
-      // "circle" query should have a basic shape match
+      assertEquals(parsed.data.results.length, 2);
       const circleMatches = parsed.data.results[0].matches;
-      expect(circleMatches.some((m: any) => m.category === "basic")).toBe(true);
-      // "storage" query should have Azure matches
+      assert(circleMatches.some((m: any) => m.category === "basic"));
       const storageMatches = parsed.data.results[1].matches;
-      expect(storageMatches.length).toBeGreaterThan(0);
+      assert(storageMatches.length > 0);
     });
   });
 
@@ -610,10 +570,10 @@ describe("tool handlers", () => {
     it("should return preset categories", async () => {
       const result = await handlers["get-style-presets"]();
       const parsed = parseResult(result);
-      expect(parsed.data.presets).toHaveProperty("azure");
-      expect(parsed.data.presets).toHaveProperty("flowchart");
-      expect(parsed.data.presets).toHaveProperty("general");
-      expect(parsed.data.presets).toHaveProperty("edges");
+      assert("azure" in parsed.data.presets);
+      assert("flowchart" in parsed.data.presets);
+      assert("general" in parsed.data.presets);
+      assert("edges" in parsed.data.presets);
     });
   });
 
@@ -621,7 +581,6 @@ describe("tool handlers", () => {
     it("should update cells' styles to match shapes", async () => {
       const a = await addVertex({ text: "A" });
       const b = await addVertex({ text: "B" });
-
       const result = await handlers["set-cell-shape"]({
         cells: [
           { cell_id: a.id, shape_name: "ellipse" },
@@ -629,37 +588,32 @@ describe("tool handlers", () => {
         ],
       });
       const parsed = parseResult(result);
-      expect(parsed.data.summary.succeeded).toBe(2);
+      assertEquals(parsed.data.summary.succeeded, 2);
     });
 
     it("should error when cells array is empty", async () => {
       const result = await handlers["set-cell-shape"]({ cells: [] });
-      expect(result.isError).toBe(true);
+      assertEquals(result.isError, true);
       const parsed = parseResult(result);
-      expect(parsed.error.code).toBe("INVALID_INPUT");
+      assertEquals(parsed.error.code, "INVALID_INPUT");
     });
 
     it("should report errors for unknown shapes in cells array", async () => {
       const cell = await addVertex({ text: "A" });
-
       const result = await handlers["set-cell-shape"]({
-        cells: [
-          { cell_id: cell.id, shape_name: "xyznonexistent" },
-        ],
+        cells: [{ cell_id: cell.id, shape_name: "xyznonexistent" }],
       });
       const parsed = parseResult(result);
-      expect(parsed.data.summary.failed).toBe(1);
-      expect(parsed.data.results[0].error.code).toBe("SHAPE_NOT_FOUND");
+      assertEquals(parsed.data.summary.failed, 1);
+      assertEquals(parsed.data.results[0].error.code, "SHAPE_NOT_FOUND");
     });
 
     it("should report errors for non-existent cell in cells array", async () => {
       const result = await handlers["set-cell-shape"]({
-        cells: [
-          { cell_id: "nonexistent", shape_name: "rectangle" },
-        ],
+        cells: [{ cell_id: "nonexistent", shape_name: "rectangle" }],
       });
       const parsed = parseResult(result);
-      expect(parsed.data.summary.failed).toBe(1);
+      assertEquals(parsed.data.summary.failed, 1);
     });
   });
 });

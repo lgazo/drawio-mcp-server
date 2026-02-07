@@ -1,9 +1,16 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
-import { DiagramModel } from "../src/diagram_model.js";
-import { handlers, createHandlers } from "../src/tools.js";
-import { diagram } from "../src/diagram_model.js";
+/**
+ * Tests for DiagramModel XML compression/decompression (deflate-raw + base64),
+ * the `toXml({ compress: true })` option, and roundtrip through handlers.
+ */
+import { describe, it, beforeEach } from "@std/testing/bdd";
+import { assertEquals, assert, assertExists } from "@std/assert";
+import { spy } from "@std/testing/mock";
+import { DiagramModel } from "../src/diagram_model.ts";
+import { handlers, createHandlers } from "../src/tools.ts";
+import { diagram } from "../src/diagram_model.ts";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
+/** Parse the JSON payload out of a handler result. */
 function parseResult(result: CallToolResult): any {
   const content = result.content[0];
   if (content.type !== "text") {
@@ -19,48 +26,48 @@ describe("DiagramModel compression", () => {
     model = new DiagramModel();
   });
 
-  // ─── compressXml / decompressXml static helpers ──────────────
+  // ——— compressXml / decompressXml static helpers ——————————————
 
   describe("compressXml and decompressXml", () => {
     it("should roundtrip a simple XML string", () => {
       const xml = '<mxGraphModel><root><mxCell id="0"/></root></mxGraphModel>';
       const compressed = DiagramModel.compressXml(xml);
       const decompressed = DiagramModel.decompressXml(compressed);
-      expect(decompressed).toBe(xml);
+      assertEquals(decompressed, xml);
     });
 
     it("should produce a base64 string", () => {
       const xml = '<mxGraphModel><root><mxCell id="0"/></root></mxGraphModel>';
       const compressed = DiagramModel.compressXml(xml);
       // base64 characters only
-      expect(compressed).toMatch(/^[A-Za-z0-9+/=]+$/);
+      assert(/^[A-Za-z0-9+/=]+$/.test(compressed));
     });
 
     it("should produce output different from the input", () => {
       const xml = '<mxGraphModel><root><mxCell id="0"/></root></mxGraphModel>';
       const compressed = DiagramModel.compressXml(xml);
-      expect(compressed).not.toBe(xml);
+      assert(compressed !== xml);
     });
 
     it("should roundtrip XML with special characters", () => {
       const xml = '<mxGraphModel><root><mxCell id="0" value="Hello &amp; &lt;World&gt; &quot;test&quot;"/></root></mxGraphModel>';
       const compressed = DiagramModel.compressXml(xml);
       const decompressed = DiagramModel.decompressXml(compressed);
-      expect(decompressed).toBe(xml);
+      assertEquals(decompressed, xml);
     });
 
     it("should roundtrip XML with unicode characters", () => {
-      const xml = '<mxGraphModel><root><mxCell id="0" value="日本語テスト 🎨"/></root></mxGraphModel>';
+      const xml = '<mxGraphModel><root><mxCell id="0" value="日本語テスト 🎿"/></root></mxGraphModel>';
       const compressed = DiagramModel.compressXml(xml);
       const decompressed = DiagramModel.decompressXml(compressed);
-      expect(decompressed).toBe(xml);
+      assertEquals(decompressed, xml);
     });
 
     it("should roundtrip an empty root", () => {
       const xml = "<mxGraphModel><root></root></mxGraphModel>";
       const compressed = DiagramModel.compressXml(xml);
       const decompressed = DiagramModel.decompressXml(compressed);
-      expect(decompressed).toBe(xml);
+      assertEquals(decompressed, xml);
     });
 
     it("should produce smaller output for large XML", () => {
@@ -70,53 +77,53 @@ describe("DiagramModel compression", () => {
       ).join("");
       const xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>${cells}</root></mxGraphModel>`;
       const compressed = DiagramModel.compressXml(xml);
-      expect(compressed.length).toBeLessThan(xml.length);
+      assert(compressed.length < xml.length);
     });
   });
 
-  // ─── toXml with compress option ──────────────────────────────
+  // ——— toXml with compress option ——————————————————————————————
 
   describe("toXml with compress option", () => {
     it("should return plain XML when compress is false", () => {
       model.addRectangle({ text: "Hello" });
       const xml = model.toXml({ compress: false });
-      expect(xml).toContain("<mxGraphModel");
-      expect(xml).toContain("<mxCell");
-      expect(xml).toContain("Hello");
+      assert(xml.includes("<mxGraphModel"));
+      assert(xml.includes("<mxCell"));
+      assert(xml.includes("Hello"));
     });
 
     it("should return plain XML when compress is omitted", () => {
       model.addRectangle({ text: "Hello" });
       const xml = model.toXml();
-      expect(xml).toContain("<mxGraphModel");
-      expect(xml).toContain("Hello");
+      assert(xml.includes("<mxGraphModel"));
+      assert(xml.includes("Hello"));
     });
 
     it("should return plain XML when options is undefined", () => {
       model.addRectangle({ text: "Hello" });
       const xml = model.toXml(undefined);
-      expect(xml).toContain("<mxGraphModel");
+      assert(xml.includes("<mxGraphModel"));
     });
 
     it("should compress diagram content when compress is true", () => {
       model.addRectangle({ text: "Hello" });
       const xml = model.toXml({ compress: true });
       // Should still have the mxfile and diagram wrapper
-      expect(xml).toContain("<mxfile");
-      expect(xml).toContain("<diagram");
-      expect(xml).toContain("</diagram>");
-      expect(xml).toContain("</mxfile>");
+      assert(xml.includes("<mxfile"));
+      assert(xml.includes("<diagram"));
+      assert(xml.includes("</diagram>"));
+      assert(xml.includes("</mxfile>"));
       // Should NOT contain raw mxGraphModel or mxCell (they are compressed)
-      expect(xml).not.toContain("<mxGraphModel");
-      expect(xml).not.toContain("<mxCell");
-      expect(xml).not.toContain("Hello");
+      assert(!xml.includes("<mxGraphModel"));
+      assert(!xml.includes("<mxCell"));
+      assert(!xml.includes("Hello"));
     });
 
     it("should preserve diagram id and name in compressed output", () => {
       model.addRectangle({ text: "Test" });
       const xml = model.toXml({ compress: true });
-      expect(xml).toContain('id="page-1"');
-      expect(xml).toContain('name="Page-1"');
+      assert(xml.includes('id="page-1"'));
+      assert(xml.includes('name="Page-1"'));
     });
 
     it("should compress multi-page diagrams", () => {
@@ -127,13 +134,13 @@ describe("DiagramModel compression", () => {
 
       const xml = model.toXml({ compress: true });
       // Both diagram elements present
-      expect((xml.match(/<diagram /g) || []).length).toBe(2);
-      expect(xml).toContain('name="Page-1"');
-      expect(xml).toContain('name="Details"');
+      assertEquals((xml.match(/<diagram /g) || []).length, 2);
+      assert(xml.includes('name="Page-1"'));
+      assert(xml.includes('name="Details"'));
       // Raw content should be compressed
-      expect(xml).not.toContain("P1 Cell");
-      expect(xml).not.toContain("P2 Cell");
-      expect(xml).not.toContain("<mxGraphModel");
+      assert(!xml.includes("P1 Cell"));
+      assert(!xml.includes("P2 Cell"));
+      assert(!xml.includes("<mxGraphModel"));
     });
 
     it("should produce smaller output than uncompressed", () => {
@@ -143,7 +150,7 @@ describe("DiagramModel compression", () => {
       }
       const plain = model.toXml({ compress: false });
       const compressed = model.toXml({ compress: true });
-      expect(compressed.length).toBeLessThan(plain.length);
+      assert(compressed.length < plain.length);
     });
 
     it("should handle special characters in compressed output", () => {
@@ -152,14 +159,14 @@ describe("DiagramModel compression", () => {
       // Should still be valid — roundtrip through import
       const model2 = new DiagramModel();
       const result = model2.importXml(compressed);
-      expect("error" in result).toBe(false);
+      assertEquals("error" in result, false);
       const cells = model2.listCells();
-      expect(cells).toHaveLength(1);
-      expect(cells[0].value).toBe('<strong>"Hello" & \'World\'</strong>');
+      assertEquals(cells.length, 1);
+      assertEquals(cells[0].value, '<strong>"Hello" & \'World\'</strong>');
     });
   });
 
-  // ─── importXml with compressed content ───────────────────────
+  // ——— importXml with compressed content ———————————————————————
 
   describe("importXml with compressed diagrams", () => {
     it("should import a compressed single-page diagram", () => {
@@ -168,15 +175,15 @@ describe("DiagramModel compression", () => {
 
       const model2 = new DiagramModel();
       const result = model2.importXml(compressed);
-      expect("error" in result).toBe(false);
+      assertEquals("error" in result, false);
       if (!("error" in result)) {
-        expect(result.pages).toBe(1);
-        expect(result.cells).toBe(1);
+        assertEquals(result.pages, 1);
+        assertEquals(result.cells, 1);
       }
 
       const cells = model2.listCells();
-      expect(cells).toHaveLength(1);
-      expect(cells[0].value).toBe("Compressed Cell");
+      assertEquals(cells.length, 1);
+      assertEquals(cells[0].value, "Compressed Cell");
     });
 
     it("should import a compressed multi-page diagram", () => {
@@ -189,19 +196,19 @@ describe("DiagramModel compression", () => {
 
       const model2 = new DiagramModel();
       const result = model2.importXml(compressed);
-      expect("error" in result).toBe(false);
+      assertEquals("error" in result, false);
       if (!("error" in result)) {
-        expect(result.pages).toBe(2);
+        assertEquals(result.pages, 2);
       }
 
       // Check first page
       const p1Cells = model2.listCells();
-      expect(p1Cells.map(c => c.value)).toContain("Page1");
+      assert(p1Cells.map(c => c.value).includes("Page1"));
 
       // Check second page
       model2.setActivePage("page-2");
       const p2Cells = model2.listCells();
-      expect(p2Cells.map(c => c.value)).toContain("Page2");
+      assert(p2Cells.map(c => c.value).includes("Page2"));
     });
 
     it("should preserve edges through compressed roundtrip", () => {
@@ -215,8 +222,8 @@ describe("DiagramModel compression", () => {
       model2.importXml(compressed);
 
       const edges = model2.listCells({ cellType: "edge" });
-      expect(edges).toHaveLength(1);
-      expect(edges[0].value).toBe("link");
+      assertEquals(edges.length, 1);
+      assertEquals(edges[0].value, "link");
     });
 
     it("should preserve layers through compressed roundtrip", () => {
@@ -227,8 +234,8 @@ describe("DiagramModel compression", () => {
       model2.importXml(compressed);
 
       const layers = model2.listLayers();
-      expect(layers.length).toBe(2);
-      expect(layers.some(l => l.name === "Custom")).toBe(true);
+      assertEquals(layers.length, 2);
+      assert(layers.some(l => l.name === "Custom"));
     });
 
     it("should preserve groups through compressed roundtrip", () => {
@@ -243,25 +250,25 @@ describe("DiagramModel compression", () => {
 
       const cells = model2.listCells();
       const importedGroup = cells.find(c => c.value === "VNet");
-      expect(importedGroup).toBeDefined();
-      expect(importedGroup!.isGroup).toBe(true);
-      expect(importedGroup!.children).toContain(
+      assertExists(importedGroup);
+      assertEquals(importedGroup!.isGroup, true);
+      assert(importedGroup!.children!.includes(
         cells.find(c => c.value === "Subnet")!.id,
-      );
+      ));
     });
 
     it("should still import uncompressed XML after feature is added", () => {
       // Ensure backward compatibility with plain XML
       const plainXml = `<mxfile host="test"><diagram id="d1" name="Page"><mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/><mxCell id="2" value="Plain" style="" vertex="1" parent="1"><mxGeometry x="0" y="0" width="100" height="50" as="geometry"/></mxCell></root></mxGraphModel></diagram></mxfile>`;
       const result = model.importXml(plainXml);
-      expect("error" in result).toBe(false);
+      assertEquals("error" in result, false);
       const cells = model.listCells();
-      expect(cells).toHaveLength(1);
-      expect(cells[0].value).toBe("Plain");
+      assertEquals(cells.length, 1);
+      assertEquals(cells[0].value, "Plain");
     });
   });
 
-  // ─── Compressed export/import roundtrip through handler ──────
+  // ——— Compressed export/import roundtrip through handler ——————
 
   describe("export-diagram handler with compress", () => {
     beforeEach(() => {
@@ -272,11 +279,11 @@ describe("DiagramModel compression", () => {
       await handlers["add-cells"]({ cells: [{ type: "vertex", text: "Test" }] });
       const result = await handlers["export-diagram"]({ compress: true });
       const parsed = parseResult(result);
-      expect(parsed.data.xml).toContain("<mxfile");
-      expect(parsed.data.xml).not.toContain("<mxGraphModel");
-      expect(parsed.data.xml).not.toContain("Test");
-      expect(parsed.data.stats.total_cells).toBe(1);
-      expect(parsed.data.compression).toEqual({
+      assert(parsed.data.xml.includes("<mxfile"));
+      assert(!parsed.data.xml.includes("<mxGraphModel"));
+      assert(!parsed.data.xml.includes("Test"));
+      assertEquals(parsed.data.stats.total_cells, 1);
+      assertEquals(parsed.data.compression, {
         enabled: true,
         algorithm: "deflate-raw",
         encoding: "base64",
@@ -287,18 +294,18 @@ describe("DiagramModel compression", () => {
       await handlers["add-cells"]({ cells: [{ type: "vertex", text: "Test" }] });
       const result = await handlers["export-diagram"]({ compress: false });
       const parsed = parseResult(result);
-      expect(parsed.data.xml).toContain("<mxGraphModel");
-      expect(parsed.data.xml).toContain("Test");
-      expect(parsed.data.compression).toEqual({ enabled: false });
+      assert(parsed.data.xml.includes("<mxGraphModel"));
+      assert(parsed.data.xml.includes("Test"));
+      assertEquals(parsed.data.compression, { enabled: false });
     });
 
     it("should return plain XML when compress is not provided", async () => {
       await handlers["add-cells"]({ cells: [{ type: "vertex", text: "Test" }] });
       const result = await handlers["export-diagram"]({});
       const parsed = parseResult(result);
-      expect(parsed.data.xml).toContain("<mxGraphModel");
-      expect(parsed.data.xml).toContain("Test");
-      expect(parsed.data.compression).toEqual({ enabled: false });
+      assert(parsed.data.xml.includes("<mxGraphModel"));
+      assert(parsed.data.xml.includes("Test"));
+      assertEquals(parsed.data.compression, { enabled: false });
     });
 
     it("should produce importable compressed output via handler", async () => {
@@ -311,7 +318,7 @@ describe("DiagramModel compression", () => {
       });
       const exportResult = await handlers["export-diagram"]({ compress: true });
       const exported = parseResult(exportResult);
-      expect(exported.data.compression).toEqual({
+      assertEquals(exported.data.compression, {
         enabled: true,
         algorithm: "deflate-raw",
         encoding: "base64",
@@ -320,59 +327,66 @@ describe("DiagramModel compression", () => {
       // Import compressed output
       const importResult = await handlers["import-diagram"]({ xml: exported.data.xml });
       const imported = parseResult(importResult);
-      expect(imported.data.pages).toBe(1);
-      expect(imported.data.cells).toBe(3);
+      assertEquals(imported.data.pages, 1);
+      assertEquals(imported.data.cells, 3);
     });
   });
 
-  // ─── Compression debug logging ──────────────────────────────
+  // ——— Compression debug logging ——————————————————————————————
 
   describe("export-diagram compression debug logging", () => {
-    let logSpy: { debug: ReturnType<typeof vi.fn> };
-    let loggedHandlers: ReturnType<typeof createHandlers>;
-
     beforeEach(() => {
       diagram.clear();
-      logSpy = { debug: vi.fn() };
-      loggedHandlers = createHandlers(logSpy);
     });
 
     it("should log original size and reduction when compress is true", async () => {
+      const debugSpy = spy((_msg: string) => {});
+      const logSpy = { debug: debugSpy };
+      const loggedHandlers = createHandlers(logSpy);
+
       await loggedHandlers["add-cells"]({ cells: [{ type: "vertex", text: "Compression Log Test" }] });
       await loggedHandlers["export-diagram"]({ compress: true });
 
-      const debugCalls = logSpy.debug.mock.calls.map(c => c[0]);
+      const debugCalls = debugSpy.calls.map(c => c.args[0] as string);
       const originalSizeLog = debugCalls.find((msg: string) => msg.includes("original size:"));
       const reductionLog = debugCalls.find((msg: string) => msg.includes("compression reduced size by"));
 
-      expect(originalSizeLog).toBeDefined();
-      expect(originalSizeLog).toMatch(/^\d{4}-\d{2}-\d{2}T.*\[tool:export-diagram\]\s+original size: [\d.]+ KB$/);
+      assertExists(originalSizeLog);
+      assert(/^\d{4}-\d{2}-\d{2}T.*\[tool:export-diagram\]\s+original size: [\d.]+ KB$/.test(originalSizeLog!));
 
-      expect(reductionLog).toBeDefined();
-      expect(reductionLog).toMatch(/^\d{4}-\d{2}-\d{2}T.*\[tool:export-diagram\]\s+compression reduced size by -?\d+\.\d{2}%/);
-      expect(reductionLog).toContain("\u2192");
+      assertExists(reductionLog);
+      assert(/^\d{4}-\d{2}-\d{2}T.*\[tool:export-diagram\]\s+compression reduced size by -?\d+\.\d{2}%/.test(reductionLog!));
+      assert(reductionLog!.includes("\u2192"));
     });
 
     it("should not log compression details when compress is false", async () => {
+      const debugSpy = spy((_msg: string) => {});
+      const logSpy = { debug: debugSpy };
+      const loggedHandlers = createHandlers(logSpy);
+
       await loggedHandlers["add-cells"]({ cells: [{ type: "vertex", text: "No Compress" }] });
       await loggedHandlers["export-diagram"]({ compress: false });
 
-      const debugCalls = logSpy.debug.mock.calls.map(c => c[0]);
+      const debugCalls = debugSpy.calls.map(c => c.args[0] as string);
       const compressionLogs = debugCalls.filter((msg: string) =>
         msg.includes("original size:") || msg.includes("compression reduced size by")
       );
-      expect(compressionLogs).toHaveLength(0);
+      assertEquals(compressionLogs.length, 0);
     });
 
     it("should not log compression details when compress is omitted", async () => {
+      const debugSpy = spy((_msg: string) => {});
+      const logSpy = { debug: debugSpy };
+      const loggedHandlers = createHandlers(logSpy);
+
       await loggedHandlers["add-cells"]({ cells: [{ type: "vertex", text: "Default" }] });
       await loggedHandlers["export-diagram"]({});
 
-      const debugCalls = logSpy.debug.mock.calls.map(c => c[0]);
+      const debugCalls = debugSpy.calls.map(c => c.args[0] as string);
       const compressionLogs = debugCalls.filter((msg: string) =>
         msg.includes("original size:") || msg.includes("compression reduced size by")
       );
-      expect(compressionLogs).toHaveLength(0);
+      assertEquals(compressionLogs.length, 0);
     });
   });
 });

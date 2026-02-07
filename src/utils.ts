@@ -2,15 +2,19 @@
  * Shared utility functions.
  *
  * Small, reusable helpers that appear in multiple modules.
- * Keeps ESM boilerplate out of business-logic files.
+ * Keeps path-resolution boilerplate out of business-logic files.
+ *
+ * Uses Deno-native APIs:
+ *   - `@std/path` for path manipulation and `file://` URL conversion
+ *   - `Deno.readTextFileSync` for synchronous file reads
  */
 
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { dirname, fromFileUrl, resolve } from "@std/path";
 
 /**
  * ESM equivalent of the CommonJS `__dirname` global.
+ *
+ * Converts a `file://` URL (from `import.meta.url`) to its parent directory path.
  *
  * Usage:
  * ```ts
@@ -20,18 +24,18 @@ import { fileURLToPath } from "node:url";
  * @param importMetaUrl — pass `import.meta.url` from the calling module.
  */
 export function esmDirname(importMetaUrl: string): string {
-  return dirname(fileURLToPath(importMetaUrl));
+  return dirname(fromFileUrl(importMetaUrl));
 }
 
 /**
  * Read a UTF-8 text file resolved relative to the calling module's directory.
  *
- * Combines `esmDirname`, `path.resolve`, and `readFileSync` into one call
- * so callers don't need to import three `node:` modules individually.
+ * Combines `esmDirname`, `resolve`, and `Deno.readTextFileSync` into one call
+ * so callers don't need to import multiple modules individually.
  *
  * @param importMetaUrl — pass `import.meta.url` from the calling module.
- * @param pathSegments  — path segments joined via `path.resolve` (same API as `path.join`).
+ * @param pathSegments  — path segments joined via `resolve` (same API as `path.join`).
  */
 export function readRelativeFile(importMetaUrl: string, ...pathSegments: string[]): string {
-  return readFileSync(resolve(esmDirname(importMetaUrl), ...pathSegments), "utf-8");
+  return Deno.readTextFileSync(resolve(esmDirname(importMetaUrl), ...pathSegments));
 }

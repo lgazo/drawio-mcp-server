@@ -2,7 +2,7 @@
 
 A [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server for programmatic diagram generation using [Draw.io](https://www.drawio.com/) (Diagrams.net). This server generates Draw.io XML directly — no browser extension or Draw.io instance required.
 
-[![Build project](https://github.com/lgazo/drawio-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/lgazo/drawio-mcp-server/actions/workflows/ci.yml)
+<!--[![Build project](https://github.com/simonkurtz-MSFT/drawio-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/simonkurtz-MSFT/drawio-mcp-server/actions/workflows/ci.yml)-->
 
 ## Features
 
@@ -17,15 +17,14 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server for pro
 
 ## Requirements
 
-- **Node.js** v24 or higher
-- **pnpm** (recommended) or npm
+- **[Deno](https://deno.com/)** v2.3 or higher
 
 ## Quick Start
 
-### Using npx
+### From Source
 
 ```sh
-npx -y drawio-mcp-server
+deno run --allow-net --allow-read --allow-env src/index.ts
 ```
 
 ### MCP Client Configuration
@@ -43,8 +42,8 @@ Edit `claude_desktop_config.json`:
 {
   "mcpServers": {
     "drawio": {
-      "command": "npx",
-      "args": ["-y", "drawio-mcp-server"]
+      "command": "deno",
+      "args": ["run", "--allow-net", "--allow-read", "--allow-env", "/path/to/drawio-mcp-server/src/index.ts"]
     }
   }
 }
@@ -60,8 +59,8 @@ Add to your VS Code settings or `.vscode/mcp.json`:
 {
   "mcpServers": {
     "drawio": {
-      "command": "npx",
-      "args": ["-y", "drawio-mcp-server"]
+      "command": "deno",
+      "args": ["run", "--allow-net", "--allow-read", "--allow-env", "/path/to/drawio-mcp-server/src/index.ts"]
     }
   }
 }
@@ -76,8 +75,8 @@ In the Assistant settings, add a Context Server:
 ```json
 {
   "drawio": {
-    "command": "npx",
-    "args": ["-y", "drawio-mcp-server"],
+    "command": "deno",
+    "args": ["run", "--allow-net", "--allow-read", "--allow-env", "/path/to/drawio-mcp-server/src/index.ts"],
     "env": {}
   }
 }
@@ -91,8 +90,8 @@ Edit `~/.codex/config.toml`:
 
 ```toml
 [mcp_servers.drawio]
-command = "npx"
-args = ["-y", "drawio-mcp-server"]
+command = "deno"
+args = ["run", "--allow-net", "--allow-read", "--allow-env", "/path/to/drawio-mcp-server/src/index.ts"]
 ```
 
 For a locally running HTTP transport:
@@ -112,15 +111,13 @@ Edit `~/.local/share/oterm/config.json`:
 {
   "mcpServers": {
     "drawio": {
-      "command": "npx",
-      "args": ["-y", "drawio-mcp-server"]
+      "command": "deno",
+      "args": ["run", "--allow-net", "--allow-read", "--allow-env", "/path/to/drawio-mcp-server/src/index.ts"]
     }
   }
 }
 ```
 </details>
-
-> **Tip**: Replace `npx` / `"-y"` with `pnpm` / `"dlx"` if you prefer pnpm.
 
 ## Configuration
 
@@ -139,7 +136,9 @@ The `--transport` flag controls which transports to start. Default is `stdio`.
 The HTTP transport exposes a streamable HTTP endpoint at `/mcp` (default port 8080).
 
 ```sh
-npx -y drawio-mcp-server --transport http --http-port 4000
+deno task start:http
+# or with a custom port:
+deno run --allow-net --allow-read --allow-env src/index.ts --transport http --http-port 4000
 ```
 
 MCP client configuration for HTTP:
@@ -148,8 +147,8 @@ MCP client configuration for HTTP:
 {
   "mcpServers": {
     "drawio": {
-      "command": "npx",
-      "args": ["-y", "drawio-mcp-server", "--transport", "http", "--http-port", "4000"]
+      "command": "deno",
+      "args": ["run", "--allow-net", "--allow-read", "--allow-env", "/path/to/drawio-mcp-server/src/index.ts", "--transport", "http", "--http-port", "4000"]
     }
   }
 }
@@ -158,6 +157,8 @@ MCP client configuration for HTTP:
 Health check: `curl http://localhost:8080/health`
 
 ### Docker
+
+The Docker image uses `deno compile` to produce a self-contained native binary, then runs it on a minimal [distroless](https://github.com/GoogleContainerTools/distroless) base image (~20MB) with no shell, no package manager, and a non-root user.
 
 ```sh
 # Build
@@ -177,6 +178,8 @@ docker compose up -d
 The `.env` file supports:
 - `REGISTRY` — Docker registry URL (e.g., `docker.io/myusername`)
 - `IMAGE_VERSION` — Semantic version for image tags (e.g., `1.0.0`)
+
+> **Note**: The distroless image has no shell, so in-container health checks (wget, curl) are not available. Use external health checks (e.g., Kubernetes liveness probes, load balancer health checks) to monitor the `/health` endpoint.
 
 ## Tools
 
@@ -287,37 +290,37 @@ The library loads lazily on first access (singleton pattern). Search operations 
 ### Setup
 
 ```sh
-git clone https://github.com/lgazo/drawio-mcp-server.git
+git clone https://github.com/simonkurtz-MSFT/drawio-mcp-server.git
 cd drawio-mcp-server
-pnpm install
-pnpm build
 ```
+
+No install step needed — Deno resolves dependencies on first run.
 
 ### Common Commands
 
 | Command | Description |
 |---|---|
-| `pnpm build` | Clean build (removes `build/` first, then compiles) |
-| `pnpm dev` | Watch mode — auto-rebuild on changes |
-| `pnpm start` | Start with stdio transport |
-| `pnpm start:http` | Start with HTTP transport |
-| `pnpm start:both` | Start with both transports |
-| `pnpm test` | Run tests |
-| `pnpm test:watch` | Run tests in watch mode |
-| `pnpm test:coverage` | Run tests with coverage |
-| `pnpm lint` | Type-check without emitting |
+| `deno task start` | Start with stdio transport |
+| `deno task start:http` | Start with HTTP transport |
+| `deno task start:both` | Start with both transports |
+| `deno task dev` | Watch mode — auto-restart on changes |
+| `deno task test` | Run tests |
+| `deno task test:watch` | Run tests in watch mode |
+| `deno task test:coverage` | Run tests with coverage |
+| `deno task lint` | Lint and type-check |
+| `deno task fmt` | Format code |
+| `deno task fmt:check` | Check formatting without writing |
+| `deno task compile` | Compile to a self-contained binary |
 
 ### MCP Inspector
 
 Use the [MCP Inspector](https://modelcontextprotocol.io/docs/tools/inspector) to debug the server:
 
 ```sh
-pnpm inspect
+deno task inspect
 ```
 
-After rebuilding, **Restart** the Inspector. After changing tool definitions, **Clear** and **List** the tools again.
-
-To enable Node.js debugging, set the Inspector arguments to `--inspect build/index.js` and connect via `chrome://inspect`.
+After making changes, **Restart** the Inspector. After changing tool definitions, **Clear** and **List** the tools again.
 
 ## License
 
