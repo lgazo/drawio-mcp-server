@@ -236,6 +236,39 @@ export function loadAzureIconLibrary(libraryPath?: string): AzureIconLibrary {
 }
 
 /**
+ * Alias map for common Azure service names that don't have a dedicated icon
+ * in the library. Keys are lowercased search terms; values are the lowercased
+ * title of the icon to resolve to.
+ *
+ * The icon library may not include a standalone icon for every Azure service.
+ * For example, "Container Apps" has no icon of its own — only the
+ * "Container-Apps-Environments" icon exists. These aliases bridge the gap so
+ * that common searches resolve to the best available icon automatically.
+ */
+export const AZURE_SHAPE_ALIASES: ReadonlyMap<string, string> = new Map([
+  // Container Apps → Container Apps Environments (the only Container Apps icon)
+  ["container apps", "02989-icon-service-container-apps-environments"],
+  ["azure container apps", "02989-icon-service-container-apps-environments"],
+  // Entra ID → Entra ID Protection (closest generic Entra ID icon)
+  ["entra id", "10231-icon-service-entra-id-protection"],
+  ["microsoft entra id", "10231-icon-service-entra-id-protection"],
+  // Azure Monitor → Azure Monitor Dashboard (most representative generic icon)
+  ["azure monitor", "02488-icon-service-azure-monitor-dashboard"],
+  // Front Doors → Front Door and CDN Profiles (renamed service icon)
+  ["front doors", "10073-icon-service-front-door-and-cdn-profiles"],
+  ["azure front door", "10073-icon-service-front-door-and-cdn-profiles"],
+  ["azure front doors", "10073-icon-service-front-door-and-cdn-profiles"],
+]);
+
+/**
+ * Resolve an alias to the target icon title. Returns the lowercased target
+ * title when a match exists, otherwise `undefined`.
+ */
+export function resolveAzureAlias(query: string): string | undefined {
+  return AZURE_SHAPE_ALIASES.get(query.toLowerCase());
+}
+
+/**
  * Get library from cache (singleton pattern)
  */
 let cachedLibrary: AzureIconLibrary | null = null;
@@ -336,12 +369,18 @@ export interface SearchResult extends AzureIconShape {
 
 /**
  * Search for icons by title or keyword with fuzzy matching.
+ * When the query matches an alias, the aliased icon is injected
+ * at the top of results with a score of 1.0.
  */
 export function searchAzureIcons(
   query: string,
   limit = 10,
   _options?: { caseSensitive?: boolean }
 ): SearchResult[] {
+  // Check aliases first — if matched, inject the target as top result
+  const aliasTarget = resolveAzureAlias(query);
+  const aliasShape = aliasTarget ? getAzureIconLibrary().indexByTitle.get(aliasTarget) : undefined;
+
   const searcher = getSearchIndex();
   const normalizedQuery = normalizeForSearch(query);
   let results = searcher.search(normalizedQuery).slice(0, limit);
@@ -361,6 +400,14 @@ export function searchAzureIcons(
       score: Math.min(1, Math.max(0, score)),
     };
   });
+
+  // If an alias matched, inject it as the top result (score 1.0) and
+  // remove any duplicate of the same shape from the fuzzy results.
+  if (aliasShape) {
+    const filtered = searchResults.filter(r => r.id !== aliasShape.id);
+    const aliasResult: SearchResult = { ...aliasShape, score: 1.0 };
+    return [aliasResult, ...filtered].slice(0, limit);
+  }
 
   return searchResults.sort((a, b) => b.score - a.score);
 }
@@ -382,9 +429,19 @@ export function getShapesInCategory(category: string): AzureIconShape[] {
 }
 
 /**
- * Get a specific shape by title or ID
+ * Get a specific shape by title or ID.
+ * Falls back to alias resolution when no direct match is found.
  */
 export function getAzureShapeByName(name: string): AzureIconShape | undefined {
   const library = getAzureIconLibrary();
-  return library.indexByTitle.get(name.toLowerCase());
+  const direct = library.indexByTitle.get(name.toLowerCase());
+  if (direct) return direct;
+
+  // Check aliases
+  const aliasTarget = resolveAzureAlias(name);
+  if (aliasTarget) {
+    return library.indexByTitle.get(aliasTarget);
+  }
+
+  return undefined;
 }

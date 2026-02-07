@@ -11,6 +11,8 @@ import {
   resetAzureIconLibrary,
   setAzureIconLibraryPath,
   initializeShapes,
+  AZURE_SHAPE_ALIASES,
+  resolveAzureAlias,
 } from "../src/shapes/azure_icon_library.js";
 import type { AzureIconLibrary } from "../src/shapes/azure_icon_library.js";
 
@@ -303,6 +305,45 @@ describe("searchAzureIcons", () => {
     expect(idMatch).toBeDefined();
     expect(idMatch!.score).toBeGreaterThanOrEqual(0.95);
   });
+
+  test("alias query injects target as top result with score 1.0", () => {
+    const results = searchAzureIcons("Container Apps", 5);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results[0].title).toContain("Container-Apps-Environments");
+    expect(results[0].score).toBe(1.0);
+  });
+
+  test("alias does not duplicate the target in results", () => {
+    const results = searchAzureIcons("Container Apps", 10);
+    const envResults = results.filter(r => r.title.includes("Container-Apps-Environments"));
+    expect(envResults).toHaveLength(1);
+  });
+
+  test("Entra ID alias returns Entra ID Protection as top result", () => {
+    const results = searchAzureIcons("Entra ID", 5);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results[0].title).toContain("Entra-ID");
+    expect(results[0].score).toBe(1.0);
+  });
+
+  test("Azure Monitor alias returns Azure Monitor Dashboard as top result", () => {
+    const results = searchAzureIcons("Azure Monitor", 5);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results[0].title).toContain("Azure-Monitor-Dashboard");
+    expect(results[0].score).toBe(1.0);
+  });
+
+  test("Front Doors alias returns Front Door and CDN Profiles as top result", () => {
+    const results = searchAzureIcons("Front Doors", 5);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results[0].title).toContain("Front-Door-and-CDN-Profiles");
+    expect(results[0].score).toBe(1.0);
+  });
+
+  test("alias respects limit parameter", () => {
+    const results = searchAzureIcons("Container Apps", 2);
+    expect(results.length).toBeLessThanOrEqual(2);
+  });
 });
 
 describe("getAzureShapeByName", () => {
@@ -321,6 +362,42 @@ describe("getAzureShapeByName", () => {
 
   test("returns undefined for unknown name", () => {
     expect(getAzureShapeByName("does-not-exist-at-all")).toBeUndefined();
+  });
+
+  test("resolves alias when direct lookup fails", () => {
+    const found = getAzureShapeByName("Container Apps");
+    expect(found).toBeDefined();
+    expect(found!.title).toContain("Container-Apps-Environments");
+  });
+
+  test("resolves Entra ID alias", () => {
+    const found = getAzureShapeByName("Entra ID");
+    expect(found).toBeDefined();
+    expect(found!.title).toContain("Entra-ID");
+  });
+
+  test("resolves Azure Monitor alias", () => {
+    const found = getAzureShapeByName("Azure Monitor");
+    expect(found).toBeDefined();
+    expect(found!.title).toContain("Azure-Monitor-Dashboard");
+  });
+
+  test("resolves Front Doors alias", () => {
+    const found = getAzureShapeByName("Front Doors");
+    expect(found).toBeDefined();
+    expect(found!.title).toContain("Front-Door-and-CDN-Profiles");
+  });
+
+  test("resolves Azure Front Door alias variant", () => {
+    const found = getAzureShapeByName("Azure Front Door");
+    expect(found).toBeDefined();
+    expect(found!.title).toContain("Front-Door-and-CDN-Profiles");
+  });
+
+  test("resolves alias case-insensitively", () => {
+    const found = getAzureShapeByName("CONTAINER APPS");
+    expect(found).toBeDefined();
+    expect(found!.title).toContain("Container-Apps-Environments");
   });
 });
 
@@ -437,5 +514,59 @@ describe("getAzureIconLibrary automatic reload", () => {
     // Searching should trigger a reload and return results
     const results = searchAzureIcons("virtual machine", 5);
     expect(results.length).toBeGreaterThan(0);
+  });
+});
+
+describe("resolveAzureAlias", () => {
+  test("returns target for known alias", () => {
+    expect(resolveAzureAlias("Container Apps")).toBe("02989-icon-service-container-apps-environments");
+  });
+
+  test("is case-insensitive", () => {
+    expect(resolveAzureAlias("ENTRA ID")).toBe("10231-icon-service-entra-id-protection");
+    expect(resolveAzureAlias("entra id")).toBe("10231-icon-service-entra-id-protection");
+  });
+
+  test("returns undefined for unknown query", () => {
+    expect(resolveAzureAlias("not an alias")).toBeUndefined();
+  });
+
+  test("resolves Azure Container Apps variant", () => {
+    expect(resolveAzureAlias("Azure Container Apps")).toBe("02989-icon-service-container-apps-environments");
+  });
+
+  test("resolves Microsoft Entra ID variant", () => {
+    expect(resolveAzureAlias("Microsoft Entra ID")).toBe("10231-icon-service-entra-id-protection");
+  });
+
+  test("resolves Azure Monitor", () => {
+    expect(resolveAzureAlias("Azure Monitor")).toBe("02488-icon-service-azure-monitor-dashboard");
+  });
+
+  test("resolves Front Doors and variants", () => {
+    expect(resolveAzureAlias("Front Doors")).toBe("10073-icon-service-front-door-and-cdn-profiles");
+    expect(resolveAzureAlias("Azure Front Door")).toBe("10073-icon-service-front-door-and-cdn-profiles");
+    expect(resolveAzureAlias("Azure Front Doors")).toBe("10073-icon-service-front-door-and-cdn-profiles");
+  });
+});
+
+describe("AZURE_SHAPE_ALIASES", () => {
+  test("all alias targets exist in the icon library", () => {
+    const lib = getAzureIconLibrary();
+    for (const [alias, target] of AZURE_SHAPE_ALIASES) {
+      const found = lib.indexByTitle.get(target);
+      expect(found).toBeDefined();
+    }
+  });
+
+  test("contains expected aliases", () => {
+    expect(AZURE_SHAPE_ALIASES.has("container apps")).toBe(true);
+    expect(AZURE_SHAPE_ALIASES.has("entra id")).toBe(true);
+    expect(AZURE_SHAPE_ALIASES.has("microsoft entra id")).toBe(true);
+    expect(AZURE_SHAPE_ALIASES.has("azure container apps")).toBe(true);
+    expect(AZURE_SHAPE_ALIASES.has("azure monitor")).toBe(true);
+    expect(AZURE_SHAPE_ALIASES.has("front doors")).toBe(true);
+    expect(AZURE_SHAPE_ALIASES.has("azure front door")).toBe(true);
+    expect(AZURE_SHAPE_ALIASES.has("azure front doors")).toBe(true);
   });
 });

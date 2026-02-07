@@ -4,6 +4,7 @@
  */
 
 import { deflateRawSync, inflateRawSync } from "node:zlib";
+import { Buffer } from "node:buffer";
 import { XMLParser } from "fast-xml-parser";
 
 /** Shared XML parser instance for importing Draw.io XML */
@@ -930,22 +931,30 @@ export class DiagramModel {
   }
 
   /**
-   * Compress an XML string using the Draw.io format: deflateRaw → encodeURIComponent → base64.
+   * Compress an XML string using the Draw.io format:
+   * encodeURIComponent(xml) → deflateRaw → base64.
+   *
+   * This matches Draw.io's `Graph.compress` which URL-encodes the XML first,
+   * then deflates the URL-encoded bytes, then base64-encodes the result.
    */
   static compressXml(xml: string): string {
-    const deflated = deflateRawSync(Buffer.from(xml, "utf-8"));
-    const uriEncoded = encodeURIComponent(deflated.toString("base64"));
-    return Buffer.from(uriEncoded, "utf-8").toString("base64");
+    const uriEncoded = encodeURIComponent(xml);
+    const deflated = deflateRawSync(Buffer.from(uriEncoded, "utf-8"));
+    return Buffer.from(deflated).toString("base64");
   }
 
   /**
-   * Decompress a Draw.io compressed diagram string: base64 → decodeURIComponent → inflateRaw.
+   * Decompress a Draw.io compressed diagram string:
+   * base64 → inflateRaw → decodeURIComponent.
+   *
+   * This matches Draw.io's `Graph.decompress` which base64-decodes the input,
+   * inflates the raw deflate stream, then URL-decodes the result to recover
+   * the original XML.
    */
   static decompressXml(compressed: string): string {
-    const uriEncoded = Buffer.from(compressed, "base64").toString("utf-8");
-    const deflatedBase64 = decodeURIComponent(uriEncoded);
-    const inflated = inflateRawSync(Buffer.from(deflatedBase64, "base64"));
-    return inflated.toString("utf-8");
+    const deflated = Buffer.from(compressed, "base64");
+    const inflated = inflateRawSync(deflated);
+    return decodeURIComponent(inflated.toString("utf-8"));
   }
 
   /**
