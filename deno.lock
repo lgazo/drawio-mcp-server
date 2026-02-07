@@ -12,7 +12,7 @@
     "npm:@types/fuzzy-search@2.1.5": "2.1.5",
     "npm:fast-xml-parser@^5.3.4": "5.3.4",
     "npm:fuzzy-search@3.2.1": "3.2.1",
-    "npm:hono@4.11.1": "4.11.1",
+    "npm:hono@^4.11.0": "4.11.8",
     "npm:zod@4.2.1": "4.2.1"
   },
   "jsr": {
@@ -49,7 +49,7 @@
     "@hono/node-server@1.19.9_hono@4.11.8": {
       "integrity": "sha512-vHL6w3ecZsky+8P5MD+eFfaGTyCeOHUIFYMGpQGbrBTSmNNoxv0if69rEZ5giu36weC5saFuznL411gRX7bJDw==",
       "dependencies": [
-        "hono@4.11.8"
+        "hono"
       ]
     },
     "@modelcontextprotocol/sdk@1.26.0_zod@4.2.1_hono@4.11.8_ajv@8.17.1_express@5.2.1": {
@@ -65,7 +65,7 @@
         "eventsource-parser",
         "express",
         "express-rate-limit",
-        "hono@4.11.8",
+        "hono",
         "jose",
         "json-schema-typed",
         "pkce-challenge",
@@ -319,9 +319,6 @@
       "dependencies": [
         "function-bind"
       ]
-    },
-    "hono@4.11.1": {
-      "integrity": "sha512-KsFcH0xxHes0J4zaQgWbYwmz3UPOOskdqZmItstUG93+Wk1ePBLkLGwbP9zlmh1BFUiL8Qp+Xfu9P7feJWpGNg=="
     },
     "hono@4.11.8": {
       "integrity": "sha512-eVkB/CYCCei7K2WElZW9yYQFWssG0DhaDhVvr7wy5jJ22K+ck8fWW0EsLpB0sITUTvPnc97+rrbQqIr5iqiy9Q=="
@@ -587,7 +584,7 @@
       "npm:@modelcontextprotocol/sdk@^1.25.0",
       "npm:fast-xml-parser@^5.3.4",
       "npm:fuzzy-search@3.2.1",
-      "npm:hono@4.11.1",
+      "npm:hono@^4.11.0",
       "npm:zod@4.2.1"
     ]
   }
