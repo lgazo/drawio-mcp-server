@@ -1,21 +1,35 @@
+import { createRequire } from "node:module";
+import { parseArgs } from "node:util";
+
+const require = createRequire(import.meta.url);
+const pkg = require("../package.json") as { version: string };
+
+/**
+ * Application version — read from package.json (single source of truth).
+ */
+export const VERSION: string = pkg.version;
+
 /**
  * Application configuration interface
  */
 export interface ServerConfig {
-  readonly extensionPort: number;
   readonly httpPort: number;
   readonly transports: TransportType[];
+  readonly loggerType: LoggerType;
+  readonly azureIconLibraryPath: string | undefined;
 }
 
 export type TransportType = "stdio" | "http";
+export type LoggerType = "console" | "mcp_server";
 
 /**
  * Default configuration values
  */
 const DEFAULT_CONFIG: ServerConfig = {
-  extensionPort: 3333,
-  httpPort: 3000,
+  httpPort: 8080,
   transports: ["stdio"],
+  loggerType: "console",
+  azureIconLibraryPath: undefined,
 } as const;
 
 /**
@@ -26,30 +40,17 @@ const PORT_RANGE = {
   max: 65535,
 } as const;
 
+const VALID_LOGGER_TYPES: readonly LoggerType[] = ["console", "mcp_server"] as const;
+
 /**
- * Parse extension port value from string - pure function
+ * CLI option definitions for node:util parseArgs.
+ * Declared once so parseConfig and shouldShowHelp share the same schema.
  */
-export const parseExtensionPortValue = (
-  value: string | undefined,
-): number | Error => {
-  if (!value) {
-    return new Error("--extension-port flag requires a port number");
-  }
-
-  const port = parseInt(value, 10);
-
-  if (isNaN(port)) {
-    return new Error(`Invalid port number "${value}". Port must be a number`);
-  }
-
-  if (port < PORT_RANGE.min || port > PORT_RANGE.max) {
-    return new Error(
-      `Invalid port number "${value}". Port must be between ${PORT_RANGE.min} and ${PORT_RANGE.max}`,
-    );
-  }
-
-  return port;
-};
+const CLI_OPTIONS = {
+  "http-port": { type: "string", multiple: true },
+  transport: { type: "string", multiple: true },
+  help: { type: "boolean", short: "h" },
+} as const;
 
 /**
  * Parse http port value from string - pure function
@@ -74,6 +75,24 @@ export const parseHttpPortValue = (
   }
 
   return port;
+};
+
+/**
+ * Parse logger type value - pure function
+ */
+export const parseLoggerType = (
+  value: string | undefined,
+): LoggerType | Error => {
+  if (!value || value.trim().length === 0) {
+    return DEFAULT_CONFIG.loggerType;
+  }
+  const normalized = value.trim().toLowerCase();
+  if (VALID_LOGGER_TYPES.includes(normalized as LoggerType)) {
+    return normalized as LoggerType;
+  }
+  return new Error(
+    `Invalid logger type "${value}". Supported types: ${VALID_LOGGER_TYPES.join(", ")}`,
+  );
 };
 
 export const parseTransports = (
@@ -109,77 +128,49 @@ export const parseTransports = (
 };
 
 /**
- * Find argument value by flag name - pure function
- */
-export const findArgValue = (
-  args: readonly string[],
-  ...flags: string[]
-): string | undefined => {
-  const index = args.findIndex((arg) => flags.includes(arg));
-  return index !== -1 ? args[index + 1] : undefined;
-};
-
-/**
- * Check if any flag exists in arguments - pure function
- */
-export const hasFlag = (
-  args: readonly string[],
-  ...flags: string[]
-): boolean => {
-  return args.some((arg) => flags.includes(arg));
-};
-
-/**
  * Check if help was requested - pure function
  */
 export const shouldShowHelp = (args: readonly string[]): boolean => {
-  return hasFlag(args, "--help", "-h");
+  return args.includes("--help") || args.includes("-h");
 };
 
 /**
- * Parse command line arguments into configuration object
- * Pure function - no side effects, deterministic output
+ * Parse command line arguments into configuration object.
+ * Uses node:util parseArgs for robust argument parsing.
+ * Pure function - no side effects, deterministic output.
  */
-export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
-  // Walk arguments so repeated flags allow "last wins" semantics
-  let portValue: string | undefined;
-  let httpPortValue: string | undefined;
-  let parsedHttpPort: number | undefined;
-  let transportValues: string[] | undefined;
+export const parseConfig = (
+  args: readonly string[],
+  env: Record<string, string | undefined> = {},
+): ServerConfig | Error => {
+  // Parse CLI arguments using Node.js built-in parser.
+  // strict:false silently ignores unknown flags and turns "--flag" (missing
+  // value) into boolean `true` instead of throwing, so no try-catch needed.
+  const { values } = parseArgs({
+    args: args as string[],
+    options: CLI_OPTIONS,
+    strict: false,
+  });
 
-  for (let i = 0; i < args.length; i += 1) {
-    const arg = args[i];
+  // parseArgs with strict:false silently turns --flag (no value) into boolean `true`.
+  // Detect that and surface a clear error before passing values onward.
+  const httpPortArr = values["http-port"] as (string | boolean)[] | undefined;
+  const transportArr = values.transport as (string | boolean)[] | undefined;
 
-    if (arg === "--extension-port" || arg === "-p") {
-      const nextValue = args[i + 1];
-
-      if (nextValue === undefined) {
-        return new Error("--extension-port flag requires a port number");
-      }
-
-      portValue = nextValue;
-      i += 1; // Skip the value we just consumed
-    } else if (arg === "--http-port") {
-      const nextValue = args[i + 1];
-
-      if (nextValue === undefined) {
-        return new Error("--http-port flag requires a port number");
-      }
-
-      httpPortValue = nextValue;
-      i += 1;
-    } else if (arg === "--transport") {
-      const nextValue = args[i + 1];
-
-      if (nextValue === undefined) {
-        return new Error("--transport flag requires a transport name");
-      }
-
-      transportValues = [nextValue];
-      i += 1;
-    }
+  if (httpPortArr?.some((v) => typeof v !== "string")) {
+    return new Error("--http-port flag requires a port number");
+  }
+  if (transportArr?.some((v) => typeof v !== "string")) {
+    return new Error("--transport flag requires a transport name");
   }
 
+  // Last-wins semantics for repeated flags
+  // ── HTTP port: CLI > env > default ──
+  let httpPortValue = (httpPortArr as string[] | undefined)?.at(-1);
+  if (httpPortValue === undefined && env.HTTP_PORT) {
+    httpPortValue = env.HTTP_PORT;
+  }
+  let parsedHttpPort: number | undefined;
   if (httpPortValue !== undefined) {
     const httpPort = parseHttpPortValue(httpPortValue);
     if (httpPort instanceof Error) {
@@ -188,49 +179,34 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
     parsedHttpPort = httpPort;
   }
 
-  if (portValue !== undefined) {
-    const extensionPort = parseExtensionPortValue(portValue);
-
-    if (extensionPort instanceof Error) {
-      return extensionPort;
-    }
-
-    const transports = parseTransports(transportValues);
-    if (transports instanceof Error) {
-      return transports;
-    }
-
-    return {
-      ...DEFAULT_CONFIG,
-      extensionPort,
-      httpPort:
-        parsedHttpPort !== undefined ? parsedHttpPort : DEFAULT_CONFIG.httpPort,
-      transports,
-    };
+  // ── Transport: CLI > env > default ──
+  let transportValues = (transportArr as string[] | undefined)?.length
+    ? [(transportArr as string[]).at(-1)!]
+    : undefined;
+  if (transportValues === undefined && env.TRANSPORT) {
+    transportValues = [env.TRANSPORT];
   }
-
-  if (httpPortValue !== undefined) {
-    const transports = parseTransports(transportValues);
-    if (transports instanceof Error) {
-      return transports;
-    }
-
-    return {
-      ...DEFAULT_CONFIG,
-      httpPort: parsedHttpPort as number,
-      transports,
-    };
-  }
-
   const transports = parseTransports(transportValues);
   if (transports instanceof Error) {
     return transports;
   }
 
-  // Return default configuration
+  // ── Logger type: env only (no CLI flag) ──
+  const loggerType = parseLoggerType(env.LOGGER_TYPE);
+  if (loggerType instanceof Error) {
+    return loggerType;
+  }
+
+  // ── Azure icon library path: env only ──
+  const azureIconLibraryPath = env.AZURE_ICON_LIBRARY_PATH?.trim() || undefined;
+
   return {
     ...DEFAULT_CONFIG,
+    httpPort:
+      parsedHttpPort !== undefined ? parsedHttpPort : DEFAULT_CONFIG.httpPort,
     transports,
+    loggerType,
+    azureIconLibraryPath,
   };
 };
 
@@ -241,5 +217,5 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
  */
 export const buildConfig = (): ServerConfig | Error => {
   const args = process.argv.slice(2);
-  return parseConfig(args);
+  return parseConfig(args, process.env);
 };

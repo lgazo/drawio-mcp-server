@@ -1,15 +1,37 @@
 {
   "compilerOptions": {
+    // Language and Environment
     "target": "es2023",
+    "lib": ["es2023"],
+
+    // Modules
     "module": "nodenext",
     "moduleResolution": "nodenext",
+    "resolveJsonModule": true,
+
+    // Emit
     "outDir": "./build",
-    "rootDir": "./src",
-    "strict": true,
+    "rootDir": ".",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+
+    // Interop Constraints
     "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+
+    // Type Checking
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+
+    // Completeness
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "types": ["vitest/globals"]
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules"]
+  "include": ["src/**/*", "tests/**/*"],
+  "exclude": ["node_modules", "build"]
 }

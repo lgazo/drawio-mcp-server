@@ -1,0 +1,18 @@
+{
+  "[markdown]": {
+    "files.trimTrailingWhitespace": false
+  },
+  "[python]": {
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit",
+      "source.unusedImports": "explicit"
+    },
+    "editor.formatOnSave": true
+  },
+  "editor.renderWhitespace": "trailing",
+  "files.eol": "\n",
+  "files.insertFinalNewline": true,
+  "files.trimFinalNewlines": true,
+  "files.trimTrailingWhitespace": true,
+    "terminal.integrated.defaultProfile.windows": "PowerShell"
+}

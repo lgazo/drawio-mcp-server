@@ -1,0 +1,32 @@
+services:
+  drawio-mcp-server:
+    # Build
+    build:
+      context: .
+      dockerfile: Dockerfile
+      tags:
+        - ${REGISTRY}/drawio-mcp-server:latest
+        - ${REGISTRY}/drawio-mcp-server:${IMAGE_VERSION:-latest}
+    image: ${REGISTRY}/drawio-mcp-server:${IMAGE_VERSION:-latest}
+    ports:
+      # HTTP for MCP server
+      - "8080:8080"
+    restart: unless-stopped
+
+    # Resource limits - SWAG starting point - should be evaluated for accuracy
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1024M
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

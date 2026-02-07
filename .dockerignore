@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+
+# Build output (rebuilt inside container)
+coverage/
+
+# Git
+.git/
+.gitignore
+.github/
+
+# IDE
+.vscode/
+.idea/
+.ai
+*.swp
+*.swo
+
+# Environment & config
+.env
+.env.local
+.env.*.local
+.env.example
+inspector.json
+
+# Tests (not needed at runtime)
+tests/
+vitest.config.ts
+
+# Development files
+*.log
+*.tsbuildinfo
+*.drawio
+
+# Docker files (not needed inside container)
+Dockerfile
+docker-compose*.yml

@@ -1,0 +1,1272 @@
+/**
+ * Draw.io diagram model that generates XML without requiring
+ * the browser extension or Draw.io application.
+ */
+
+import { deflateRawSync, inflateRawSync } from "node:zlib";
+import { XMLParser } from "fast-xml-parser";
+
+/** Shared XML parser instance for importing Draw.io XML */
+const xmlParser = new XMLParser({
+  ignoreAttributes: false,
+  attributeNamePrefix: "",
+  isArray: (name: string) => name === "diagram" || name === "mxCell" || name === "UserObject",
+  processEntities: true,
+});
+
+export interface StructuredError {
+  code: string;
+  message: string;
+  cell_id?: string;
+  index?: number;
+  suggestion?: string;
+}
+
+export interface Cell {
+  id: string;
+  type: "vertex" | "edge";
+  value: string;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  style?: string;
+  sourceId?: string;
+  targetId?: string;
+  parent?: string;
+  /** When true, this vertex acts as a container/group for other cells */
+  isGroup?: boolean;
+  /** IDs of child cells contained in this group */
+  children?: string[];
+}
+
+export interface Layer {
+  id: string;
+  name: string;
+}
+
+export interface Page {
+  id: string;
+  name: string;
+}
+
+/** Normalised attributes extracted from an mxCell or UserObject XML element */
+interface ParsedCellAttrs {
+  id: string;
+  value: string;
+  style: string;
+  parent: string;
+  source?: string;
+  target?: string;
+  isVertex: boolean;
+  isEdge: boolean;
+  geometry?: Record<string, unknown>;
+}
+
+export class DiagramModel {
+  private cells: Map<string, Cell> = new Map();
+  private layers: Layer[] = [{ id: "1", name: "Default Layer" }];
+  private activeLayerId: string = "1";
+  private nextId: number = 2;
+  private pages: Page[] = [{ id: "page-1", name: "Page-1" }];
+  private activePageId: string = "page-1";
+  /** Monotonic counter for page IDs — prevents collisions after deletions */
+  private nextPageId: number = 2;
+  /** Monotonic counter for layer IDs — prevents collisions after deletions */
+  private nextLayerId: number = 2;
+  /** Per-page storage: pageId → { cells, layers, activeLayerId, nextId } */
+  private pageData: Map<string, { cells: Map<string, Cell>; layers: Layer[]; activeLayerId: string; nextId: number }> = new Map();
+
+  constructor() {
+    // Initialize with root cell (id=0) and default layer (id=1)
+    // Store initial page data
+    this.pageData.set("page-1", {
+      cells: this.cells,
+      layers: this.layers,
+      activeLayerId: this.activeLayerId,
+      nextId: this.nextId,
+    });
+  }
+
+  private generateId(): string {
+    return `cell-${this.nextId++}`;
+  }
+
+  addRectangle(params: {
+    x?: number;
+    y?: number;
+    width?: number;
+    height?: number;
+    text?: string;
+    style?: string;
+  }): Cell {
+    const id = this.generateId();
+    const cell: Cell = {
+      id,
+      type: "vertex",
+      value: params.text ?? "New Cell",
+      x: params.x ?? 100,
+      y: params.y ?? 100,
+      width: Math.max(1, params.width ?? 200),
+      height: Math.max(1, params.height ?? 100),
+      style: params.style ?? "whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;",
+      parent: this.activeLayerId,
+    };
+    this.cells.set(id, cell);
+    return cell;
+  }
+
+  addEdge(params: {
+    sourceId: string;
+    targetId: string;
+    text?: string;
+    style?: string;
+  }): Cell | { error: StructuredError } {
+    // Validate source and target exist
+    if (!this.cells.has(params.sourceId)) {
+      return {
+        error: {
+          code: "SOURCE_NOT_FOUND",
+          message: `Source cell '${params.sourceId}' not found`,
+          cell_id: params.sourceId,
+          suggestion: "Use list-paged-model to see available cells",
+        },
+      };
+    }
+    if (!this.cells.has(params.targetId)) {
+      return {
+        error: {
+          code: "TARGET_NOT_FOUND",
+          message: `Target cell '${params.targetId}' not found`,
+          cell_id: params.targetId,
+          suggestion: "Use list-paged-model to see available cells",
+        },
+      };
+    }
+
+    const id = this.generateId();
+    const cell: Cell = {
+      id,
+      type: "edge",
+      value: params.text ?? "",
+      style: params.style ?? "edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;",
+      sourceId: params.sourceId,
+      targetId: params.targetId,
+      parent: this.activeLayerId,
+    };
+    this.cells.set(id, cell);
+    return cell;
+  }
+
+  deleteCell(cellId: string): { deleted: boolean; cascadedEdgeIds: string[] } {
+    const cell = this.cells.get(cellId);
+    if (!cell) return { deleted: false, cascadedEdgeIds: [] };
+
+    // If deleting a vertex, also remove any edges that reference it
+    const cascadedEdgeIds: string[] = [];
+    if (cell.type === "vertex") {
+      for (const [id, c] of this.cells) {
+        if (c.type === "edge" && (c.sourceId === cellId || c.targetId === cellId)) {
+          cascadedEdgeIds.push(id);
+        }
+      }
+      for (const id of cascadedEdgeIds) {
+        this.cells.delete(id);
+      }
+    }
+
+    this.cells.delete(cellId);
+    return { deleted: true, cascadedEdgeIds };
+  }
+
+  editCell(cellId: string, params: {
+    text?: string;
+    x?: number;
+    y?: number;
+    width?: number;
+    height?: number;
+    style?: string;
+  }): Cell | { error: StructuredError } {
+    const cell = this.cells.get(cellId);
+    if (!cell) {
+      return {
+        error: {
+          code: "CELL_NOT_FOUND",
+          message: `Cell '${cellId}' not found`,
+          cell_id: cellId,
+          suggestion: "Use list-paged-model to see available cells",
+        },
+      };
+    }
+    if (cell.type !== "vertex") {
+      return {
+        error: {
+          code: "WRONG_CELL_TYPE",
+          message: `Cell '${cellId}' is not a vertex`,
+          cell_id: cellId,
+          suggestion: `This cell is a ${cell.type}. Use edit-edge for edge cells.`,
+        },
+      };
+    }
+
+    if (params.text !== undefined) cell.value = params.text;
+    if (params.x !== undefined) cell.x = params.x;
+    if (params.y !== undefined) cell.y = params.y;
+    if (params.width !== undefined) cell.width = params.width;
+    if (params.height !== undefined) cell.height = params.height;
+    if (params.style !== undefined) cell.style = params.style;
+
+    return cell;
+  }
+
+  editEdge(cellId: string, params: {
+    text?: string;
+    sourceId?: string;
+    targetId?: string;
+    style?: string;
+  }): Cell | { error: StructuredError } {
+    const cell = this.cells.get(cellId);
+    if (!cell) {
+      return {
+        error: {
+          code: "CELL_NOT_FOUND",
+          message: `Edge '${cellId}' not found`,
+          cell_id: cellId,
+          suggestion: "Use list-paged-model to see available cells",
+        },
+      };
+    }
+    if (cell.type !== "edge") {
+      return {
+        error: {
+          code: "WRONG_CELL_TYPE",
+          message: `Cell '${cellId}' is not an edge`,
+          cell_id: cellId,
+          suggestion: `This cell is a ${cell.type}. Use edit-cell for vertex cells.`,
+        },
+      };
+    }
+
+    if (params.text !== undefined) cell.value = params.text;
+    if (params.sourceId !== undefined) {
+      if (!this.cells.has(params.sourceId)) {
+        return {
+          error: {
+            code: "SOURCE_NOT_FOUND",
+            message: `Source cell '${params.sourceId}' not found`,
+            cell_id: params.sourceId,
+            suggestion: "Use list-paged-model to see available cells",
+          },
+        };
+      }
+      cell.sourceId = params.sourceId;
+    }
+    if (params.targetId !== undefined) {
+      if (!this.cells.has(params.targetId)) {
+        return {
+          error: {
+            code: "TARGET_NOT_FOUND",
+            message: `Target cell '${params.targetId}' not found`,
+            cell_id: params.targetId,
+            suggestion: "Use list-paged-model to see available cells",
+          },
+        };
+      }
+      cell.targetId = params.targetId;
+    }
+    if (params.style !== undefined) cell.style = params.style;
+
+    return cell;
+  }
+
+  getCell(cellId: string): Cell | undefined {
+    return this.cells.get(cellId);
+  }
+
+  listCells(filter?: { cellType?: "vertex" | "edge" }): Cell[] {
+    let cells = Array.from(this.cells.values());
+    if (filter?.cellType) {
+      cells = cells.filter(c => c.type === filter.cellType);
+    }
+    return cells;
+  }
+
+  createLayer(name: string): Layer {
+    const id = `layer-${this.nextLayerId++}`;
+    const layer: Layer = { id, name };
+    this.layers.push(layer);
+    return layer;
+  }
+
+  listLayers(): Layer[] {
+    return [...this.layers];
+  }
+
+  setActiveLayer(layerId: string): Layer | { error: StructuredError } {
+    const layer = this.layers.find(l => l.id === layerId);
+    if (!layer) {
+      return {
+        error: {
+          code: "LAYER_NOT_FOUND",
+          message: `Layer '${layerId}' not found`,
+          suggestion: "Use list-layers to see available layers",
+        },
+      };
+    }
+    this.activeLayerId = layerId;
+    return layer;
+  }
+
+  getActiveLayer(): Layer {
+    return this.layers.find(l => l.id === this.activeLayerId)!;
+  }
+
+  moveCellToLayer(cellId: string, targetLayerId: string): Cell | { error: StructuredError } {
+    const cell = this.cells.get(cellId);
+    if (!cell) {
+      return {
+        error: {
+          code: "CELL_NOT_FOUND",
+          message: `Cell '${cellId}' not found`,
+          cell_id: cellId,
+          suggestion: "Use list-paged-model to see available cells",
+        },
+      };
+    }
+    const layer = this.layers.find(l => l.id === targetLayerId);
+    if (!layer) {
+      return {
+        error: {
+          code: "LAYER_NOT_FOUND",
+          message: `Layer '${targetLayerId}' not found`,
+          suggestion: "Use list-layers to see available layers",
+        },
+      };
+    }
+    cell.parent = targetLayerId;
+    return cell;
+  }
+
+  // ─── Multi-Page Support ──────────────────────────────────────────
+
+  /**
+   * Save current page state into pageData before switching away.
+   */
+  private saveCurrentPageState(): void {
+    this.pageData.set(this.activePageId, {
+      cells: this.cells,
+      layers: this.layers,
+      activeLayerId: this.activeLayerId,
+      nextId: this.nextId,
+    });
+  }
+
+  /**
+   * Load a page's state from pageData into the active fields.
+   */
+  private loadPageState(pageId: string): void {
+    const data = this.pageData.get(pageId);
+    if (data) {
+      this.cells = data.cells;
+      this.layers = data.layers;
+      this.activeLayerId = data.activeLayerId;
+      this.nextId = data.nextId;
+    }
+  }
+
+  /**
+   * Create a new page in the diagram.
+   */
+  createPage(name: string): Page {
+    const id = `page-${this.nextPageId++}`;
+    const page: Page = { id, name };
+    this.pages.push(page);
+    // Initialize empty page data
+    this.pageData.set(id, {
+      cells: new Map(),
+      layers: [{ id: "1", name: "Default Layer" }],
+      activeLayerId: "1",
+      nextId: 2,
+    });
+    return page;
+  }
+
+  /**
+   * List all pages.
+   */
+  listPages(): Page[] {
+    return [...this.pages];
+  }
+
+  /**
+   * Get the currently active page.
+   */
+  getActivePage(): Page {
+    return this.pages.find(p => p.id === this.activePageId)!;
+  }
+
+  /**
+   * Switch to a different page.
+   */
+  setActivePage(pageId: string): Page | { error: StructuredError } {
+    const page = this.pages.find(p => p.id === pageId);
+    if (!page) {
+      return {
+        error: {
+          code: "PAGE_NOT_FOUND",
+          message: `Page '${pageId}' not found`,
+          suggestion: "Use list-pages to see available pages",
+        },
+      };
+    }
+    if (pageId === this.activePageId) {
+      return page;
+    }
+    // Save current page state and load the target page
+    this.saveCurrentPageState();
+    this.activePageId = pageId;
+    this.loadPageState(pageId);
+    return page;
+  }
+
+  /**
+   * Rename a page.
+   */
+  renamePage(pageId: string, newName: string): Page | { error: StructuredError } {
+    const page = this.pages.find(p => p.id === pageId);
+    if (!page) {
+      return {
+        error: {
+          code: "PAGE_NOT_FOUND",
+          message: `Page '${pageId}' not found`,
+          suggestion: "Use list-pages to see available pages",
+        },
+      };
+    }
+    page.name = newName;
+    return page;
+  }
+
+  /**
+   * Delete a page. Cannot delete the last remaining page.
+   */
+  deletePage(pageId: string): { deleted: boolean; error?: StructuredError } {
+    if (this.pages.length <= 1) {
+      return {
+        deleted: false,
+        error: {
+          code: "CANNOT_DELETE_LAST_PAGE",
+          message: "Cannot delete the last remaining page",
+          suggestion: "Create another page before deleting this one",
+        },
+      };
+    }
+    const index = this.pages.findIndex(p => p.id === pageId);
+    if (index === -1) {
+      return {
+        deleted: false,
+        error: {
+          code: "PAGE_NOT_FOUND",
+          message: `Page '${pageId}' not found`,
+          suggestion: "Use list-pages to see available pages",
+        },
+      };
+    }
+    this.pages.splice(index, 1);
+    this.pageData.delete(pageId);
+    // If deleting the active page, switch to the first remaining page
+    if (this.activePageId === pageId) {
+      this.activePageId = this.pages[0].id;
+      this.loadPageState(this.activePageId);
+    }
+    return { deleted: true };
+  }
+
+  // ─── Group / Container Support ───────────────────────────────────
+
+  /**
+   * Create a group (container) cell that can hold child cells.
+   */
+  createGroup(params: {
+    x?: number;
+    y?: number;
+    width?: number;
+    height?: number;
+    text?: string;
+    style?: string;
+  }): Cell {
+    const id = this.generateId();
+    const cell: Cell = {
+      id,
+      type: "vertex",
+      value: params.text ?? "",
+      x: params.x ?? 0,
+      y: params.y ?? 0,
+      width: params.width ?? 400,
+      height: params.height ?? 300,
+      style: params.style ?? "rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;dashed=1;container=1;collapsible=0;",
+      parent: this.activeLayerId,
+      isGroup: true,
+      children: [],
+    };
+    this.cells.set(id, cell);
+    return cell;
+  }
+
+  /**
+   * Batch create multiple groups in a single operation.
+   */
+  batchCreateGroups(
+    groups: Array<{
+      x?: number;
+      y?: number;
+      width?: number;
+      height?: number;
+      text?: string;
+      style?: string;
+      tempId?: string;
+    }>,
+  ): Array<{ success: boolean; cell: Cell; tempId?: string }> {
+    return groups.map((g) => {
+      const cell = this.createGroup(g);
+      return { success: true, cell, tempId: g.tempId };
+    });
+  }
+
+  /**
+   * Add a cell to a group. The child cell's parent is set to the group.
+   */
+  addCellToGroup(cellId: string, groupId: string): Cell | { error: StructuredError } {
+    const cell = this.cells.get(cellId);
+    if (!cell) {
+      return {
+        error: {
+          code: "CELL_NOT_FOUND",
+          message: `Cell '${cellId}' not found`,
+          cell_id: cellId,
+          suggestion: "Use list-paged-model to see available cells",
+        },
+      };
+    }
+    const group = this.cells.get(groupId);
+    if (!group) {
+      return {
+        error: {
+          code: "GROUP_NOT_FOUND",
+          message: `Group '${groupId}' not found`,
+          cell_id: groupId,
+          suggestion: "Use list-paged-model to see available groups",
+        },
+      };
+    }
+    if (!group.isGroup) {
+      return {
+        error: {
+          code: "NOT_A_GROUP",
+          message: `Cell '${groupId}' is not a group/container`,
+          cell_id: groupId,
+          suggestion: "Use create-group to create a group first",
+        },
+      };
+    }
+    if (cellId === groupId) {
+      return {
+        error: {
+          code: "SELF_REFERENCE",
+          message: "Cannot add a group to itself",
+          cell_id: cellId,
+          suggestion: "Provide a different cell_id and group_id",
+        },
+      };
+    }
+    cell.parent = groupId;
+    if (!group.children) {
+      group.children = [];
+    }
+    if (!group.children.includes(cellId)) {
+      group.children.push(cellId);
+    }
+    return cell;
+  }
+
+  /**
+   * Batch add multiple cells to groups in a single operation.
+   */
+  batchAddCellsToGroup(
+    assignments: Array<{ cellId: string; groupId: string }>,
+  ): Array<{ success: boolean; cell?: Cell; error?: StructuredError; cellId: string; groupId: string }> {
+    return assignments.map((a) => {
+      const result = this.addCellToGroup(a.cellId, a.groupId);
+      if ("error" in result) {
+        return { success: false, error: result.error, cellId: a.cellId, groupId: a.groupId };
+      }
+      return { success: true, cell: result, cellId: a.cellId, groupId: a.groupId };
+    });
+  }
+
+  /**
+   * Remove a cell from its group, returning it to the active layer.
+   */
+  removeCellFromGroup(cellId: string): Cell | { error: StructuredError } {
+    const cell = this.cells.get(cellId);
+    if (!cell) {
+      return {
+        error: {
+          code: "CELL_NOT_FOUND",
+          message: `Cell '${cellId}' not found`,
+          cell_id: cellId,
+          suggestion: "Use list-paged-model to see available cells",
+        },
+      };
+    }
+    // Check if the cell is currently in a group (parent is a cell, not a layer)
+    const parentCell = this.cells.get(cell.parent!);
+    if (!parentCell || !parentCell.isGroup) {
+      return {
+        error: {
+          code: "NOT_IN_GROUP",
+          message: `Cell '${cellId}' is not inside a group`,
+          cell_id: cellId,
+          suggestion: "Cell is already at the layer level",
+        },
+      };
+    }
+    // Remove from parent's children list
+    if (parentCell.children) {
+      parentCell.children = parentCell.children.filter(id => id !== cellId);
+    }
+    // Return to the active layer
+    cell.parent = this.activeLayerId;
+    return cell;
+  }
+
+  /**
+   * List the children of a group.
+   */
+  listGroupChildren(groupId: string): Cell[] | { error: StructuredError } {
+    const group = this.cells.get(groupId);
+    if (!group) {
+      return {
+        error: {
+          code: "GROUP_NOT_FOUND",
+          message: `Group '${groupId}' not found`,
+          cell_id: groupId,
+          suggestion: "Use list-paged-model to see available groups",
+        },
+      };
+    }
+    if (!group.isGroup) {
+      return {
+        error: {
+          code: "NOT_A_GROUP",
+          message: `Cell '${groupId}' is not a group/container`,
+          cell_id: groupId,
+          suggestion: "Use create-group to create a group first",
+        },
+      };
+    }
+    return group.children!
+      .map(id => this.cells.get(id))
+      .filter((c): c is Cell => c !== undefined);
+  }
+
+  // ─── Import / Load XML ───────────────────────────────────────────
+
+  /**
+   * Import a Draw.io XML string, replacing the current diagram state.
+   * Supports single-page and multi-page documents.
+   * Returns the number of imported pages, cells, and layers.
+   */
+  importXml(xml: string): { pages: number; cells: number; layers: number } | { error: StructuredError } {
+    // Basic validation
+    if (!xml || !xml.trim()) {
+      return {
+        error: {
+          code: "EMPTY_XML",
+          message: "XML string is empty",
+          suggestion: "Provide a valid Draw.io XML string",
+        },
+      };
+    }
+
+    if (!xml.includes("<mxfile") && !xml.includes("<mxGraphModel")) {
+      return {
+        error: {
+          code: "INVALID_XML",
+          message: "XML does not appear to be a Draw.io file",
+          suggestion: "Provide XML that contains <mxfile> or <mxGraphModel> elements",
+        },
+      };
+    }
+
+    const parsed = xmlParser.parse(xml) as Record<string, unknown>;
+
+    // Extract diagram elements
+    let diagramElements: Array<Record<string, unknown>> = [];
+
+    const mxfile = parsed.mxfile as Record<string, unknown> | undefined;
+    if (mxfile?.diagram) {
+      diagramElements = mxfile.diagram as Array<Record<string, unknown>>;
+    } else if (parsed.mxGraphModel) {
+      // Bare mxGraphModel without mxfile wrapper — wrap it as a single diagram
+      diagramElements = [{ mxGraphModel: parsed.mxGraphModel }];
+    } else {
+      // mxfile without diagram children (e.g., <mxfile></mxfile>)
+      diagramElements = [parsed];
+    }
+
+    // Reset state entirely
+    this.pages = [];
+    this.pageData.clear();
+    this.activePageId = "";
+    this.nextPageId = 1;
+    this.nextLayerId = 2;
+
+    let totalCells = 0;
+    let totalLayers = 0;
+
+    for (let di = 0; di < diagramElements.length; di++) {
+      let diag = diagramElements[di];
+      const pageId = `page-${this.nextPageId++}`;
+      const pageName = String(diag.name ?? `Page-${di + 1}`);
+      this.pages.push({ id: pageId, name: pageName });
+
+      // Detect compressed diagram content: when the diagram element has a text
+      // node instead of an mxGraphModel child, it contains deflate+base64 data.
+      if (!diag.mxGraphModel && typeof diag["#text"] === "string") {
+        const decompressedXml = DiagramModel.decompressXml(diag["#text"]);
+        const innerParsed = xmlParser.parse(decompressedXml) as Record<string, unknown>;
+        diag = { ...diag, mxGraphModel: innerParsed.mxGraphModel };
+      }
+
+      const { cells, layers, nextId } = this.parseMxGraphContent(diag);
+      totalCells += cells.size;
+      totalLayers += layers.length;
+
+      this.pageData.set(pageId, {
+        cells,
+        layers,
+        activeLayerId: layers[0].id,
+        nextId,
+      });
+    }
+
+    // Activate the first page
+    this.activePageId = this.pages[0].id;
+    this.loadPageState(this.activePageId);
+
+    return {
+      pages: this.pages.length,
+      cells: totalCells,
+      layers: totalLayers,
+    };
+  }
+
+  /**
+   * Extract attributes common to mxCell / UserObject elements.
+   */
+  private extractCellAttrs(
+    obj: Record<string, unknown>,
+    geometry: Record<string, unknown> | undefined,
+  ): ParsedCellAttrs {
+    return {
+      id: String(obj.id ?? ""),
+      value: String(obj.value ?? obj.label ?? ""),
+      style: String(obj.style ?? ""),
+      parent: String(obj.parent ?? ""),
+      source: obj.source !== undefined ? String(obj.source) : undefined,
+      target: obj.target !== undefined ? String(obj.target) : undefined,
+      isVertex: String(obj.vertex) === "1",
+      isEdge: String(obj.edge) === "1",
+      geometry,
+    };
+  }
+
+  /**
+   * Parse mxGraphModel content from a parsed XML object and extract cells and layers.
+   */
+  private parseMxGraphContent(diagramObj: Record<string, unknown>): { cells: Map<string, Cell>; layers: Layer[]; nextId: number } {
+    const cells = new Map<string, Cell>();
+    const layers: Layer[] = [{ id: "1", name: "Default Layer" }];
+    let maxId = 1;
+
+    // Navigate to root element: diagramObj.mxGraphModel.root
+    const mxGraphModel = diagramObj.mxGraphModel as Record<string, unknown> | undefined;
+    const root = mxGraphModel?.root as Record<string, unknown> | undefined;
+    if (!root) {
+      return { cells, layers, nextId: maxId + 1 };
+    }
+
+    // Collect normalised cell entries from mxCell and UserObject arrays
+    const rawElements: ParsedCellAttrs[] = [];
+
+    // Process mxCell elements
+    const mxCells = (root.mxCell ?? []) as Array<Record<string, unknown>>;
+    for (const cell of mxCells) {
+      rawElements.push(
+        this.extractCellAttrs(cell, cell.mxGeometry as Record<string, unknown> | undefined),
+      );
+    }
+
+    // Process UserObject elements
+    const userObjects = (root.UserObject ?? []) as Array<Record<string, unknown>>;
+    for (const uo of userObjects) {
+      // Geometry may live on the nested mxCell child
+      let geometry: Record<string, unknown> | undefined;
+      const innerCells = uo.mxCell as Array<Record<string, unknown>> | undefined;
+      if (innerCells && innerCells.length > 0) {
+        const innerCell = innerCells[0];
+        geometry = innerCell.mxGeometry as Record<string, unknown> | undefined;
+        // Merge inner mxCell attributes that weren't set on the UserObject itself
+        for (const key of ["style", "vertex", "edge", "parent", "source", "target"]) {
+          if (innerCell[key] !== undefined && uo[key] === undefined) {
+            uo[key] = innerCell[key];
+          }
+        }
+      }
+      rawElements.push(this.extractCellAttrs(uo, geometry));
+    }
+
+    // Process all collected elements
+    for (const elem of rawElements) {
+      // Skip root cells (id=0 or id=1 with parent=0)
+      if (elem.id === "0") continue;
+      if (elem.id === "1" && elem.parent === "0") continue;
+
+      // Track numeric IDs for nextId
+      const numMatch = elem.id.match(/\d+/);
+      if (numMatch) {
+        maxId = Math.max(maxId, parseInt(numMatch[0], 10));
+      }
+
+      // Layer detection: parent="0", not a vertex or edge
+      if (elem.parent === "0" && !elem.isVertex && !elem.isEdge) {
+        if (elem.id !== "1") {
+          layers.push({ id: elem.id, name: elem.value || elem.id });
+        }
+        continue;
+      }
+
+      // Parse geometry
+      let x: number | undefined;
+      let y: number | undefined;
+      let width: number | undefined;
+      let height: number | undefined;
+
+      if (elem.geometry) {
+        const geo = elem.geometry;
+        if (geo.x !== undefined) x = parseFloat(String(geo.x));
+        if (geo.y !== undefined) y = parseFloat(String(geo.y));
+        if (geo.width !== undefined) width = parseFloat(String(geo.width));
+        if (geo.height !== undefined) height = parseFloat(String(geo.height));
+      }
+
+      // Determine if it's a group/container
+      const isGroup = elem.style.includes("container=1") || /swimlane/i.test(elem.style);
+
+      if (elem.isEdge) {
+        const cell: Cell = {
+          id: elem.id,
+          type: "edge",
+          value: elem.value,
+          style: elem.style,
+          sourceId: elem.source,
+          targetId: elem.target,
+          parent: elem.parent || "1",
+        };
+        cells.set(elem.id, cell);
+      } else {
+        const cell: Cell = {
+          id: elem.id,
+          type: "vertex",
+          value: elem.value,
+          x: x ?? 0,
+          y: y ?? 0,
+          width: width ?? 200,
+          height: height ?? 100,
+          style: elem.style,
+          parent: elem.parent || "1",
+          ...(isGroup && { isGroup: true, children: [] }),
+        };
+        cells.set(elem.id, cell);
+      }
+    }
+
+    // Post-process: populate children arrays for groups
+    for (const cell of cells.values()) {
+      if (cell.parent && cells.has(cell.parent)) {
+        const parentCell = cells.get(cell.parent)!;
+        if (parentCell.isGroup) {
+          parentCell.children!.push(cell.id);
+        }
+      }
+    }
+
+    return { cells, layers, nextId: maxId + 1 };
+  }
+
+  /**
+   * Export the diagram as Draw.io XML format (supports multi-page).
+   *
+   * @param options.compress - If `true`, deflate-compress and base64-encode the
+   *   `<mxGraphModel>` content inside each `<diagram>` element. This matches the
+   *   format used by the Draw.io desktop application and typically achieves 60-80%
+   *   size reduction. Defaults to `false` (plain XML).
+   */
+  toXml(options?: { compress?: boolean }): string {
+    const compress = options?.compress ?? false;
+    // Save current page state so all pages have up-to-date data
+    this.saveCurrentPageState();
+
+    const diagramsXml = this.pages.map(page => {
+      const data = this.pageData.get(page.id)!;
+      const pageXml = this.renderPageXml(data.cells, data.layers);
+      const graphModelXml = `<mxGraphModel dx="800" dy="600" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0"><root><mxCell id="0"/><mxCell id="1" parent="0"/>${pageXml}</root></mxGraphModel>`;
+      const diagramContent = compress ? DiagramModel.compressXml(graphModelXml) : graphModelXml;
+      return `<diagram id="${this.escapeXml(page.id)}" name="${this.escapeXml(page.name)}">${diagramContent}</diagram>`;
+    }).join("");
+
+    return `<mxfile host="drawio-mcp-server">${diagramsXml}</mxfile>`;
+  }
+
+  /**
+   * Compress an XML string using the Draw.io format: deflateRaw → encodeURIComponent → base64.
+   */
+  static compressXml(xml: string): string {
+    const deflated = deflateRawSync(Buffer.from(xml, "utf-8"));
+    const uriEncoded = encodeURIComponent(deflated.toString("base64"));
+    return Buffer.from(uriEncoded, "utf-8").toString("base64");
+  }
+
+  /**
+   * Decompress a Draw.io compressed diagram string: base64 → decodeURIComponent → inflateRaw.
+   */
+  static decompressXml(compressed: string): string {
+    const uriEncoded = Buffer.from(compressed, "base64").toString("utf-8");
+    const deflatedBase64 = decodeURIComponent(uriEncoded);
+    const inflated = inflateRawSync(Buffer.from(deflatedBase64, "base64"));
+    return inflated.toString("utf-8");
+  }
+
+  /**
+   * Render cells and layers for a single page.
+   */
+  private renderPageXml(cells: Map<string, Cell>, layers: Layer[]): string {
+    // Emit custom layer cells (skip the default layer id="1" which is always present)
+    const layerCellsXml = layers
+      .filter(l => l.id !== "1")
+      .map(l => `<mxCell id="${this.escapeXml(l.id)}" value="${this.escapeXml(l.name)}" style="" parent="0"/>`)
+      .join("");
+
+    const cellsXml = Array.from(cells.values())
+      .map(cell => {
+        if (cell.type === "vertex") {
+          const groupAttrs = cell.isGroup ? ' connectable="0"' : '';
+          const containerStyle = cell.isGroup && cell.style && !cell.style.includes("container=1")
+            ? cell.style + "container=1;"
+            : cell.style;
+          return `<mxCell id="${this.escapeXml(cell.id)}" value="${this.escapeXml(cell.value)}" style="${this.escapeXml(containerStyle!)}" vertex="1"${groupAttrs} parent="${cell.parent!}"><mxGeometry x="${cell.x!}" y="${cell.y!}" width="${cell.width!}" height="${cell.height!}" as="geometry"/></mxCell>`;
+        } else {
+          const sourceAttr = cell.sourceId ? ` source="${cell.sourceId}"` : "";
+          const targetAttr = cell.targetId ? ` target="${cell.targetId}"` : "";
+          return `<mxCell id="${this.escapeXml(cell.id)}" value="${this.escapeXml(cell.value)}" style="${this.escapeXml(cell.style!)}" edge="1" parent="${cell.parent!}"${sourceAttr}${targetAttr}><mxGeometry relative="1" as="geometry"/></mxCell>`;
+        }
+      })
+      .join("");
+
+    return `${layerCellsXml}${cellsXml}`;
+  }
+
+  private escapeXml(str: string): string {
+    return str
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&apos;");
+  }
+
+  /**
+   * Clear all cells and reset the diagram (including pages)
+   */
+  clear(): { vertices: number; edges: number } {
+    // Count cells across all pages
+    this.saveCurrentPageState();
+    let vertices = 0;
+    let edges = 0;
+    for (const data of this.pageData.values()) {
+      for (const c of data.cells.values()) {
+        if (c.type === "vertex") vertices++;
+        else edges++;
+      }
+    }
+
+    // Reset to single empty page
+    this.cells = new Map();
+    this.layers = [{ id: "1", name: "Default Layer" }];
+    this.activeLayerId = "1";
+    this.nextId = 2;
+    this.nextPageId = 2;
+    this.nextLayerId = 2;
+    this.pages = [{ id: "page-1", name: "Page-1" }];
+    this.activePageId = "page-1";
+    this.pageData.clear();
+    this.pageData.set("page-1", {
+      cells: this.cells,
+      layers: this.layers,
+      activeLayerId: this.activeLayerId,
+      nextId: this.nextId,
+    });
+    return { vertices, edges };
+  }
+
+  /**
+   * Get statistics about the current diagram (active page)
+   */
+  getStats(): {
+    total_cells: number;
+    vertices: number;
+    edges: number;
+    groups: number;
+    layers: number;
+    pages: number;
+    active_page: string;
+    bounds: { minX: number; minY: number; maxX: number; maxY: number } | null;
+    cells_with_text: number;
+    cells_without_text: number;
+    cells_by_layer: Record<string, number>;
+  } {
+    const cells = Array.from(this.cells.values());
+    const vertices = cells.filter(c => c.type === "vertex");
+    const edges = cells.filter(c => c.type === "edge");
+    const groups = cells.filter(c => c.isGroup).length;
+
+    // Calculate bounding box
+    let bounds: { minX: number; minY: number; maxX: number; maxY: number } | null = null;
+    if (vertices.length > 0) {
+      const positions = vertices.filter(v => v.x !== undefined && v.y !== undefined);
+      if (positions.length > 0) {
+        const minX = Math.min(...positions.map(v => v.x!));
+        const minY = Math.min(...positions.map(v => v.y!));
+        const maxX = Math.max(...positions.map(v => v.x! + v.width!));
+        const maxY = Math.max(...positions.map(v => v.y! + v.height!));
+        bounds = { minX, minY, maxX, maxY };
+      }
+    }
+
+    // Count cells with/without text
+    const cellsWithText = cells.filter(c => c.value && c.value.trim().length > 0).length;
+    const cellsWithoutText = cells.length - cellsWithText;
+
+    // Count cells by layer
+    const cellsByLayer: Record<string, number> = {};
+    cells.forEach(c => {
+      const layer = c.parent!;
+      cellsByLayer[layer] = (cellsByLayer[layer] ?? 0) + 1;
+    });
+
+    return {
+      total_cells: cells.length,
+      vertices: vertices.length,
+      edges: edges.length,
+      groups,
+      layers: this.layers.length,
+      pages: this.pages.length,
+      active_page: this.activePageId,
+      bounds,
+      cells_with_text: cellsWithText,
+      cells_without_text: cellsWithoutText,
+      cells_by_layer: cellsByLayer,
+    };
+  }
+
+/**
+ * Batch add multiple cells (vertices and edges) in a single operation.
+ * Validates entire batch before executing to fail fast.
+ * Returns an array of results with created cells or errors.
+ */
+batchAddCells(
+  items: Array<{
+    type: "vertex" | "edge";
+    x?: number;
+    y?: number;
+    width?: number;
+    height?: number;
+    text?: string;
+    style?: string;
+    sourceId?: string;
+    targetId?: string;
+    tempId?: string;
+  }>,
+  options?: { dryRun?: boolean },
+): Array<{ success: boolean; cell?: Cell; error?: StructuredError; tempId?: string }> {
+  // Pre-validate entire batch
+  const validationErrors = this.validateBatchCells(items);
+  if (validationErrors.length > 0) {
+    return validationErrors;
+  }
+
+  // If dry-run, return success without persisting
+  if (options?.dryRun) {
+    return items.map((item, index) => ({
+      success: true,
+      tempId: item.tempId,
+      cell: {
+        id: `temp-cell-${index}`,
+        type: item.type,
+        value: item.text ?? "",
+        x: item.x,
+        y: item.y,
+        width: item.width,
+        height: item.height,
+        style: item.style,
+        sourceId: item.sourceId,
+        targetId: item.targetId,
+      } as Cell,
+    }));
+  }
+
+  // Execute batch operations
+  const results: Array<{ success: boolean; cell?: Cell; error?: StructuredError; tempId?: string }> =
+    [];
+  const tempIdMap = new Map<string, string>();
+
+  for (const item of items) {
+    if (item.type === "vertex") {
+      const cell = this.addRectangle({
+        x: item.x,
+        y: item.y,
+        width: item.width,
+        height: item.height,
+        text: item.text,
+        style: item.style,
+      });
+      if (item.tempId) {
+        tempIdMap.set(item.tempId, cell.id);
+      }
+      results.push({ success: true, cell, tempId: item.tempId });
+    } else if (item.type === "edge") {
+      // Validation guarantees sourceId/targetId are truthy for edges
+      const sourceId = tempIdMap.get(item.sourceId!) ?? item.sourceId!;
+      const targetId = tempIdMap.get(item.targetId!) ?? item.targetId!;
+
+      const result = this.addEdge({
+        sourceId,
+        targetId,
+        text: item.text,
+        style: item.style,
+      });
+
+      // Validation guarantees addEdge succeeds — cast safely
+      const edge = result as Cell;
+      if (item.tempId) {
+        tempIdMap.set(item.tempId, edge.id);
+      }
+      results.push({ success: true, cell: edge, tempId: item.tempId });
+    }
+  }
+
+  return results;
+}
+
+private validateBatchCells(
+  items: Array<{
+    type: "vertex" | "edge";
+    sourceId?: string;
+    targetId?: string;
+    tempId?: string;
+  }>,
+): Array<{ success: boolean; error: StructuredError; tempId?: string }> {
+  const errors: Array<{ success: boolean; error: StructuredError; tempId?: string }> = [];
+  const createdTempIds = new Set<string>();
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+
+    if (item.type === "edge") {
+      // Validate source exists (check temp IDs from earlier items and existing cells)
+      const sourceExists =
+        !!(item.sourceId && (createdTempIds.has(item.sourceId) || this.cells.has(item.sourceId)));
+      if (!sourceExists) {
+        errors.push({
+          success: false,
+          tempId: item.tempId,
+          error: {
+            code: "INVALID_SOURCE",
+            message: `Edge at index ${i}: source cell '${item.sourceId}' not found`,
+            index: i,
+            suggestion: "Ensure source_id references an existing cell or a temp_id defined earlier in the batch",
+          },
+        });
+      }
+
+      // Validate target exists
+      const targetExists =
+        !!(item.targetId && (createdTempIds.has(item.targetId) || this.cells.has(item.targetId)));
+      if (!targetExists) {
+        errors.push({
+          success: false,
+          tempId: item.tempId,
+          error: {
+            code: "INVALID_TARGET",
+            message: `Edge at index ${i}: target cell '${item.targetId}' not found`,
+            index: i,
+            suggestion:
+              "Ensure target_id references an existing cell or a temp_id defined earlier in the batch",
+          },
+        });
+      }
+    }
+
+    // Track temp IDs for validation
+    if (item.tempId) {
+      createdTempIds.add(item.tempId);
+    }
+  }
+
+  return errors;
+}
+
+/**
+ * Batch edit multiple cells in a single operation.
+ */
+batchEditCells(
+  updates: Array<{
+    cell_id: string;
+    text?: string;
+    x?: number;
+    y?: number;
+    width?: number;
+    height?: number;
+    style?: string;
+  }>,
+): Array<{ success: boolean; cell?: Cell; error?: StructuredError; cell_id: string }> {
+  return updates.map((update) => {
+    const result = this.editCell(update.cell_id, {
+      text: update.text,
+      x: update.x,
+      y: update.y,
+      width: update.width,
+      height: update.height,
+      style: update.style,
+    });
+
+    if ("error" in result) {
+      return {
+        success: false,
+        cell_id: update.cell_id,
+        error: result.error,
+      };
+    }
+
+    return {
+      success: true,
+      cell_id: update.cell_id,
+      cell: result,
+    };
+  });
+}
+}
+
+// Singleton instance for the diagram
+export const diagram = new DiagramModel();

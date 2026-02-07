@@ -1,32 +1,34 @@
 {
   "name": "drawio-mcp-server",
-  "version": "1.6.1",
-  "description": "Provides Draw.io services to MCP Clients",
+  "version": "1.0.0",
+  "description": "Draw.io MCP server for diagram generation",
   "type": "module",
-  "main": "index.js",
+  "main": "./build/index.js",
+  "types": "./build/index.d.ts",
   "bin": {
     "drawio-mcp-server": "./build/index.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "pnpm run clean && tsc -p tsconfig.build.json && node -e \"import('fs').then(fs => fs.copyFileSync('src/instructions.md', 'build/instructions.md'))\"",
     "ci": "pnpm install --frozen-lockfile",
-    "dev": "tsc --watch",
+    "clean": "node -e \"import('fs').then(fs => fs.rmSync('build', { recursive: true, force: true }))\"",
+    "dev": "tsc -p tsconfig.build.json --watch",
     "inspect": "HOST=0.0.0.0 pnpx @modelcontextprotocol/inspector --config ./inspector.json --server drawio",
     "prepublishOnly": "pnpm run build",
     "lint": "tsc --noEmit",
-    "format": "prettier --write \"src/**/*.ts\"",
-    "format:check": "prettier --check \"src/**/*.ts\"",
-    "test": "NODE_OPTIONS=--experimental-vm-modules jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "NODE_OPTIONS=--experimental-vm-modules jest --coverage",
-    "clean": "rimraf build coverage .eslintcache",
-    "prebuild": "pnpm run clean"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "start": "pnpm run start:both",
+    "start:http": "pnpm run build && node ./build/index.js --transport http --http-port 8080",
+    "start:both": "pnpm run build && node ./build/index.js --transport stdio,http --http-port 8080"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=24.0.0"
   },
   "files": [
-    "build"
+    "build",
+    "assets"
   ],
   "keywords": [
     "mcp",
@@ -39,28 +41,22 @@
     "diagram",
     "claude"
   ],
-  "author": "Ladislav Gazo",
+  "author": "Simon Kurtz",
   "license": "MIT",
-  "packageManager": "pnpm@10.8.1",
+  "packageManager": "pnpm@10.28.2+sha512.41872f037ad22f7348e3b1debbaf7e867cfd448f2726d9cf74c08f19507c31d2c8e7a11525b983febc2df640b5438dee6023ebb1f84ed43cc2d654d2bc326264",
   "dependencies": {
     "@hono/node-server": "1.19.7",
     "@modelcontextprotocol/sdk": "1.25.1",
+    "fast-xml-parser": "^5.3.4",
+    "fuzzy-search": "3.2.1",
     "hono": "4.11.1",
-    "nanoid": "5.1.6",
-    "ws": "8.18.3",
     "zod": "4.2.1"
   },
   "devDependencies": {
-    "@jest/globals": "30.2.0",
-    "@types/jest": "30.0.0",
+    "@types/fuzzy-search": "^2.1.5",
     "@types/node": "25.0.3",
-    "@types/ws": "^8.18.1",
-    "globals": "16.5.0",
-    "jest": "30.2.0",
-    "jest-environment-node": "30.2.0",
-    "prettier": "3.7.4",
-    "rimraf": "6.1.2",
-    "ts-jest": "29.4.6",
-    "typescript": "5.9.3"
+    "@vitest/coverage-v8": "2.1.0",
+    "typescript": "5.9.3",
+    "vitest": "2.1.0"
   }
 }
