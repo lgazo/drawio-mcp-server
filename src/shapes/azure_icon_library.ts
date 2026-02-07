@@ -288,6 +288,7 @@ export function resolveAzureAlias(query: string): string | undefined {
  */
 let cachedLibrary: AzureIconLibrary | null = null;
 let cachedSearchIndex: FuzzySearch<SearchableShape> | null = null;
+let cachedSearchResults: Map<string, SearchResult[]> = new Map();
 let configuredLibraryPath: string | undefined;
 
 type SearchableShape = AzureIconShape & {
@@ -307,6 +308,7 @@ export function getAzureIconLibrary(): AzureIconLibrary {
   if (!cachedLibrary || cachedLibrary.shapes.length === 0) {
     cachedLibrary = loadAzureIconLibrary(configuredLibraryPath);
     cachedSearchIndex = null;
+    cachedSearchResults = new Map();
   }
   return cachedLibrary;
 }
@@ -326,6 +328,7 @@ export function initializeShapes(libraryPath?: string): AzureIconLibrary {
   }
   cachedLibrary = null;
   cachedSearchIndex = null;
+  cachedSearchResults = new Map();
   cachedLibrary = loadAzureIconLibrary(configuredLibraryPath);
   return cachedLibrary;
 }
@@ -337,6 +340,7 @@ export function initializeShapes(libraryPath?: string): AzureIconLibrary {
 export function resetAzureIconLibrary(): void {
   cachedLibrary = null;
   cachedSearchIndex = null;
+  cachedSearchResults = new Map();
 }
 
 /**
@@ -387,11 +391,25 @@ export interface SearchResult extends AzureIconShape {
  * When the query matches an alias, the aliased icon is injected
  * at the top of results with a score of 1.0.
  */
+/**
+ * Build a cache key from the original query and limit.
+ * Uses the lowercased original query (not the normalized form) because
+ * alias resolution depends on the original text.
+ */
+function searchCacheKey(query: string, limit: number): string {
+  return `${query.toLowerCase()}|${limit}`;
+}
+
 export function searchAzureIcons(
   query: string,
   limit = 10,
   _options?: { caseSensitive?: boolean }
 ): SearchResult[] {
+  // Return cached results when available (library is immutable once loaded)
+  const cacheKey = searchCacheKey(query, limit);
+  const cached = cachedSearchResults.get(cacheKey);
+  if (cached) return cached;
+
   // Check aliases first — if matched, inject the target as top result
   const aliasTarget = resolveAzureAlias(query);
   const aliasShape = aliasTarget ? getAzureIconLibrary().indexByTitle.get(aliasTarget) : undefined;
@@ -416,15 +434,20 @@ export function searchAzureIcons(
     };
   });
 
+  let finalResults: SearchResult[];
+
   // If an alias matched, inject it as the top result (score 1.0) and
   // remove any duplicate of the same shape from the fuzzy results.
   if (aliasShape) {
     const filtered = searchResults.filter(r => r.id !== aliasShape.id);
     const aliasResult: SearchResult = { ...aliasShape, score: 1.0 };
-    return [aliasResult, ...filtered].slice(0, limit);
+    finalResults = [aliasResult, ...filtered].slice(0, limit);
+  } else {
+    finalResults = searchResults.sort((a, b) => b.score - a.score);
   }
 
-  return searchResults.sort((a, b) => b.score - a.score);
+  cachedSearchResults.set(cacheKey, finalResults);
+  return finalResults;
 }
 
 /**

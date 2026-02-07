@@ -343,6 +343,37 @@ describe("searchAzureIcons", () => {
     const results = searchAzureIcons("Container Apps", 2);
     assert(results.length <= 2);
   });
+
+  it("returns cached results for repeated identical queries", () => {
+    resetAzureIconLibrary();
+    const first = searchAzureIcons("virtual machine", 5);
+    const second = searchAzureIcons("virtual machine", 5);
+    assert(first === second, "Expected same array reference from cache");
+  });
+
+  it("cache distinguishes different limits for the same query", () => {
+    resetAzureIconLibrary();
+    const a = searchAzureIcons("storage", 3);
+    const b = searchAzureIcons("storage", 5);
+    assert(a !== b, "Different limits should produce separate cache entries");
+    assert(a.length <= 3);
+    assert(b.length <= 5);
+  });
+
+  it("cache is case-insensitive on query text", () => {
+    resetAzureIconLibrary();
+    const lower = searchAzureIcons("virtual machine", 5);
+    const upper = searchAzureIcons("Virtual Machine", 5);
+    assert(lower === upper, "Expected cache hit regardless of casing");
+  });
+
+  it("cache is cleared on resetAzureIconLibrary", () => {
+    const beforeReset = searchAzureIcons("storage", 5);
+    resetAzureIconLibrary();
+    const afterReset = searchAzureIcons("storage", 5);
+    assert(beforeReset !== afterReset, "Expected fresh results after reset");
+    assertEquals(beforeReset.length, afterReset.length);
+  });
 });
 
 describe("getAzureShapeByName", () => {
