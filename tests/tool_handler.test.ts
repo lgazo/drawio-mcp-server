@@ -158,7 +158,7 @@ describe("createToolHandlerFactory", () => {
       assert(!firstCallMsg.includes("session="));
     });
 
-    it("should log input args as JSON in the called log line", async () => {
+    it("should log the called line without args by default", async () => {
       const mockResult = {
         content: [{ type: "text" as const, text: "{}" }],
       };
@@ -173,10 +173,10 @@ describe("createToolHandlerFactory", () => {
         (c: any) => (c.args[0] as string).includes("called"),
       );
       assertExists(calledCall);
-      assertEquals(calledCall!.args[1], JSON.stringify({ x: 100, text: "hello" }));
+      assertEquals(calledCall!.args.length, 1);
     });
 
-    it("should log empty args when hasArgs is false", async () => {
+    it("should log called line without args when hasArgs is false", async () => {
       const mockResult = {
         content: [{ type: "text" as const, text: "{}" }],
       };
@@ -191,7 +191,7 @@ describe("createToolHandlerFactory", () => {
         (c: any) => (c.args[0] as string).includes("called"),
       );
       assertExists(calledCall);
-      assertEquals(calledCall!.args[1], "{}");
+      assertEquals(calledCall!.args.length, 1);
     });
 
     it("should log 'ok' with payload size for successful handler results", async () => {
