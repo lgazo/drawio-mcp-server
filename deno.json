@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "exports": "./src/index.ts",
   "tasks": {
-    "start": "deno run --allow-net --allow-read --allow-env src/index.ts",
+    "start": "deno run --allow-net --allow-read --allow-env src/index.ts --transport stdio,http --http-port 8080",
     "start:http": "deno run --allow-net --allow-read --allow-env src/index.ts --transport http --http-port 8080",
     "start:both": "deno run --allow-net --allow-read --allow-env src/index.ts --transport stdio,http --http-port 8080",
     "dev": "deno run --watch --allow-net --allow-read --allow-env src/index.ts",

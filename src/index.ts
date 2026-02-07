@@ -80,37 +80,47 @@ if (loggerType === "mcp_server") {
   };
 }
 
-// ─── Server Instructions ───────────────────────────────────────
+// Console logger is used regardless — it's the primary log sink.
+// MCP-server logging (log-level handlers, notifications) is attached
+// per-server in createMcpServer() when LOGGER_TYPE=mcp_server.
+const log = create_console_logger();
 // Loaded from src/instructions.md and sent to MCP clients during
 // initialization so the calling model follows diagram-generation
 // conventions without extra round trips.
 const SERVER_INSTRUCTIONS = readRelativeFile(import.meta.url, "instructions.md");
 
-// Create server instance
-const server = new McpServer(
-  {
-    name: "drawio-mcp-server",
-    version: VERSION,
-  },
-  {
-    capabilities,
-    instructions: SERVER_INSTRUCTIONS,
-  },
-);
-
-const log =
-  loggerType === "mcp_server"
-    ? create_server_logger(server)
-    : create_console_logger();
-
 /**
- * Create tool handler factory that logs session/request metadata and delegates to handlers.
+ * Create a fully configured McpServer instance.
+ * Each transport needs its own instance because the MCP SDK
+ * only allows one transport per server.
  */
-const handlers = createHandlers(log);
-const createToolHandler = createToolHandlerFactory(handlers, log);
+function createMcpServer(): McpServer {
+  const srv = new McpServer(
+    {
+      name: "drawio-mcp-server",
+      version: VERSION,
+    },
+    {
+      capabilities,
+      instructions: SERVER_INSTRUCTIONS,
+    },
+  );
 
-// Register all MCP tools (schemas + descriptions)
-registerTools(server, createToolHandler);
+  // Attach MCP-server logger if configured (registers setLevel/setLevels handlers)
+  if (loggerType === "mcp_server") {
+    create_server_logger(srv);
+  }
+
+  // Register all MCP tools (schemas + descriptions)
+  const handlers = createHandlers(log);
+  const createToolHandler = createToolHandlerFactory(handlers, log);
+  registerTools(srv, createToolHandler);
+
+  return srv;
+}
+
+/** Track all server instances for shutdown */
+const servers: McpServer[] = [];
 
 // ─── Shutdown Infrastructure ───────────────────────────────────
 
@@ -141,13 +151,15 @@ async function shutdown(reason: string): Promise<void> {
     log.debug("HTTP server closed");
   }
 
-  // 2. Close the MCP server (flushes pending messages, disconnects transport)
-  try {
-    await server.close();
-    log.debug("MCP server closed");
-  } catch {
-    // best-effort — transport may already be gone
+  // 2. Close all MCP server instances (flushes pending messages, disconnects transports)
+  for (const srv of servers) {
+    try {
+      await srv.close();
+    } catch {
+      // best-effort — transport may already be gone
+    }
   }
+  log.debug("MCP server(s) closed");
 
   // 3. Release cached resources so memory is freed immediately
   diagram.clear();
@@ -188,15 +200,14 @@ globalThis.addEventListener("unhandledrejection", (event) => {
 // ─── Transport Startup ────────────────────────────────────────
 
 async function start_stdio_transport() {
+  const srv = createMcpServer();
+  servers.push(srv);
   const transport = new StdioServerTransport();
-  await server.connect(transport);
+  await srv.connect(transport);
   log.debug(`Draw.io MCP Server STDIO transport active`);
 }
 
 async function start_streamable_http_transport(http_port: number) {
-  // Create a stateless transport (no options = no session management)
-  const transport = new WebStandardStreamableHTTPServerTransport();
-
   // Create the Hono app
   const app = new Hono();
 
@@ -216,13 +227,16 @@ async function start_streamable_http_transport(http_port: number) {
     }),
   );
 
-  app.get("/health", (c) =>
-    c.json({ status: server.isConnected() ? "ok" : "mcp not ready" }),
-  );
+  app.get("/health", (c) => c.json({ status: "ok" }));
 
-  app.all("/mcp", (c) => transport.handleRequest(c.req.raw));
-
-  await server.connect(transport);
+  // Stateless transports are single-use — create a fresh transport
+  // and server per request so the SDK doesn't reject reuse.
+  app.all("/mcp", async (c) => {
+    const transport = new WebStandardStreamableHTTPServerTransport();
+    const srv = createMcpServer();
+    await srv.connect(transport);
+    return transport.handleRequest(c.req.raw);
+  });
 
   // Deno.serve replaces @hono/node-server — zero extra dependencies
   httpServer = Deno.serve({ port: http_port }, app.fetch);
