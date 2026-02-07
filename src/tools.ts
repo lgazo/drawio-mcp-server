@@ -36,38 +36,60 @@ interface ResolvedShape {
  * 2. Azure icon library (exact match by title/ID)
  * 3. Azure icon library (fuzzy search, top result)
  *
+ * Results are cached because shape libraries are immutable once loaded.
  * Returns undefined if no match is found.
  */
+const resolveShapeCache = new Map<string, ResolvedShape | undefined>();
+
+/**
+ * Clear the resolveShape cache. Must be called whenever the underlying
+ * shape libraries change (e.g., after resetAzureIconLibrary or initializeShapes
+ * in tests).
+ */
+export function clearResolveShapeCache(): void {
+  resolveShapeCache.clear();
+}
+
 function resolveShape(shapeName: string): ResolvedShape | undefined {
+  const cacheKey = shapeName.toLowerCase();
+  const cached = resolveShapeCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+  // Distinguish "cached as not-found" from "not yet cached"
+  if (resolveShapeCache.has(cacheKey)) return undefined;
+
   // 1. Basic shapes first (prevents fuzzy search from hijacking names like 'start', 'end')
   const basic = getBasicShape(shapeName);
   if (basic) {
-    return {
+    const result: ResolvedShape = {
       name: basic.name,
       style: basic.style,
       width: basic.defaultWidth,
       height: basic.defaultHeight,
       source: "basic",
     };
+    resolveShapeCache.set(cacheKey, result);
+    return result;
   }
 
   // 2. Azure exact match by title or ID
   const azureExact = getAzureShapeByName(shapeName);
   if (azureExact) {
-    return {
+    const result: ResolvedShape = {
       name: azureExact.title,
       style: azureExact.style ?? "",
       width: azureExact.width,
       height: azureExact.height,
       source: "azure-exact",
     };
+    resolveShapeCache.set(cacheKey, result);
+    return result;
   }
 
   // 3. Azure fuzzy search as last resort
   const searchResults = searchAzureIcons(shapeName, 1);
   if (searchResults.length > 0) {
     const shape = searchResults[0];
-    return {
+    const result: ResolvedShape = {
       name: shape.title,
       style: shape.style ?? "",
       width: shape.width,
@@ -75,8 +97,11 @@ function resolveShape(shapeName: string): ResolvedShape | undefined {
       source: "azure-fuzzy",
       score: shape.score,
     };
+    resolveShapeCache.set(cacheKey, result);
+    return result;
   }
 
+  resolveShapeCache.set(cacheKey, undefined);
   return undefined;
 }
 
@@ -233,25 +258,31 @@ export function createHandlers(log: ToolLogger) {
 
   "export-diagram": async (args: { compress?: boolean }): Promise<CallToolResult> => {
     const compressed = args?.compress ?? false;
-    const xml = diagram.toXml({ compress: compressed });
-    const stats = diagram.getStats();
 
     if (compressed) {
-      const prefix = "[tool:export-diagram]".padEnd(30);
+      // Generate uncompressed XML first for size logging, then compress
       const originalXml = diagram.toXml({ compress: false });
+      const xml = diagram.toXml({ compress: true });
+      const stats = diagram.getStats();
+      const prefix = "[tool:export-diagram]".padEnd(30);
       const originalSize = textEncoder.encode(originalXml).length;
       const compressedSize = textEncoder.encode(xml).length;
       const reduction = ((1 - compressedSize / originalSize) * 100).toFixed(2);
       log.debug(`${timestamp()} ${prefix} original size: ${formatBytes(originalSize)}`);
       log.debug(`${timestamp()} ${prefix} compression reduced size by ${reduction}% (${formatBytes(originalSize)} → ${formatBytes(compressedSize)})`);
+      return successResult({
+        xml,
+        stats,
+        compression: { enabled: true, algorithm: "deflate-raw", encoding: "base64" },
+      });
     }
 
+    const xml = diagram.toXml({ compress: false });
+    const stats = diagram.getStats();
     return successResult({
       xml,
       stats,
-      compression: compressed
-        ? { enabled: true, algorithm: "deflate-raw", encoding: "base64" }
-        : { enabled: false },
+      compression: { enabled: false },
     });
   },
 
@@ -735,17 +766,21 @@ export function createHandlers(log: ToolLogger) {
       });
     }
 
+    // Pre-compute basic shapes array once for the entire batch
+    const allBasicShapes = Object.values(BASIC_SHAPES);
+
     const results = args.queries.map(q => {
       // Check basic shapes first (exact, case-insensitive)
-      const basicMatches = Object.values(BASIC_SHAPES)
-        .filter(s => s.name.toLowerCase().includes(q.toLowerCase()))
+      const qLower = q.toLowerCase();
+      const basicMatches = allBasicShapes
+        .filter(s => s.name.toLowerCase().includes(qLower))
         .map(s => ({
           name: s.name,
           id: s.name,
           category: "basic",
           width: s.defaultWidth,
           height: s.defaultHeight,
-          confidence: s.name.toLowerCase() === q.toLowerCase() ? 1.0 : 0.8,
+          confidence: s.name.toLowerCase() === qLower ? 1.0 : 0.8,
         }));
 
       // Then search Azure icons

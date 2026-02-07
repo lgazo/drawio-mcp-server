@@ -1052,46 +1052,58 @@ export class DiagramModel {
     cells_without_text: number;
     cells_by_layer: Record<string, number>;
   } {
-    const cells = Array.from(this.cells.values());
-    const vertices = cells.filter(c => c.type === "vertex");
-    const edges = cells.filter(c => c.type === "edge");
-    const groups = cells.filter(c => c.isGroup).length;
+    // Single-pass collection of all statistics
+    let vertexCount = 0;
+    let edgeCount = 0;
+    let groupCount = 0;
+    let cellsWithText = 0;
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    let hasPositions = false;
+    const cellsByLayer: Record<string, number> = {};
 
-    // Calculate bounding box
-    let bounds: { minX: number; minY: number; maxX: number; maxY: number } | null = null;
-    if (vertices.length > 0) {
-      const positions = vertices.filter(v => v.x !== undefined && v.y !== undefined);
-      if (positions.length > 0) {
-        const minX = Math.min(...positions.map(v => v.x!));
-        const minY = Math.min(...positions.map(v => v.y!));
-        const maxX = Math.max(...positions.map(v => v.x! + v.width!));
-        const maxY = Math.max(...positions.map(v => v.y! + v.height!));
-        bounds = { minX, minY, maxX, maxY };
+    for (const cell of this.cells.values()) {
+      // Type counts
+      if (cell.type === "vertex") {
+        vertexCount++;
+        if (cell.isGroup) groupCount++;
+        // Bounding box (vertices only)
+        if (cell.x !== undefined && cell.y !== undefined) {
+          hasPositions = true;
+          if (cell.x < minX) minX = cell.x;
+          if (cell.y < minY) minY = cell.y;
+          const right = cell.x + cell.width!;
+          const bottom = cell.y + cell.height!;
+          if (right > maxX) maxX = right;
+          if (bottom > maxY) maxY = bottom;
+        }
+      } else {
+        edgeCount++;
       }
+
+      // Text counts
+      if (cell.value && cell.value.trim().length > 0) cellsWithText++;
+
+      // Layer counts
+      const layer = cell.parent!;
+      cellsByLayer[layer] = (cellsByLayer[layer] ?? 0) + 1;
     }
 
-    // Count cells with/without text
-    const cellsWithText = cells.filter(c => c.value && c.value.trim().length > 0).length;
-    const cellsWithoutText = cells.length - cellsWithText;
-
-    // Count cells by layer
-    const cellsByLayer: Record<string, number> = {};
-    cells.forEach(c => {
-      const layer = c.parent!;
-      cellsByLayer[layer] = (cellsByLayer[layer] ?? 0) + 1;
-    });
+    const totalCells = vertexCount + edgeCount;
 
     return {
-      total_cells: cells.length,
-      vertices: vertices.length,
-      edges: edges.length,
-      groups,
+      total_cells: totalCells,
+      vertices: vertexCount,
+      edges: edgeCount,
+      groups: groupCount,
       layers: this.layers.length,
       pages: this.pages.length,
       active_page: this.activePageId,
-      bounds,
+      bounds: hasPositions ? { minX, minY, maxX, maxY } : null,
       cells_with_text: cellsWithText,
-      cells_without_text: cellsWithoutText,
+      cells_without_text: totalCells - cellsWithText,
       cells_by_layer: cellsByLayer,
     };
   }

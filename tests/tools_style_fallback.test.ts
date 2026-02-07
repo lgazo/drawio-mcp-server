@@ -11,7 +11,7 @@ import { describe, it, afterAll } from "@std/testing/bdd";
 import { assertEquals } from "@std/assert";
 import { resolve } from "@std/path";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { handlers } from "../src/tools.ts";
+import { handlers, clearResolveShapeCache } from "../src/tools.ts";
 import { diagram } from "../src/diagram_model.ts";
 import {
   initializeShapes,
@@ -45,6 +45,7 @@ const TEMP_XML = `<mxlibrary>[
 const tmpFile = Deno.makeTempFileSync({ suffix: ".xml" });
 Deno.writeTextFileSync(tmpFile, TEMP_XML);
 initializeShapes(tmpFile);
+clearResolveShapeCache();
 
 // Restore the real library after all tests in this file
 afterAll(() => {
@@ -53,6 +54,7 @@ afterAll(() => {
     resolve("assets/azure-public-service-icons/000 all azure public service icons.xml"),
   );
   resetAzureIconLibrary();
+  clearResolveShapeCache();
 });
 
 describe("resolveShape style ?? fallback", () => {
