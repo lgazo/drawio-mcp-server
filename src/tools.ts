@@ -10,6 +10,7 @@ import {
   getShapesInCategory,
   getAzureShapeByName,
   searchAzureIcons,
+  displayTitle,
 } from "./shapes/azure_icon_library.ts";
 import { BASIC_SHAPES, BASIC_SHAPE_CATEGORIES, getBasicShape } from "./shapes/basic_shapes.ts";
 import type { ToolLogger } from "./tool_handler.ts";
@@ -75,7 +76,7 @@ function resolveShape(shapeName: string): ResolvedShape | undefined {
   const azureExact = getAzureShapeByName(shapeName);
   if (azureExact) {
     const result: ResolvedShape = {
-      name: azureExact.title,
+      name: displayTitle(azureExact.title),
       style: azureExact.style ?? "",
       width: azureExact.width,
       height: azureExact.height,
@@ -90,7 +91,7 @@ function resolveShape(shapeName: string): ResolvedShape | undefined {
   if (searchResults.length > 0) {
     const shape = searchResults[0];
     const result: ResolvedShape = {
-      name: shape.title,
+      name: displayTitle(shape.title),
       style: shape.style ?? "",
       width: shape.width,
       height: shape.height,
@@ -494,7 +495,7 @@ export function createHandlers(log: ToolLogger) {
       return successResult({
         category: categoryId,
         shapes: shapes.map((shape) => ({
-          name: shape.title,
+          name: displayTitle(shape.title),
           id: shape.id,
           width: shape.width,
           height: shape.height,
@@ -785,7 +786,7 @@ export function createHandlers(log: ToolLogger) {
 
       // Then search Azure icons
       const azureMatches = searchAzureIcons(q, limit).map(r => ({
-        name: r.title,
+        name: displayTitle(r.title),
         id: r.id,
         category: r.category,
         width: r.width,

@@ -17,6 +17,8 @@ import {
   initializeShapes,
   AZURE_SHAPE_ALIASES,
   resolveAzureAlias,
+  resolveAllAzureAliases,
+  displayTitle,
 } from "../src/shapes/azure_icon_library.ts";
 import type { AzureIconLibrary } from "../src/shapes/azure_icon_library.ts";
 
@@ -305,17 +307,21 @@ describe("searchAzureIcons", () => {
     assert(idMatch!.score >= 0.95);
   });
 
-  it("alias query injects target as top result with score 1.0", () => {
+  it("alias query injects targets as top results with score 1.0", () => {
     const results = searchAzureIcons("Container Apps", 5);
-    assert(results.length > 0);
+    assert(results.length >= 2);
     assert(results[0].title.includes("Container-Apps-Environments"));
     assertEquals(results[0].score, 1.0);
+    assert(results[1].title.includes("Worker-Container-App"));
+    assertEquals(results[1].score, 1.0);
   });
 
-  it("alias does not duplicate the target in results", () => {
+  it("alias does not duplicate the targets in results", () => {
     const results = searchAzureIcons("Container Apps", 10);
     const envResults = results.filter(r => r.title.includes("Container-Apps-Environments"));
     assertEquals(envResults.length, 1);
+    const workerResults = results.filter(r => r.title.includes("Worker-Container-App"));
+    assertEquals(workerResults.length, 1);
   });
 
   it("Entra ID alias returns Entra ID Protection as top result", () => {
@@ -529,7 +535,7 @@ describe("getAzureIconLibrary automatic reload", () => {
 });
 
 describe("resolveAzureAlias", () => {
-  it("returns target for known alias", () => {
+  it("returns primary target for known alias", () => {
     assertEquals(resolveAzureAlias("Container Apps"), "02989-icon-service-container-apps-environments");
   });
 
@@ -561,12 +567,41 @@ describe("resolveAzureAlias", () => {
   });
 });
 
+describe("resolveAllAzureAliases", () => {
+  it("returns all targets for multi-target alias", () => {
+    const targets = resolveAllAzureAliases("Container Apps");
+    assertExists(targets);
+    assertEquals(targets!.length, 2);
+    assertEquals(targets![0], "02989-icon-service-container-apps-environments");
+    assertEquals(targets![1], "02884-icon-service-worker-container-app");
+  });
+
+  it("returns single-element array for single-target alias", () => {
+    const targets = resolveAllAzureAliases("Entra ID");
+    assertExists(targets);
+    assertEquals(targets!.length, 1);
+    assertEquals(targets![0], "10231-icon-service-entra-id-protection");
+  });
+
+  it("returns undefined for unknown query", () => {
+    assertEquals(resolveAllAzureAliases("not an alias"), undefined);
+  });
+
+  it("is case-insensitive", () => {
+    const lower = resolveAllAzureAliases("container apps");
+    const upper = resolveAllAzureAliases("Container Apps");
+    assertEquals(lower, upper);
+  });
+});
+
 describe("AZURE_SHAPE_ALIASES", () => {
   it("all alias targets exist in the icon library", () => {
     const lib = getAzureIconLibrary();
-    for (const [_alias, target] of AZURE_SHAPE_ALIASES) {
-      const found = lib.indexByTitle.get(target);
-      assertExists(found);
+    for (const [_alias, targets] of AZURE_SHAPE_ALIASES) {
+      for (const target of targets) {
+        const found = lib.indexByTitle.get(target);
+        assertExists(found, `Alias target '${target}' not found in indexByTitle`);
+      }
     }
   });
 
@@ -579,5 +614,58 @@ describe("AZURE_SHAPE_ALIASES", () => {
     assertEquals(AZURE_SHAPE_ALIASES.has("front doors"), true);
     assertEquals(AZURE_SHAPE_ALIASES.has("azure front door"), true);
     assertEquals(AZURE_SHAPE_ALIASES.has("azure front doors"), true);
+  });
+
+  it("values are non-empty arrays", () => {
+    for (const [alias, targets] of AZURE_SHAPE_ALIASES) {
+      assert(Array.isArray(targets), `Alias '${alias}' should map to an array`);
+      assert(targets.length > 0, `Alias '${alias}' should have at least one target`);
+    }
+  });
+});
+
+describe("displayTitle", () => {
+  it("strips numeric prefix and icon-service- boilerplate", () => {
+    assertEquals(displayTitle("02989-icon-service-Container-Apps-Environments"), "Container Apps Environments");
+  });
+
+  it("converts hyphens to spaces in the name portion", () => {
+    assertEquals(displayTitle("02884-icon-service-Worker-Container-App"), "Worker Container App");
+  });
+
+  it("handles Entra ID titles", () => {
+    assertEquals(displayTitle("10231-icon-service-Entra-ID-Protection"), "Entra ID Protection");
+  });
+
+  it("handles titles without the prefix gracefully", () => {
+    assertEquals(displayTitle("Some-Random-Title"), "Some Random Title");
+  });
+
+  it("handles empty string", () => {
+    assertEquals(displayTitle(""), "");
+  });
+
+  it("handles title with only prefix", () => {
+    assertEquals(displayTitle("00001-icon-service-"), "");
+  });
+});
+
+describe("indexByTitle includes display names", () => {
+  it("finds shape by display-friendly name", () => {
+    const found = getAzureShapeByName("Container Apps Environments");
+    assertExists(found);
+    assert(found!.title.includes("Container-Apps-Environments"));
+  });
+
+  it("finds shape by display-friendly name case-insensitively", () => {
+    const found = getAzureShapeByName("container apps environments");
+    assertExists(found);
+    assert(found!.title.includes("Container-Apps-Environments"));
+  });
+
+  it("still finds shape by raw title", () => {
+    const found = getAzureShapeByName("02989-icon-service-Container-Apps-Environments");
+    assertExists(found);
+    assert(found!.title.includes("Container-Apps-Environments"));
   });
 });

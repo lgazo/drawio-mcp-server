@@ -233,6 +233,11 @@ export function loadAzureIconLibrary(libraryPath?: string): AzureIconLibrary {
     shapes.forEach((shape) => {
       indexByTitle.set(shape.title.toLowerCase(), shape);
       indexByTitle.set(shape.id.toLowerCase(), shape);
+      // Also index by display-friendly name so lookups work with either form
+      const friendly = displayTitle(shape.title).toLowerCase();
+      if (!indexByTitle.has(friendly)) {
+        indexByTitle.set(friendly, shape);
+      }
     });
 
     return {
@@ -256,30 +261,47 @@ export function loadAzureIconLibrary(libraryPath?: string): AzureIconLibrary {
  * title of the icon to resolve to.
  *
  * The icon library may not include a standalone icon for every Azure service.
- * For example, "Container Apps" has no icon of its own — only the
- * "Container-Apps-Environments" icon exists. These aliases bridge the gap so
- * that common searches resolve to the best available icon automatically.
+ * For example, "Container Apps" has no dedicated icon — only
+ * "Container-Apps-Environments" and "Worker-Container-App" exist.
+ * These aliases bridge the gap so that common searches resolve to the
+ * best available icons automatically.
+ *
+ * Each alias maps to an **array** of target icon IDs. The first element
+ * is the *primary* target used by `getAzureShapeByName` (single-shape
+ * resolution), while `searchAzureIcons` injects **all** targets at the
+ * top of the results list.
  */
-export const AZURE_SHAPE_ALIASES: ReadonlyMap<string, string> = new Map([
-  // Container Apps → Container Apps Environments (the only Container Apps icon)
-  ["container apps", "02989-icon-service-container-apps-environments"],
-  ["azure container apps", "02989-icon-service-container-apps-environments"],
+export const AZURE_SHAPE_ALIASES: ReadonlyMap<string, readonly string[]> = new Map([
+  // Container Apps → both Container Apps Environments and Worker Container App
+  ["container apps", ["02989-icon-service-container-apps-environments", "02884-icon-service-worker-container-app"]],
+  ["azure container apps", ["02989-icon-service-container-apps-environments", "02884-icon-service-worker-container-app"]],
   // Entra ID → Entra ID Protection (closest generic Entra ID icon)
-  ["entra id", "10231-icon-service-entra-id-protection"],
-  ["microsoft entra id", "10231-icon-service-entra-id-protection"],
+  ["entra id", ["10231-icon-service-entra-id-protection"]],
+  ["microsoft entra id", ["10231-icon-service-entra-id-protection"]],
   // Azure Monitor → Azure Monitor Dashboard (most representative generic icon)
-  ["azure monitor", "02488-icon-service-azure-monitor-dashboard"],
+  ["azure monitor", ["02488-icon-service-azure-monitor-dashboard"]],
   // Front Doors → Front Door and CDN Profiles (renamed service icon)
-  ["front doors", "10073-icon-service-front-door-and-cdn-profiles"],
-  ["azure front door", "10073-icon-service-front-door-and-cdn-profiles"],
-  ["azure front doors", "10073-icon-service-front-door-and-cdn-profiles"],
+  ["front doors", ["10073-icon-service-front-door-and-cdn-profiles"]],
+  ["azure front door", ["10073-icon-service-front-door-and-cdn-profiles"]],
+  ["azure front doors", ["10073-icon-service-front-door-and-cdn-profiles"]],
 ]);
 
 /**
- * Resolve an alias to the target icon title. Returns the lowercased target
- * title when a match exists, otherwise `undefined`.
+ * Resolve an alias to its **primary** (first) target icon ID.
+ * Returns the lowercased target title when a match exists, otherwise
+ * `undefined`. Used by `getAzureShapeByName` for single-shape resolution.
  */
 export function resolveAzureAlias(query: string): string | undefined {
+  const targets = AZURE_SHAPE_ALIASES.get(query.toLowerCase());
+  return targets?.[0];
+}
+
+/**
+ * Resolve an alias to **all** target icon IDs.
+ * Returns `undefined` when the query is not an alias.
+ * Used by `searchAzureIcons` to inject every aliased shape into results.
+ */
+export function resolveAllAzureAliases(query: string): readonly string[] | undefined {
   return AZURE_SHAPE_ALIASES.get(query.toLowerCase());
 }
 
@@ -341,6 +363,19 @@ export function resetAzureIconLibrary(): void {
   cachedLibrary = null;
   cachedSearchIndex = null;
   cachedSearchResults = new Map();
+}
+
+/**
+ * Convert a raw Azure icon title (e.g. "02989-icon-service-Container-Apps-Environments")
+ * into a human-friendly display name (e.g. "Container Apps Environments").
+ * Strips the numeric prefix and "icon-service-" boilerplate, then converts
+ * hyphens to spaces.
+ */
+export function displayTitle(rawTitle: string): string {
+  return rawTitle
+    .replace(/^\d+-icon-service-/, "")
+    .replace(/-/g, " ")
+    .trim();
 }
 
 /**
@@ -410,9 +445,14 @@ export function searchAzureIcons(
   const cached = cachedSearchResults.get(cacheKey);
   if (cached) return cached;
 
-  // Check aliases first — if matched, inject the target as top result
-  const aliasTarget = resolveAzureAlias(query);
-  const aliasShape = aliasTarget ? getAzureIconLibrary().indexByTitle.get(aliasTarget) : undefined;
+  // Check aliases first — if matched, inject target(s) at the top of results
+  const aliasTargets = resolveAllAzureAliases(query);
+  const library = getAzureIconLibrary();
+  const aliasShapes: AzureIconShape[] = aliasTargets
+    ? aliasTargets
+        .map(t => library.indexByTitle.get(t))
+        .filter((s): s is AzureIconShape => s !== undefined)
+    : [];
 
   const searcher = getSearchIndex();
   const normalizedQuery = normalizeForSearch(query);
@@ -436,12 +476,13 @@ export function searchAzureIcons(
 
   let finalResults: SearchResult[];
 
-  // If an alias matched, inject it as the top result (score 1.0) and
-  // remove any duplicate of the same shape from the fuzzy results.
-  if (aliasShape) {
-    const filtered = searchResults.filter(r => r.id !== aliasShape.id);
-    const aliasResult: SearchResult = { ...aliasShape, score: 1.0 };
-    finalResults = [aliasResult, ...filtered].slice(0, limit);
+  // If aliases matched, inject them at the top (score 1.0) and
+  // remove any duplicates of the same shapes from the fuzzy results.
+  if (aliasShapes.length > 0) {
+    const aliasIds = new Set(aliasShapes.map(s => s.id));
+    const filtered = searchResults.filter(r => !aliasIds.has(r.id));
+    const aliasResults: SearchResult[] = aliasShapes.map(s => ({ ...s, score: 1.0 }));
+    finalResults = [...aliasResults, ...filtered].slice(0, limit);
   } else {
     finalResults = searchResults.sort((a, b) => b.score - a.score);
   }
