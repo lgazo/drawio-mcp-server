@@ -459,8 +459,10 @@ describe("tool handlers", () => {
     });
 
     it("should include confidence for fuzzy-matched Azure shapes", async () => {
+      // Use a partial/approximate name that is NOT an alias hit so it falls
+      // through to the fuzzy-search path in resolveShape.
       const result = await handlers["add-cells-of-shape"]({
-        cells: [{ shape_name: "storage account", x: 100, y: 100 }],
+        cells: [{ shape_name: "defender for cloud", x: 100, y: 100 }],
       });
       const parsed = parseResult(result);
       assertEquals(parsed.data.summary.succeeded, 1);

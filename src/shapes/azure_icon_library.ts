@@ -272,18 +272,143 @@ export function loadAzureIconLibrary(libraryPath?: string): AzureIconLibrary {
  * top of the results list.
  */
 export const AZURE_SHAPE_ALIASES: ReadonlyMap<string, readonly string[]> = new Map([
-  // Container Apps → both Container Apps Environments and Worker Container App
+  // ── App Service / Web Apps ─────────────────────────────────────────────
+  // "App Service" fuzzy-matches Plans/Certs/Domains before the main icon
+  ["app service", ["10035-icon-service-app-services"]],
+  ["azure app service", ["10035-icon-service-app-services"]],
+
+  // ── Static Web Apps ────────────────────────────────────────────────────
+  // Icon is named "Static-Apps", not "Static-Web-Apps"
+  ["static web app", ["01007-icon-service-static-apps"]],
+  ["static web apps", ["01007-icon-service-static-apps"]],
+  ["azure static web app", ["01007-icon-service-static-apps"]],
+  ["azure static web apps", ["01007-icon-service-static-apps"]],
+
+  // ── Functions ──────────────────────────────────────────────────────────
+  // "Azure Functions" fuzzy-matches Network Function Manager
+  ["azure functions", ["10029-icon-service-function-apps"]],
+  ["function app", ["10029-icon-service-function-apps"]],
+
+  // ── Container Apps ─────────────────────────────────────────────────────
   ["container apps", ["02989-icon-service-container-apps-environments", "02884-icon-service-worker-container-app"]],
   ["azure container apps", ["02989-icon-service-container-apps-environments", "02884-icon-service-worker-container-app"]],
-  // Entra ID → Entra ID Protection (closest generic Entra ID icon)
+  ["container app", ["02989-icon-service-container-apps-environments", "02884-icon-service-worker-container-app"]],
+
+  // ── Container Registry ─────────────────────────────────────────────────
+  // Icon is titled "Container-Registries" (plural); singular/abbreviation miss
+  ["container registry", ["10105-icon-service-container-registries"]],
+  ["acr", ["10105-icon-service-container-registries"]],
+  ["azure container registry", ["10105-icon-service-container-registries"]],
+
+  // ── Kubernetes / AKS ───────────────────────────────────────────────────
+  // "AKS" fuzzy-matches AKS Automatic; shorthand should resolve to the main icon
+  ["aks", ["10023-icon-service-kubernetes-services"]],
+  ["azure kubernetes service", ["10023-icon-service-kubernetes-services"]],
+
+  // ── Virtual Machines ───────────────────────────────────────────────────
+  // "VM" fuzzy-matches Automanaged VM; shorthand should resolve to main icon
+  ["vm", ["10021-icon-service-virtual-machine"]],
+  ["virtual machines", ["10021-icon-service-virtual-machine"]],
+  ["azure vm", ["10021-icon-service-virtual-machine"]],
+
+  // ── Virtual Networks ───────────────────────────────────────────────────
+  // "VNet" does not fuzzy-match Virtual Networks at all
+  ["vnet", ["10061-icon-service-virtual-networks"]],
+  ["azure vnet", ["10061-icon-service-virtual-networks"]],
+
+  // ── Network Security Groups ────────────────────────────────────────────
+  // "NSG" fuzzy-matches HD Insight instead of Network Security Groups
+  ["nsg", ["10067-icon-service-network-security-groups"]],
+
+  // ── Blob Storage ───────────────────────────────────────────────────────
+  // No "Blob Storage" icon; closest is Blob Block + Storage Accounts
+  ["blob storage", ["10780-icon-service-blob-block", "10086-icon-service-storage-accounts"]],
+  ["azure blob storage", ["10780-icon-service-blob-block", "10086-icon-service-storage-accounts"]],
+  ["blob", ["10780-icon-service-blob-block"]],
+
+  // ── Storage ────────────────────────────────────────────────────────────
+  ["storage account", ["10086-icon-service-storage-accounts"]],
+  ["storage accounts", ["10086-icon-service-storage-accounts"]],
+
+  // ── Redis / Cache ──────────────────────────────────────────────────────
+  // Icons are "Cache-Redis" and "Azure-Managed-Redis"; common names don't match
+  ["redis cache", ["10137-icon-service-cache-redis"]],
+  ["redis", ["10137-icon-service-cache-redis", "03675-icon-service-azure-managed-redis"]],
+  ["azure cache for redis", ["10137-icon-service-cache-redis"]],
+  ["azure redis", ["10137-icon-service-cache-redis", "03675-icon-service-azure-managed-redis"]],
+
+  // ── Azure Firewall ─────────────────────────────────────────────────────
+  // "Azure Firewall" fuzzy-matches Manager/Policy, not the main Firewalls icon
+  ["azure firewall", ["10084-icon-service-firewalls"]],
+  ["firewall", ["10084-icon-service-firewalls"]],
+
+  // ── DNS ────────────────────────────────────────────────────────────────
+  // "Azure DNS" fuzzy-matches Dev Tunnels; "Private DNS" returns Private Endpoints
+  ["azure dns", ["10064-icon-service-dns-zones"]],
+  ["dns", ["10064-icon-service-dns-zones"]],
+  ["private dns", ["02882-icon-service-dns-private-resolver", "10064-icon-service-dns-zones"]],
+  ["private dns zone", ["02882-icon-service-dns-private-resolver"]],
+
+  // ── SQL Database ───────────────────────────────────────────────────────
+  // "Azure SQL Database" fuzzy-matches Stretch Databases instead of SQL Database
+  ["azure sql database", ["10130-icon-service-sql-database"]],
+  ["azure sql", ["02390-icon-service-azure-sql", "10130-icon-service-sql-database"]],
+  ["sql database", ["10130-icon-service-sql-database"]],
+
+  // ── Managed Identity ───────────────────────────────────────────────────
+  ["managed identity", ["10227-icon-service-entra-managed-identities"]],
+  ["managed identities", ["10227-icon-service-entra-managed-identities"]],
+
+  // ── Application Insights ───────────────────────────────────────────────
+  // "App Insights" doesn't fuzzy-match — only full name does
+  ["app insights", ["00012-icon-service-application-insights"]],
+
+  // ── Entra ID ───────────────────────────────────────────────────────────
   ["entra id", ["10231-icon-service-entra-id-protection"]],
   ["microsoft entra id", ["10231-icon-service-entra-id-protection"]],
-  // Azure Monitor → Azure Monitor Dashboard (most representative generic icon)
+
+  // ── Azure Monitor ──────────────────────────────────────────────────────
   ["azure monitor", ["02488-icon-service-azure-monitor-dashboard"]],
-  // Front Doors → Front Door and CDN Profiles (renamed service icon)
+
+  // ── Front Doors / CDN ──────────────────────────────────────────────────
   ["front doors", ["10073-icon-service-front-door-and-cdn-profiles"]],
+  ["front door", ["10073-icon-service-front-door-and-cdn-profiles"]],
   ["azure front door", ["10073-icon-service-front-door-and-cdn-profiles"]],
   ["azure front doors", ["10073-icon-service-front-door-and-cdn-profiles"]],
+
+  // ── Cosmos DB ──────────────────────────────────────────────────────────
+  ["cosmos db", ["10121-icon-service-azure-cosmos-db"]],
+  ["cosmosdb", ["10121-icon-service-azure-cosmos-db"]],
+
+  // ── Key Vault ──────────────────────────────────────────────────────────
+  ["key vault", ["10245-icon-service-key-vaults"]],
+  ["azure key vault", ["10245-icon-service-key-vaults"]],
+
+  // ── Service Bus ────────────────────────────────────────────────────────
+  ["service bus", ["10836-icon-service-azure-service-bus"]],
+
+  // ── API Management ─────────────────────────────────────────────────────
+  ["api management", ["10042-icon-service-api-management-services"]],
+  ["apim", ["10042-icon-service-api-management-services"]],
+
+  // ── Application Gateway ────────────────────────────────────────────────
+  ["app gateway", ["10076-icon-service-application-gateways"]],
+  ["application gateway", ["10076-icon-service-application-gateways"]],
+
+  // ── Load Balancer ──────────────────────────────────────────────────────
+  ["load balancer", ["10062-icon-service-load-balancers"]],
+  ["azure load balancer", ["10062-icon-service-load-balancers"]],
+
+  // ── Log Analytics ──────────────────────────────────────────────────────
+  ["log analytics", ["00009-icon-service-log-analytics-workspaces"]],
+
+  // ── Bastion ────────────────────────────────────────────────────────────
+  ["bastion", ["02422-icon-service-bastions"]],
+  ["azure bastion", ["02422-icon-service-bastions"]],
+
+  // ── ExpressRoute ───────────────────────────────────────────────────────
+  ["expressroute", ["10079-icon-service-expressroute-circuits"]],
+  ["express route", ["10079-icon-service-expressroute-circuits"]],
 ]);
 
 /**

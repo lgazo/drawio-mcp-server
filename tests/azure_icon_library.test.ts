@@ -345,6 +345,139 @@ describe("searchAzureIcons", () => {
     assertEquals(results[0].score, 1.0);
   });
 
+  it("App Service alias returns App Services as top result", () => {
+    const results = searchAzureIcons("App Service", 5);
+    assert(results.length > 0);
+    assert(results[0].title.toLowerCase().includes("app-services"));
+    assertEquals(results[0].score, 1.0);
+  });
+
+  it("Static Web App alias returns Static Apps as top result", () => {
+    const results = searchAzureIcons("Static Web App", 5);
+    assert(results.length > 0);
+    assert(results[0].title.toLowerCase().includes("static-apps"));
+    assertEquals(results[0].score, 1.0);
+  });
+
+  it("Azure Functions alias returns Function Apps as top result", () => {
+    const results = searchAzureIcons("Azure Functions", 5);
+    assert(results.length > 0);
+    assert(results[0].title.toLowerCase().includes("function-apps"));
+    assertEquals(results[0].score, 1.0);
+  });
+
+  it("ACR alias returns Container Registries as top result", () => {
+    const results = searchAzureIcons("ACR", 5);
+    assert(results.length > 0);
+    assert(results[0].title.toLowerCase().includes("container-registries"));
+    assertEquals(results[0].score, 1.0);
+  });
+
+  it("VM alias returns Virtual Machine as top result", () => {
+    const results = searchAzureIcons("VM", 5);
+    assert(results.length > 0);
+    assert(results[0].title.toLowerCase().includes("virtual-machine"));
+    assertEquals(results[0].score, 1.0);
+  });
+
+  it("VNet alias returns Virtual Networks as top result", () => {
+    const results = searchAzureIcons("VNet", 5);
+    assert(results.length > 0);
+    assert(results[0].title.toLowerCase().includes("virtual-networks"));
+    assertEquals(results[0].score, 1.0);
+  });
+
+  it("NSG alias returns Network Security Groups as top result", () => {
+    const results = searchAzureIcons("NSG", 5);
+    assert(results.length > 0);
+    assert(results[0].title.toLowerCase().includes("network-security-groups"));
+    assertEquals(results[0].score, 1.0);
+  });
+
+  it("Azure DNS alias returns DNS Zones as top result", () => {
+    const results = searchAzureIcons("Azure DNS", 5);
+    assert(results.length > 0);
+    assert(results[0].title.toLowerCase().includes("dns-zones"));
+    assertEquals(results[0].score, 1.0);
+  });
+
+  it("Azure Firewall alias returns Firewalls as top result", () => {
+    const results = searchAzureIcons("Azure Firewall", 5);
+    assert(results.length > 0);
+    assert(results[0].title.toLowerCase().includes("firewalls"));
+    assertEquals(results[0].score, 1.0);
+  });
+
+  it("Blob Storage alias returns Blob Block as top result", () => {
+    const results = searchAzureIcons("Blob Storage", 5);
+    assert(results.length > 0);
+    assert(results[0].title.toLowerCase().includes("blob-block"));
+    assertEquals(results[0].score, 1.0);
+  });
+
+  it("Managed Identity alias returns Entra Managed Identities as top result", () => {
+    const results = searchAzureIcons("Managed Identity", 5);
+    assert(results.length > 0);
+    assert(results[0].title.toLowerCase().includes("managed-identities"));
+    assertEquals(results[0].score, 1.0);
+  });
+
+  it("Azure SQL Database alias returns SQL Database as top result", () => {
+    const results = searchAzureIcons("Azure SQL Database", 5);
+    assert(results.length > 0);
+    assert(results[0].title.toLowerCase().includes("sql-database"));
+    assertEquals(results[0].score, 1.0);
+  });
+
+  it("Redis Cache alias returns Cache Redis as top result", () => {
+    const results = searchAzureIcons("Redis Cache", 5);
+    assert(results.length > 0);
+    assert(results[0].title.toLowerCase().includes("cache-redis"));
+    assertEquals(results[0].score, 1.0);
+  });
+
+  it("App Insights alias returns Application Insights as top result", () => {
+    const results = searchAzureIcons("App Insights", 5);
+    assert(results.length > 0);
+    assert(results[0].title.toLowerCase().includes("application-insights"));
+    assertEquals(results[0].score, 1.0);
+  });
+
+  it("Cosmos DB alias returns Azure Cosmos DB as top result", () => {
+    const results = searchAzureIcons("Cosmos DB", 5);
+    assert(results.length > 0);
+    assert(results[0].title.toLowerCase().includes("azure-cosmos-db"));
+    assertEquals(results[0].score, 1.0);
+  });
+
+  it("APIM alias returns API Management Services as top result", () => {
+    const results = searchAzureIcons("APIM", 5);
+    assert(results.length > 0);
+    assert(results[0].title.toLowerCase().includes("api-management-services"));
+    assertEquals(results[0].score, 1.0);
+  });
+
+  it("Load Balancer alias returns Load Balancers as top result", () => {
+    const results = searchAzureIcons("Load Balancer", 5);
+    assert(results.length > 0);
+    assert(results[0].title.toLowerCase().includes("load-balancers"));
+    assertEquals(results[0].score, 1.0);
+  });
+
+  it("Bastion alias returns Bastions as top result", () => {
+    const results = searchAzureIcons("Bastion", 5);
+    assert(results.length > 0);
+    assert(results[0].title.toLowerCase().includes("bastions"));
+    assertEquals(results[0].score, 1.0);
+  });
+
+  it("ExpressRoute alias returns ExpressRoute Circuits as top result", () => {
+    const results = searchAzureIcons("ExpressRoute", 5);
+    assert(results.length > 0);
+    assert(results[0].title.toLowerCase().includes("expressroute-circuits"));
+    assertEquals(results[0].score, 1.0);
+  });
+
   it("alias respects limit parameter", () => {
     const results = searchAzureIcons("Container Apps", 2);
     assert(results.length <= 2);
@@ -565,6 +698,70 @@ describe("resolveAzureAlias", () => {
     assertEquals(resolveAzureAlias("Azure Front Door"), "10073-icon-service-front-door-and-cdn-profiles");
     assertEquals(resolveAzureAlias("Azure Front Doors"), "10073-icon-service-front-door-and-cdn-profiles");
   });
+
+  it("resolves App Service", () => {
+    assertEquals(resolveAzureAlias("App Service"), "10035-icon-service-app-services");
+  });
+
+  it("resolves Static Web App variants", () => {
+    assertEquals(resolveAzureAlias("Static Web App"), "01007-icon-service-static-apps");
+    assertEquals(resolveAzureAlias("Static Web Apps"), "01007-icon-service-static-apps");
+  });
+
+  it("resolves Azure Functions", () => {
+    assertEquals(resolveAzureAlias("Azure Functions"), "10029-icon-service-function-apps");
+  });
+
+  it("resolves abbreviations (ACR, VM, VNet, NSG, AKS, APIM)", () => {
+    assertEquals(resolveAzureAlias("ACR"), "10105-icon-service-container-registries");
+    assertEquals(resolveAzureAlias("VM"), "10021-icon-service-virtual-machine");
+    assertEquals(resolveAzureAlias("VNet"), "10061-icon-service-virtual-networks");
+    assertEquals(resolveAzureAlias("NSG"), "10067-icon-service-network-security-groups");
+    assertEquals(resolveAzureAlias("AKS"), "10023-icon-service-kubernetes-services");
+    assertEquals(resolveAzureAlias("APIM"), "10042-icon-service-api-management-services");
+  });
+
+  it("resolves Blob Storage", () => {
+    assertEquals(resolveAzureAlias("Blob Storage"), "10780-icon-service-blob-block");
+  });
+
+  it("resolves Redis Cache", () => {
+    assertEquals(resolveAzureAlias("Redis Cache"), "10137-icon-service-cache-redis");
+  });
+
+  it("resolves Azure Firewall", () => {
+    assertEquals(resolveAzureAlias("Azure Firewall"), "10084-icon-service-firewalls");
+  });
+
+  it("resolves Azure DNS", () => {
+    assertEquals(resolveAzureAlias("Azure DNS"), "10064-icon-service-dns-zones");
+  });
+
+  it("resolves Azure SQL Database", () => {
+    assertEquals(resolveAzureAlias("Azure SQL Database"), "10130-icon-service-sql-database");
+  });
+
+  it("resolves Managed Identity", () => {
+    assertEquals(resolveAzureAlias("Managed Identity"), "10227-icon-service-entra-managed-identities");
+  });
+
+  it("resolves App Insights", () => {
+    assertEquals(resolveAzureAlias("App Insights"), "00012-icon-service-application-insights");
+  });
+
+  it("resolves Cosmos DB variants", () => {
+    assertEquals(resolveAzureAlias("Cosmos DB"), "10121-icon-service-azure-cosmos-db");
+    assertEquals(resolveAzureAlias("CosmosDB"), "10121-icon-service-azure-cosmos-db");
+  });
+
+  it("resolves Bastion", () => {
+    assertEquals(resolveAzureAlias("Bastion"), "02422-icon-service-bastions");
+  });
+
+  it("resolves ExpressRoute variants", () => {
+    assertEquals(resolveAzureAlias("ExpressRoute"), "10079-icon-service-expressroute-circuits");
+    assertEquals(resolveAzureAlias("Express Route"), "10079-icon-service-expressroute-circuits");
+  });
 });
 
 describe("resolveAllAzureAliases", () => {
@@ -606,14 +803,129 @@ describe("AZURE_SHAPE_ALIASES", () => {
   });
 
   it("contains expected aliases", () => {
+    // App Service / Web Apps
+    assertEquals(AZURE_SHAPE_ALIASES.has("app service"), true);
+    assertEquals(AZURE_SHAPE_ALIASES.has("azure app service"), true);
+
+    // Static Web Apps
+    assertEquals(AZURE_SHAPE_ALIASES.has("static web app"), true);
+    assertEquals(AZURE_SHAPE_ALIASES.has("static web apps"), true);
+    assertEquals(AZURE_SHAPE_ALIASES.has("azure static web app"), true);
+    assertEquals(AZURE_SHAPE_ALIASES.has("azure static web apps"), true);
+
+    // Functions
+    assertEquals(AZURE_SHAPE_ALIASES.has("azure functions"), true);
+    assertEquals(AZURE_SHAPE_ALIASES.has("function app"), true);
+
+    // Container Apps
     assertEquals(AZURE_SHAPE_ALIASES.has("container apps"), true);
+    assertEquals(AZURE_SHAPE_ALIASES.has("azure container apps"), true);
+    assertEquals(AZURE_SHAPE_ALIASES.has("container app"), true);
+
+    // Container Registry
+    assertEquals(AZURE_SHAPE_ALIASES.has("container registry"), true);
+    assertEquals(AZURE_SHAPE_ALIASES.has("acr"), true);
+    assertEquals(AZURE_SHAPE_ALIASES.has("azure container registry"), true);
+
+    // AKS
+    assertEquals(AZURE_SHAPE_ALIASES.has("aks"), true);
+    assertEquals(AZURE_SHAPE_ALIASES.has("azure kubernetes service"), true);
+
+    // Virtual Machines
+    assertEquals(AZURE_SHAPE_ALIASES.has("vm"), true);
+    assertEquals(AZURE_SHAPE_ALIASES.has("virtual machines"), true);
+    assertEquals(AZURE_SHAPE_ALIASES.has("azure vm"), true);
+
+    // Virtual Networks
+    assertEquals(AZURE_SHAPE_ALIASES.has("vnet"), true);
+    assertEquals(AZURE_SHAPE_ALIASES.has("azure vnet"), true);
+
+    // NSG
+    assertEquals(AZURE_SHAPE_ALIASES.has("nsg"), true);
+
+    // Blob Storage
+    assertEquals(AZURE_SHAPE_ALIASES.has("blob storage"), true);
+    assertEquals(AZURE_SHAPE_ALIASES.has("azure blob storage"), true);
+    assertEquals(AZURE_SHAPE_ALIASES.has("blob"), true);
+
+    // Storage Accounts
+    assertEquals(AZURE_SHAPE_ALIASES.has("storage account"), true);
+    assertEquals(AZURE_SHAPE_ALIASES.has("storage accounts"), true);
+
+    // Redis
+    assertEquals(AZURE_SHAPE_ALIASES.has("redis cache"), true);
+    assertEquals(AZURE_SHAPE_ALIASES.has("redis"), true);
+    assertEquals(AZURE_SHAPE_ALIASES.has("azure cache for redis"), true);
+    assertEquals(AZURE_SHAPE_ALIASES.has("azure redis"), true);
+
+    // Firewall
+    assertEquals(AZURE_SHAPE_ALIASES.has("azure firewall"), true);
+    assertEquals(AZURE_SHAPE_ALIASES.has("firewall"), true);
+
+    // DNS
+    assertEquals(AZURE_SHAPE_ALIASES.has("azure dns"), true);
+    assertEquals(AZURE_SHAPE_ALIASES.has("dns"), true);
+    assertEquals(AZURE_SHAPE_ALIASES.has("private dns"), true);
+    assertEquals(AZURE_SHAPE_ALIASES.has("private dns zone"), true);
+
+    // SQL
+    assertEquals(AZURE_SHAPE_ALIASES.has("azure sql database"), true);
+    assertEquals(AZURE_SHAPE_ALIASES.has("azure sql"), true);
+    assertEquals(AZURE_SHAPE_ALIASES.has("sql database"), true);
+
+    // Managed Identity
+    assertEquals(AZURE_SHAPE_ALIASES.has("managed identity"), true);
+    assertEquals(AZURE_SHAPE_ALIASES.has("managed identities"), true);
+
+    // Application Insights
+    assertEquals(AZURE_SHAPE_ALIASES.has("app insights"), true);
+
+    // Entra ID
     assertEquals(AZURE_SHAPE_ALIASES.has("entra id"), true);
     assertEquals(AZURE_SHAPE_ALIASES.has("microsoft entra id"), true);
-    assertEquals(AZURE_SHAPE_ALIASES.has("azure container apps"), true);
+
+    // Azure Monitor
     assertEquals(AZURE_SHAPE_ALIASES.has("azure monitor"), true);
+
+    // Front Doors
     assertEquals(AZURE_SHAPE_ALIASES.has("front doors"), true);
+    assertEquals(AZURE_SHAPE_ALIASES.has("front door"), true);
     assertEquals(AZURE_SHAPE_ALIASES.has("azure front door"), true);
     assertEquals(AZURE_SHAPE_ALIASES.has("azure front doors"), true);
+
+    // Cosmos DB
+    assertEquals(AZURE_SHAPE_ALIASES.has("cosmos db"), true);
+    assertEquals(AZURE_SHAPE_ALIASES.has("cosmosdb"), true);
+
+    // Key Vault
+    assertEquals(AZURE_SHAPE_ALIASES.has("key vault"), true);
+    assertEquals(AZURE_SHAPE_ALIASES.has("azure key vault"), true);
+
+    // Service Bus
+    assertEquals(AZURE_SHAPE_ALIASES.has("service bus"), true);
+
+    // API Management
+    assertEquals(AZURE_SHAPE_ALIASES.has("api management"), true);
+    assertEquals(AZURE_SHAPE_ALIASES.has("apim"), true);
+
+    // Application Gateway
+    assertEquals(AZURE_SHAPE_ALIASES.has("app gateway"), true);
+    assertEquals(AZURE_SHAPE_ALIASES.has("application gateway"), true);
+
+    // Load Balancer
+    assertEquals(AZURE_SHAPE_ALIASES.has("load balancer"), true);
+    assertEquals(AZURE_SHAPE_ALIASES.has("azure load balancer"), true);
+
+    // Log Analytics
+    assertEquals(AZURE_SHAPE_ALIASES.has("log analytics"), true);
+
+    // Bastion
+    assertEquals(AZURE_SHAPE_ALIASES.has("bastion"), true);
+    assertEquals(AZURE_SHAPE_ALIASES.has("azure bastion"), true);
+
+    // ExpressRoute
+    assertEquals(AZURE_SHAPE_ALIASES.has("expressroute"), true);
+    assertEquals(AZURE_SHAPE_ALIASES.has("express route"), true);
   });
 
   it("values are non-empty arrays", () => {
