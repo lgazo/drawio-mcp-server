@@ -6,6 +6,16 @@
  * because the Web Compression API does not expose a synchronous API.
  * Encoding uses `@std/encoding/base64` and standard `TextEncoder` /
  * `TextDecoder` — no Node.js `Buffer` dependency.
+ *
+ * Known optimization opportunities (deferred):
+ * - INCREMENTAL STATS: `getStats()` rebuilds cell counts on every call. An
+ *   incremental approach (maintaining counters on add/delete/move) would give
+ *   O(1) stats but touches many methods and risks subtle bugs.
+ * - EDGE REVERSE-INDEX: `deleteCell` linearly scans all cells for edge cascade.
+ *   A `Map<string, Set<string>>` mapping vertex→edges would enable O(1) lookups
+ *   but requires per-page storage and updates across add/delete/edit/import.
+ * - ASYNC COMPRESSION: `deflateRawSync` blocks the event loop. Using the async
+ *   `deflateRaw` would require making `toXml` async, rippling through handlers.
  */
 
 import { deflateRawSync, inflateRawSync } from "node:zlib";
@@ -51,11 +61,6 @@ export interface Layer {
   name: string;
 }
 
-export interface Page {
-  id: string;
-  name: string;
-}
-
 /** Normalised attributes extracted from an mxCell or UserObject XML element */
 interface ParsedCellAttrs {
   id: string;
@@ -74,25 +79,8 @@ export class DiagramModel {
   private layers: Layer[] = [{ id: "1", name: "Default Layer" }];
   private activeLayerId: string = "1";
   private nextId: number = 2;
-  private pages: Page[] = [{ id: "page-1", name: "Page-1" }];
-  private activePageId: string = "page-1";
-  /** Monotonic counter for page IDs — prevents collisions after deletions */
-  private nextPageId: number = 2;
   /** Monotonic counter for layer IDs — prevents collisions after deletions */
   private nextLayerId: number = 2;
-  /** Per-page storage: pageId → { cells, layers, activeLayerId, nextId } */
-  private pageData: Map<string, { cells: Map<string, Cell>; layers: Layer[]; activeLayerId: string; nextId: number }> = new Map();
-
-  constructor() {
-    // Initialize with root cell (id=0) and default layer (id=1)
-    // Store initial page data
-    this.pageData.set("page-1", {
-      cells: this.cells,
-      layers: this.layers,
-      activeLayerId: this.activeLayerId,
-      nextId: this.nextId,
-    });
-  }
 
   private generateId(): string {
     return `cell-${this.nextId++}`;
@@ -353,141 +341,6 @@ export class DiagramModel {
     return cell;
   }
 
-  // ─── Multi-Page Support ──────────────────────────────────────────
-
-  /**
-   * Save current page state into pageData before switching away.
-   */
-  private saveCurrentPageState(): void {
-    this.pageData.set(this.activePageId, {
-      cells: this.cells,
-      layers: this.layers,
-      activeLayerId: this.activeLayerId,
-      nextId: this.nextId,
-    });
-  }
-
-  /**
-   * Load a page's state from pageData into the active fields.
-   */
-  private loadPageState(pageId: string): void {
-    const data = this.pageData.get(pageId);
-    if (data) {
-      this.cells = data.cells;
-      this.layers = data.layers;
-      this.activeLayerId = data.activeLayerId;
-      this.nextId = data.nextId;
-    }
-  }
-
-  /**
-   * Create a new page in the diagram.
-   */
-  createPage(name: string): Page {
-    const id = `page-${this.nextPageId++}`;
-    const page: Page = { id, name };
-    this.pages.push(page);
-    // Initialize empty page data
-    this.pageData.set(id, {
-      cells: new Map(),
-      layers: [{ id: "1", name: "Default Layer" }],
-      activeLayerId: "1",
-      nextId: 2,
-    });
-    return page;
-  }
-
-  /**
-   * List all pages.
-   */
-  listPages(): Page[] {
-    return [...this.pages];
-  }
-
-  /**
-   * Get the currently active page.
-   */
-  getActivePage(): Page {
-    return this.pages.find(p => p.id === this.activePageId)!;
-  }
-
-  /**
-   * Switch to a different page.
-   */
-  setActivePage(pageId: string): Page | { error: StructuredError } {
-    const page = this.pages.find(p => p.id === pageId);
-    if (!page) {
-      return {
-        error: {
-          code: "PAGE_NOT_FOUND",
-          message: `Page '${pageId}' not found`,
-          suggestion: "Use list-pages to see available pages",
-        },
-      };
-    }
-    if (pageId === this.activePageId) {
-      return page;
-    }
-    // Save current page state and load the target page
-    this.saveCurrentPageState();
-    this.activePageId = pageId;
-    this.loadPageState(pageId);
-    return page;
-  }
-
-  /**
-   * Rename a page.
-   */
-  renamePage(pageId: string, newName: string): Page | { error: StructuredError } {
-    const page = this.pages.find(p => p.id === pageId);
-    if (!page) {
-      return {
-        error: {
-          code: "PAGE_NOT_FOUND",
-          message: `Page '${pageId}' not found`,
-          suggestion: "Use list-pages to see available pages",
-        },
-      };
-    }
-    page.name = newName;
-    return page;
-  }
-
-  /**
-   * Delete a page. Cannot delete the last remaining page.
-   */
-  deletePage(pageId: string): { deleted: boolean; error?: StructuredError } {
-    if (this.pages.length <= 1) {
-      return {
-        deleted: false,
-        error: {
-          code: "CANNOT_DELETE_LAST_PAGE",
-          message: "Cannot delete the last remaining page",
-          suggestion: "Create another page before deleting this one",
-        },
-      };
-    }
-    const index = this.pages.findIndex(p => p.id === pageId);
-    if (index === -1) {
-      return {
-        deleted: false,
-        error: {
-          code: "PAGE_NOT_FOUND",
-          message: `Page '${pageId}' not found`,
-          suggestion: "Use list-pages to see available pages",
-        },
-      };
-    }
-    this.pages.splice(index, 1);
-    this.pageData.delete(pageId);
-    // If deleting the active page, switch to the first remaining page
-    if (this.activePageId === pageId) {
-      this.activePageId = this.pages[0].id;
-      this.loadPageState(this.activePageId);
-    }
-    return { deleted: true };
-  }
-
   // ─── Group / Container Support ───────────────────────────────────
 
   /**
@@ -680,8 +533,9 @@ export class DiagramModel {
 
   /**
    * Import a Draw.io XML string, replacing the current diagram state.
-   * Supports single-page and multi-page documents.
-   * Returns the number of imported pages, cells, and layers.
+   * Supports single-page and multi-page documents. When multiple pages are
+   * present, all cells and layers are merged into a single flat model.
+   * Returns the number of source pages, merged cells, and merged layers.
    */
   importXml(xml: string): { pages: number; cells: number; layers: number } | { error: StructuredError } {
     // Basic validation
@@ -722,20 +576,14 @@ export class DiagramModel {
     }
 
     // Reset state entirely
-    this.pages = [];
-    this.pageData.clear();
-    this.activePageId = "";
-    this.nextPageId = 1;
+    this.cells = new Map();
+    this.layers = [{ id: "1", name: "Default Layer" }];
+    this.activeLayerId = "1";
+    this.nextId = 2;
     this.nextLayerId = 2;
-
-    let totalCells = 0;
-    let totalLayers = 0;
 
     for (let di = 0; di < diagramElements.length; di++) {
       let diag = diagramElements[di];
-      const pageId = `page-${this.nextPageId++}`;
-      const pageName = String(diag.name ?? `Page-${di + 1}`);
-      this.pages.push({ id: pageId, name: pageName });
 
       // Detect compressed diagram content: when the diagram element has a text
       // node instead of an mxGraphModel child, it contains deflate+base64 data.
@@ -746,25 +594,29 @@ export class DiagramModel {
       }
 
       const { cells, layers, nextId } = this.parseMxGraphContent(diag);
-      totalCells += cells.size;
-      totalLayers += layers.length;
 
-      this.pageData.set(pageId, {
-        cells,
-        layers,
-        activeLayerId: layers[0].id,
-        nextId,
-      });
+      // Merge cells into the model
+      for (const [id, cell] of cells) {
+        this.cells.set(id, cell);
+      }
+
+      // Merge layers (skip default layer already present)
+      for (const layer of layers) {
+        if (layer.id !== "1" && !this.layers.some(l => l.id === layer.id)) {
+          this.layers.push(layer);
+        }
+      }
+
+      // Track the highest nextId across all pages
+      if (nextId > this.nextId) {
+        this.nextId = nextId;
+      }
     }
 
-    // Activate the first page
-    this.activePageId = this.pages[0].id;
-    this.loadPageState(this.activePageId);
-
     return {
-      pages: this.pages.length,
-      cells: totalCells,
-      layers: totalLayers,
+      pages: diagramElements.length,
+      cells: this.cells.size,
+      layers: this.layers.length,
     };
   }
 
@@ -912,27 +764,21 @@ export class DiagramModel {
   }
 
   /**
-   * Export the diagram as Draw.io XML format (supports multi-page).
+   * Export the diagram as Draw.io XML format (single page).
    *
    * @param options.compress - If `true`, deflate-compress and base64-encode the
-   *   `<mxGraphModel>` content inside each `<diagram>` element. This matches the
+   *   `<mxGraphModel>` content inside the `<diagram>` element. This matches the
    *   format used by the Draw.io desktop application and typically achieves 60-80%
    *   size reduction. Defaults to `false` (plain XML).
    */
   toXml(options?: { compress?: boolean }): string {
     const compress = options?.compress ?? false;
-    // Save current page state so all pages have up-to-date data
-    this.saveCurrentPageState();
 
-    const diagramsXml = this.pages.map(page => {
-      const data = this.pageData.get(page.id)!;
-      const pageXml = this.renderPageXml(data.cells, data.layers);
-      const graphModelXml = `<mxGraphModel dx="800" dy="600" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0"><root><mxCell id="0"/><mxCell id="1" parent="0"/>${pageXml}</root></mxGraphModel>`;
-      const diagramContent = compress ? DiagramModel.compressXml(graphModelXml) : graphModelXml;
-      return `<diagram id="${this.escapeXml(page.id)}" name="${this.escapeXml(page.name)}">${diagramContent}</diagram>`;
-    }).join("");
+    const pageXml = this.renderPageXml(this.cells, this.layers);
+    const graphModelXml = `<mxGraphModel dx="800" dy="600" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0"><root><mxCell id="0"/><mxCell id="1" parent="0"/>${pageXml}</root></mxGraphModel>`;
+    const diagramContent = compress ? DiagramModel.compressXml(graphModelXml) : graphModelXml;
 
-    return `<mxfile host="drawio-mcp-server">${diagramsXml}</mxfile>`;
+    return `<mxfile host="drawio-mcp-server"><diagram id="page-1" name="Page-1">${diagramContent}</diagram></mxfile>`;
   }
 
   /**
@@ -993,46 +839,35 @@ export class DiagramModel {
     return `${layerCellsXml}${cellsXml}`;
   }
 
+  /** Lookup map for single-pass XML escaping */
+  private static readonly XML_ESCAPE_MAP: Record<string, string> = {
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&apos;",
+  };
+
   private escapeXml(str: string): string {
-    return str
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&apos;");
+    return str.replace(/[&<>"']/g, ch => DiagramModel.XML_ESCAPE_MAP[ch]);
   }
 
   /**
-   * Clear all cells and reset the diagram (including pages)
+   * Clear all cells and reset the diagram to its initial empty state.
    */
   clear(): { vertices: number; edges: number } {
-    // Count cells across all pages
-    this.saveCurrentPageState();
     let vertices = 0;
     let edges = 0;
-    for (const data of this.pageData.values()) {
-      for (const c of data.cells.values()) {
-        if (c.type === "vertex") vertices++;
-        else edges++;
-      }
+    for (const c of this.cells.values()) {
+      if (c.type === "vertex") vertices++;
+      else edges++;
     }
 
-    // Reset to single empty page
     this.cells = new Map();
     this.layers = [{ id: "1", name: "Default Layer" }];
     this.activeLayerId = "1";
     this.nextId = 2;
-    this.nextPageId = 2;
     this.nextLayerId = 2;
-    this.pages = [{ id: "page-1", name: "Page-1" }];
-    this.activePageId = "page-1";
-    this.pageData.clear();
-    this.pageData.set("page-1", {
-      cells: this.cells,
-      layers: this.layers,
-      activeLayerId: this.activeLayerId,
-      nextId: this.nextId,
-    });
     return { vertices, edges };
   }
 
@@ -1045,8 +880,6 @@ export class DiagramModel {
     edges: number;
     groups: number;
     layers: number;
-    pages: number;
-    active_page: string;
     bounds: { minX: number; minY: number; maxX: number; maxY: number } | null;
     cells_with_text: number;
     cells_without_text: number;
@@ -1099,8 +932,6 @@ export class DiagramModel {
       edges: edgeCount,
       groups: groupCount,
       layers: this.layers.length,
-      pages: this.pages.length,
-      active_page: this.activePageId,
       bounds: hasPositions ? { minX, minY, maxX, maxY } : null,
       cells_with_text: cellsWithText,
       cells_without_text: totalCells - cellsWithText,
@@ -1253,6 +1084,42 @@ private validateBatchCells(
   }
 
   return errors;
+}
+
+/**
+ * Batch edit multiple edges in a single operation.
+ */
+batchEditEdges(
+  updates: Array<{
+    cell_id: string;
+    text?: string;
+    source_id?: string;
+    target_id?: string;
+    style?: string;
+  }>,
+): Array<{ success: boolean; cell?: Cell; error?: StructuredError; cell_id: string }> {
+  return updates.map((update) => {
+    const result = this.editEdge(update.cell_id, {
+      text: update.text,
+      sourceId: update.source_id,
+      targetId: update.target_id,
+      style: update.style,
+    });
+
+    if ("error" in result) {
+      return {
+        success: false,
+        cell_id: update.cell_id,
+        error: result.error,
+      };
+    }
+
+    return {
+      success: true,
+      cell_id: update.cell_id,
+      cell: result,
+    };
+  });
 }
 
 /**

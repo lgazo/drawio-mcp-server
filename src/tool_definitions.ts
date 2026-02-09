@@ -64,29 +64,31 @@ export const TOOL_DEFINITIONS: readonly ToolDefinition[] = [
   {
     key: "EDIT_EDGE",
     name: "edit-edge",
-    description: "Update an edge's properties (text, source, target, style). Only specified fields change.",
+    description: "Edit one or more edges. Always pass ALL updates in a single call — never call this tool repeatedly. Only updates specified properties on each edge.",
     hasArgs: true,
     inputSchema: {
-      cell_id: z
-        .string()
-        .describe(
-          "Identifier (`id` attribute) of the edge cell to update. The ID must reference an edge.",
-        ),
-      text: z.string().optional().describe("Replace the edge's label text."),
-      source_id: z
-        .string()
-        .optional()
-        .describe("Reassign the edge's source terminal to a different cell ID."),
-      target_id: z
-        .string()
-        .optional()
-        .describe("Reassign the edge's target terminal to a different cell ID."),
-      style: z
-        .string()
-        .optional()
-        .describe(
-          "Replace the edge's style string (semi-colon separated `key=value` pairs).",
-        ),
+      edges: z.array(z.object({
+        cell_id: z
+          .string()
+          .describe(
+            "Identifier (`id` attribute) of the edge cell to update. The ID must reference an edge.",
+          ),
+        text: z.string().optional().describe("Replace the edge's label text."),
+        source_id: z
+          .string()
+          .optional()
+          .describe("Reassign the edge's source terminal to a different cell ID."),
+        target_id: z
+          .string()
+          .optional()
+          .describe("Reassign the edge's target terminal to a different cell ID."),
+        style: z
+          .string()
+          .optional()
+          .describe(
+            "Replace the edge's style string (semi-colon separated `key=value` pairs).",
+          ),
+      })).describe("Array of edge updates. Example: [{cell_id: 'cell-3', text: 'HTTPS'}, {cell_id: 'cell-4', style: 'dashed=1;'}]"),
     },
   },
 
@@ -223,7 +225,7 @@ export const TOOL_DEFINITIONS: readonly ToolDefinition[] = [
   {
     key: "LIST_PAGED_MODEL",
     name: "list-paged-model",
-    description: "Get a paginated list of cells on the active page. Returns active page and layer context alongside results. Use this to inspect diagram structure or find cells by type.",
+    description: "Get a paginated list of cells in the diagram. Returns layer context alongside results. Use this to inspect diagram structure or find cells by type.",
     hasArgs: true,
     inputSchema: {
       page: z
@@ -266,7 +268,7 @@ export const TOOL_DEFINITIONS: readonly ToolDefinition[] = [
   {
     key: "LIST_LAYERS",
     name: "list-layers",
-    description: "List all layers on the active page with IDs, names, and which layer is currently active.",
+    description: "List all layers in the diagram with IDs, names, and which layer is currently active.",
     hasArgs: false,
   },
   {
@@ -287,7 +289,7 @@ export const TOOL_DEFINITIONS: readonly ToolDefinition[] = [
   {
     key: "CREATE_LAYER",
     name: "create-layer",
-    description: "Create a new layer on the active page. Layers organize cells into separate visual planes that can be shown or hidden.",
+    description: "Create a new layer in the diagram. Layers organize cells into separate visual planes that can be shown or hidden.",
     hasArgs: true,
     inputSchema: {
       name: z.string().describe("Name for the new layer"),
@@ -303,58 +305,6 @@ export const TOOL_DEFINITIONS: readonly ToolDefinition[] = [
       target_layer_id: z
         .string()
         .describe("ID of the target layer where the cell will be moved"),
-    },
-  },
-
-  // ─── Page Tools ────────────────────────────────────────────────
-
-  {
-    key: "CREATE_PAGE",
-    name: "create-page",
-    description: "Create a new page (tab) in the diagram. Each page has its own cells, layers, and canvas. Does not switch the active page.",
-    hasArgs: true,
-    inputSchema: {
-      name: z.string().describe("Name for the new page"),
-    },
-  },
-  {
-    key: "LIST_PAGES",
-    name: "list-pages",
-    description: "List all pages in the diagram with IDs and names.",
-    hasArgs: false,
-  },
-  {
-    key: "GET_ACTIVE_PAGE",
-    name: "get-active-page",
-    description: "Get the currently active page.",
-    hasArgs: false,
-  },
-  {
-    key: "SET_ACTIVE_PAGE",
-    name: "set-active-page",
-    description: "Switch to a different page. All subsequent cell and layer operations apply to the active page. Returns the page's cell and layer counts.",
-    hasArgs: true,
-    inputSchema: {
-      page_id: z.string().describe("ID of the page to switch to"),
-    },
-  },
-  {
-    key: "RENAME_PAGE",
-    name: "rename-page",
-    description: "Rename an existing page.",
-    hasArgs: true,
-    inputSchema: {
-      page_id: z.string().describe("ID of the page to rename"),
-      name: z.string().describe("New name for the page"),
-    },
-  },
-  {
-    key: "DELETE_PAGE",
-    name: "delete-page",
-    description: "Delete a page and all its cells, layers, and groups. Cannot delete the last remaining page.",
-    hasArgs: true,
-    inputSchema: {
-      page_id: z.string().describe("ID of the page to delete"),
     },
   },
 
@@ -413,7 +363,7 @@ export const TOOL_DEFINITIONS: readonly ToolDefinition[] = [
   {
     key: "IMPORT_DIAGRAM",
     name: "import-diagram",
-    description: "Import a Draw.io XML string, replacing the current diagram. Supports single-page and multi-page documents. Use this to load and modify existing .drawio files.",
+    description: "Import a Draw.io XML string, replacing the current diagram. Multi-page documents are supported — all pages are merged into a single flat model. Use this to load and modify existing .drawio files.",
     hasArgs: true,
     inputSchema: {
       xml: z.string().describe("The Draw.io XML string to import"),
@@ -422,16 +372,16 @@ export const TOOL_DEFINITIONS: readonly ToolDefinition[] = [
   {
     key: "EXPORT_DIAGRAM",
     name: "export-diagram",
-    description: "Export the diagram as Draw.io XML with diagram statistics. The XML is in the response payload's `xml` property. Save the output to a .drawio file. When `compress` is true, the mxGraphModel content inside each <diagram> element is deflate-compressed and base64-encoded (the format used by the Draw.io desktop app), typically achieving 60-80% size reduction. Compressed output is fully compatible with Draw.io and can be re-imported.",
+    description: "Export the diagram as Draw.io XML with diagram statistics. The XML is in the response payload's `xml` property. Save the output to a .drawio file. When `compress` is true, the mxGraphModel content inside the <diagram> element is deflate-compressed and base64-encoded (the format used by the Draw.io desktop app), typically achieving 60-80% size reduction. Compressed output is fully compatible with Draw.io and can be re-imported.",
     hasArgs: true,
     inputSchema: {
-      compress: z.boolean().optional().default(false).describe("When true, deflate-compress and base64-encode the diagram content inside each <diagram> element (Draw.io native format). Reduces output size by 60-80%. Defaults to false (plain XML)."),
+      compress: z.boolean().optional().default(false).describe("When true, deflate-compress and base64-encode the diagram content inside the <diagram> element (Draw.io native format). Reduces output size by 60-80%. Defaults to false (plain XML)."),
     },
   },
   {
     key: "CLEAR_DIAGRAM",
     name: "clear-diagram",
-    description: "Clear all cells, layers, and pages, resetting the diagram to a single empty page.",
+    description: "Clear all cells and layers, resetting the diagram to its initial empty state.",
     hasArgs: false,
   },
 ];

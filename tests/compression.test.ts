@@ -126,23 +126,6 @@ describe("DiagramModel compression", () => {
       assert(xml.includes('name="Page-1"'));
     });
 
-    it("should compress multi-page diagrams", () => {
-      model.addRectangle({ text: "P1 Cell" });
-      const page2 = model.createPage("Details");
-      model.setActivePage(page2.id);
-      model.addRectangle({ text: "P2 Cell" });
-
-      const xml = model.toXml({ compress: true });
-      // Both diagram elements present
-      assertEquals((xml.match(/<diagram /g) || []).length, 2);
-      assert(xml.includes('name="Page-1"'));
-      assert(xml.includes('name="Details"'));
-      // Raw content should be compressed
-      assert(!xml.includes("P1 Cell"));
-      assert(!xml.includes("P2 Cell"));
-      assert(!xml.includes("<mxGraphModel"));
-    });
-
     it("should produce smaller output than uncompressed", () => {
       // Add enough content to make compression worthwhile
       for (let i = 0; i < 20; i++) {
@@ -186,29 +169,25 @@ describe("DiagramModel compression", () => {
       assertEquals(cells[0].value, "Compressed Cell");
     });
 
-    it("should import a compressed multi-page diagram", () => {
-      model.addRectangle({ text: "Page1" });
-      const p2 = model.createPage("Second");
-      model.setActivePage(p2.id);
-      model.addRectangle({ text: "Page2" });
+    it("should import a compressed multi-page diagram and merge cells", () => {
+      // Manually construct a 2-page compressed XML
+      const page1Xml = '<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/><mxCell id="10" value="Page1" style="" vertex="1" parent="1"><mxGeometry x="0" y="0" width="100" height="50" as="geometry"/></mxCell></root></mxGraphModel>';
+      const page2Xml = '<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/><mxCell id="20" value="Page2" style="" vertex="1" parent="1"><mxGeometry x="0" y="0" width="100" height="50" as="geometry"/></mxCell></root></mxGraphModel>';
 
-      const compressed = model.toXml({ compress: true });
+      const xml = `<mxfile host="test"><diagram id="p1" name="Page-1">${DiagramModel.compressXml(page1Xml)}</diagram><diagram id="p2" name="Second">${DiagramModel.compressXml(page2Xml)}</diagram></mxfile>`;
 
       const model2 = new DiagramModel();
-      const result = model2.importXml(compressed);
+      const result = model2.importXml(xml);
       assertEquals("error" in result, false);
       if (!("error" in result)) {
         assertEquals(result.pages, 2);
       }
 
-      // Check first page
-      const p1Cells = model2.listCells();
-      assert(p1Cells.map(c => c.value).includes("Page1"));
-
-      // Check second page
-      model2.setActivePage("page-2");
-      const p2Cells = model2.listCells();
-      assert(p2Cells.map(c => c.value).includes("Page2"));
+      // Both pages' cells merged into single model
+      const cells = model2.listCells();
+      assertEquals(cells.length, 2);
+      assert(cells.some(c => c.value === "Page1"));
+      assert(cells.some(c => c.value === "Page2"));
     });
 
     it("should preserve edges through compressed roundtrip", () => {
@@ -339,7 +318,7 @@ describe("DiagramModel compression", () => {
       diagram.clear();
     });
 
-    it("should log original size and reduction when compress is true", async () => {
+    it("should log compressed size when compress is true", async () => {
       const debugSpy = spy((_msg: string) => {});
       const logSpy = { debug: debugSpy };
       const loggedHandlers = createHandlers(logSpy);
@@ -348,15 +327,10 @@ describe("DiagramModel compression", () => {
       await loggedHandlers["export-diagram"]({ compress: true });
 
       const debugCalls = debugSpy.calls.map(c => c.args[0] as string);
-      const originalSizeLog = debugCalls.find((msg: string) => msg.includes("original size:"));
-      const reductionLog = debugCalls.find((msg: string) => msg.includes("compression reduced size by"));
+      const compressedSizeLog = debugCalls.find((msg: string) => msg.includes("compressed size:"));
 
-      assertExists(originalSizeLog);
-      assert(/^\d{4}-\d{2}-\d{2}T.*\[tool:export-diagram\]\s+original size: [\d.]+ KB$/.test(originalSizeLog!));
-
-      assertExists(reductionLog);
-      assert(/^\d{4}-\d{2}-\d{2}T.*\[tool:export-diagram\]\s+compression reduced size by -?\d+\.\d{2}%/.test(reductionLog!));
-      assert(reductionLog!.includes("\u2192"));
+      assertExists(compressedSizeLog);
+      assert(/^\d{4}-\d{2}-\d{2}T.*\[tool:export-diagram\]\s+compressed size: [\d.]+ KB$/.test(compressedSizeLog!));
     });
 
     it("should not log compression details when compress is false", async () => {
@@ -369,7 +343,7 @@ describe("DiagramModel compression", () => {
 
       const debugCalls = debugSpy.calls.map(c => c.args[0] as string);
       const compressionLogs = debugCalls.filter((msg: string) =>
-        msg.includes("original size:") || msg.includes("compression reduced size by")
+        msg.includes("compressed size:")
       );
       assertEquals(compressionLogs.length, 0);
     });
@@ -384,7 +358,7 @@ describe("DiagramModel compression", () => {
 
       const debugCalls = debugSpy.calls.map(c => c.args[0] as string);
       const compressionLogs = debugCalls.filter((msg: string) =>
-        msg.includes("original size:") || msg.includes("compression reduced size by")
+        msg.includes("compressed size:")
       );
       assertEquals(compressionLogs.length, 0);
     });

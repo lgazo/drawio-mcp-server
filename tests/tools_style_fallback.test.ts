@@ -11,7 +11,7 @@ import { describe, it, afterAll } from "@std/testing/bdd";
 import { assertEquals } from "@std/assert";
 import { resolve } from "@std/path";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { handlers, clearResolveShapeCache } from "../src/tools.ts";
+import { handlers, clearResolveShapeCache, setMaxResolveCacheSize, getResolveCacheSize } from "../src/tools.ts";
 import { diagram } from "../src/diagram_model.ts";
 import {
   initializeShapes,
@@ -75,5 +75,27 @@ describe("resolveShape style ?? fallback", () => {
     assertEquals(parsed.success, true);
     assertEquals(parsed.data.shape.style, "");
     assertEquals(parsed.data.shape.name, "FuzzyMatchNoStyle");
+  });
+});
+
+describe("resolveShape cache eviction", () => {
+  it("evicts resolve cache when max size is exceeded", async () => {
+    clearResolveShapeCache();
+    const originalMax = 10_000; // default
+    setMaxResolveCacheSize(2);
+    try {
+      // Fill cache with 2 entries (at capacity)
+      await handlers["get-shape-by-name"]({ shape_name: "ExactMatchNoStyle" });
+      await handlers["get-shape-by-name"]({ shape_name: "FuzzyMatchNoStyle" });
+      assertEquals(getResolveCacheSize(), 2, "Cache should have 2 entries");
+      // Third distinct query triggers eviction (cache clears then adds the new entry)
+      await handlers["get-shape-by-name"]({ shape_name: "nonexistent-shape-xyz" });
+      // After eviction: cache was cleared, then the new lookup was added
+      // "nonexistent-shape-xyz" resolves to undefined and is cached via .has() sentinel
+      assertEquals(getResolveCacheSize(), 1, "Cache should have 1 entry after eviction");
+    } finally {
+      setMaxResolveCacheSize(originalMax);
+      clearResolveShapeCache();
+    }
   });
 });

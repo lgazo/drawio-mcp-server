@@ -13,9 +13,11 @@ export interface ToolLogger {
 }
 
 /**
- * Map of tool names to their async handler functions.
+ * Map of tool names to their handler functions.
+ * Handlers may be synchronous or asynchronous — the factory `await`s
+ * the result regardless, which is safe for both.
  */
-export type ToolHandlerMap = Record<string, (args: any) => Promise<CallToolResult>>;
+export type ToolHandlerMap = Record<string, (args: any) => CallToolResult | Promise<CallToolResult>>;
 
 /**
  * Creates a factory function that produces MCP tool handlers with logging.
@@ -57,7 +59,10 @@ export function createToolHandlerFactory(handlerMap: ToolHandlerMap, log: ToolLo
         const result = await handler(args);
         const duration = Date.now() - start;
         const isError = result.isError ?? false;
-        const payloadSize = formatBytes(JSON.stringify(result).length);
+        // Measure payload from the already-serialized text content to avoid re-serializing
+        const textContent = result.content?.[0];
+        const payloadLength = textContent && "text" in textContent ? textContent.text.length : 0;
+        const payloadSize = formatBytes(payloadLength);
         log.debug(`${timestamp()} ${prefix} ${isError ? "error" : "ok"} in ${duration}ms, ${payloadSize} (req=${requestId})`);
         return result;
       }

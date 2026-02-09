@@ -96,33 +96,78 @@ describe("tool handlers", () => {
       const b = await addVertex({ text: "B" });
       const edge = await addEdge(a.id, b.id, "old");
       const result = await handlers["edit-edge"]({
-        cell_id: edge.id,
-        text: "new label",
+        edges: [{ cell_id: edge.id, text: "new label" }],
       });
       const parsed = parseResult(result);
       assertEquals(parsed.success, true);
-      assertEquals(parsed.data.cell.value, "new label");
+      assertEquals(parsed.data.summary.succeeded, 1);
+      assertEquals(parsed.data.results[0].cell.value, "new label");
+    });
+
+    it("should batch-edit multiple edges", async () => {
+      const a = await addVertex({ text: "A" });
+      const b = await addVertex({ text: "B" });
+      const c = await addVertex({ text: "C" });
+      const edge1 = await addEdge(a.id, b.id, "e1");
+      const edge2 = await addEdge(b.id, c.id, "e2");
+      const result = await handlers["edit-edge"]({
+        edges: [
+          { cell_id: edge1.id, text: "updated-e1" },
+          { cell_id: edge2.id, text: "updated-e2", style: "dashed=1;" },
+        ],
+      });
+      const parsed = parseResult(result);
+      assertEquals(parsed.success, true);
+      assertEquals(parsed.data.summary.total, 2);
+      assertEquals(parsed.data.summary.succeeded, 2);
+      assertEquals(parsed.data.summary.failed, 0);
+      assertEquals(parsed.data.results[0].cell.value, "updated-e1");
+      assertEquals(parsed.data.results[1].cell.value, "updated-e2");
+      assertEquals(parsed.data.results[1].cell.style, "dashed=1;");
     });
 
     it("should return error for non-existent edge", async () => {
       const result = await handlers["edit-edge"]({
-        cell_id: "nonexistent",
-        text: "X",
+        edges: [{ cell_id: "nonexistent", text: "X" }],
       });
-      assertEquals(result.isError, true);
       const parsed = parseResult(result);
-      assertEquals(parsed.error.code, "CELL_NOT_FOUND");
+      assertEquals(parsed.data.summary.failed, 1);
+      assertEquals(parsed.data.results[0].error.code, "CELL_NOT_FOUND");
     });
 
     it("should return error when editing a vertex as an edge", async () => {
       const cell = await addVertex({ text: "A" });
       const result = await handlers["edit-edge"]({
-        cell_id: cell.id,
-        text: "X",
+        edges: [{ cell_id: cell.id, text: "X" }],
       });
+      const parsed = parseResult(result);
+      assertEquals(parsed.data.summary.failed, 1);
+      assertEquals(parsed.data.results[0].error.code, "WRONG_CELL_TYPE");
+    });
+
+    it("should return error for empty edges array", async () => {
+      const result = await handlers["edit-edge"]({ edges: [] });
       assertEquals(result.isError, true);
       const parsed = parseResult(result);
-      assertEquals(parsed.error.code, "WRONG_CELL_TYPE");
+      assertEquals(parsed.error.code, "INVALID_INPUT");
+    });
+
+    it("should handle mixed success and failure in batch", async () => {
+      const a = await addVertex({ text: "A" });
+      const b = await addVertex({ text: "B" });
+      const edge = await addEdge(a.id, b.id, "e1");
+      const result = await handlers["edit-edge"]({
+        edges: [
+          { cell_id: edge.id, text: "updated" },
+          { cell_id: "nonexistent", text: "fail" },
+        ],
+      });
+      const parsed = parseResult(result);
+      assertEquals(parsed.data.summary.total, 2);
+      assertEquals(parsed.data.summary.succeeded, 1);
+      assertEquals(parsed.data.summary.failed, 1);
+      assertEquals(parsed.data.results[0].success, true);
+      assertEquals(parsed.data.results[1].success, false);
     });
   });
 

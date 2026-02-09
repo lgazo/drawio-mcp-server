@@ -501,7 +501,7 @@ describe("DiagramModel", () => {
       assertEquals(cell.id, "cell-2");
     });
 
-    it("should reset layers and pages to defaults", () => {
+    it("should reset layers to defaults", () => {
       const layer = model.createLayer("Custom");
       model.setActiveLayer(layer.id);
       model.addRectangle({ text: "A" });
@@ -513,9 +513,6 @@ describe("DiagramModel", () => {
       // New cells are parented to the default layer
       const cell = model.addRectangle({ text: "B" });
       assertEquals(cell.parent, "1");
-      // Pages reset to single default page
-      assertEquals(model.listPages().length, 1);
-      assertEquals(model.getActivePage().id, "page-1");
     });
   });
 

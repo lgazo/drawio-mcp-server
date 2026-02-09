@@ -19,6 +19,8 @@ import {
   resolveAzureAlias,
   resolveAllAzureAliases,
   displayTitle,
+  setMaxSearchCacheSize,
+  getSearchCacheSize,
 } from "../src/shapes/azure_icon_library.ts";
 import type { AzureIconLibrary } from "../src/shapes/azure_icon_library.ts";
 
@@ -487,23 +489,24 @@ describe("searchAzureIcons", () => {
     resetAzureIconLibrary();
     const first = searchAzureIcons("virtual machine", 5);
     const second = searchAzureIcons("virtual machine", 5);
-    assert(first === second, "Expected same array reference from cache");
+    assertEquals(first, second, "Expected equivalent results from cache");
   });
 
-  it("cache distinguishes different limits for the same query", () => {
+  it("cache shares results across different limits for the same query", () => {
     resetAzureIconLibrary();
     const a = searchAzureIcons("storage", 3);
     const b = searchAzureIcons("storage", 5);
-    assert(a !== b, "Different limits should produce separate cache entries");
     assert(a.length <= 3);
     assert(b.length <= 5);
+    // Smaller result set should be a prefix of the larger one
+    assertEquals(a, b.slice(0, a.length), "Smaller limit should be a prefix of larger");
   });
 
   it("cache is case-insensitive on query text", () => {
     resetAzureIconLibrary();
     const lower = searchAzureIcons("virtual machine", 5);
     const upper = searchAzureIcons("Virtual Machine", 5);
-    assert(lower === upper, "Expected cache hit regardless of casing");
+    assertEquals(lower, upper, "Expected cache hit regardless of casing");
   });
 
   it("cache is cleared on resetAzureIconLibrary", () => {
@@ -512,6 +515,26 @@ describe("searchAzureIcons", () => {
     const afterReset = searchAzureIcons("storage", 5);
     assert(beforeReset !== afterReset, "Expected fresh results after reset");
     assertEquals(beforeReset.length, afterReset.length);
+  });
+
+  it("evicts cache when max size is exceeded", () => {
+    resetAzureIconLibrary();
+    const originalMax = getSearchCacheSize();
+    setMaxSearchCacheSize(2);
+    try {
+      // Fill cache with 2 entries (at capacity)
+      searchAzureIcons("storage", 5);
+      searchAzureIcons("virtual machine", 5);
+      // Third distinct query should trigger eviction
+      searchAzureIcons("network", 5);
+      // After eviction and re-add, cache should have 1 entry
+      // Verify the cache still works (no crash, returns results)
+      const result = searchAzureIcons("network", 5);
+      assert(result.length > 0, "Expected results after cache eviction");
+    } finally {
+      setMaxSearchCacheSize(originalMax);
+      resetAzureIconLibrary();
+    }
   });
 });
 

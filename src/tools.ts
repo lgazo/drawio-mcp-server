@@ -1,6 +1,11 @@
 /**
  * Tool handlers that generate Draw.io XML directly
  * without requiring the browser extension.
+ *
+ * Known optimization opportunities (deferred):
+ * - CONCURRENCY: The singleton `diagram` import is shared across HTTP requests.
+ *   For HTTP transport, concurrent requests can interfere. A proper fix requires
+ *   dependency-injecting a per-session DiagramModel into `createHandlers`.
  */
 
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -42,6 +47,9 @@ interface ResolvedShape {
  */
 const resolveShapeCache = new Map<string, ResolvedShape | undefined>();
 
+/** Maximum entries before the resolve cache is cleared and rebuilt on demand. */
+let maxResolveCacheSize = 10_000;
+
 /**
  * Clear the resolveShape cache. Must be called whenever the underlying
  * shape libraries change (e.g., after resetAzureIconLibrary or initializeShapes
@@ -51,12 +59,30 @@ export function clearResolveShapeCache(): void {
   resolveShapeCache.clear();
 }
 
+/**
+ * Override the maximum resolve-cache size. Intended for tests that need
+ * to exercise the eviction branch without inserting thousands of entries.
+ */
+export function setMaxResolveCacheSize(size: number): void {
+  maxResolveCacheSize = size;
+}
+
+/** Return the current number of entries in the resolve cache (for test assertions). */
+export function getResolveCacheSize(): number {
+  return resolveShapeCache.size;
+}
+
 function resolveShape(shapeName: string): ResolvedShape | undefined {
   const cacheKey = shapeName.toLowerCase();
   const cached = resolveShapeCache.get(cacheKey);
   if (cached !== undefined) return cached;
   // Distinguish "cached as not-found" from "not yet cached"
   if (resolveShapeCache.has(cacheKey)) return undefined;
+
+  // Evict cache if it has grown too large (prevents unbounded memory growth)
+  if (resolveShapeCache.size >= maxResolveCacheSize) {
+    resolveShapeCache.clear();
+  }
 
   // 1. Basic shapes first (prevents fuzzy search from hijacking names like 'start', 'end')
   const basic = getBasicShape(shapeName);
@@ -121,9 +147,9 @@ function errorResult(error: StructuredError): CallToolResult {
 
 export function createHandlers(log: ToolLogger) {
   return {
-  "delete-cell-by-id": async (args: {
+  "delete-cell-by-id": (args: {
     cell_id: string;
-  }): Promise<CallToolResult> => {
+  }): CallToolResult => {
     const { deleted, cascadedEdgeIds } = diagram.deleteCell(args.cell_id);
     if (!deleted) {
       return errorResult({
@@ -141,9 +167,9 @@ export function createHandlers(log: ToolLogger) {
     });
   },
 
-  "delete-edge": async (args: {
+  "delete-edge": (args: {
     cell_id: string;
-  }): Promise<CallToolResult> => {
+  }): CallToolResult => {
     const cell = diagram.getCell(args.cell_id);
     if (!cell) {
       return errorResult({
@@ -169,30 +195,35 @@ export function createHandlers(log: ToolLogger) {
     });
   },
 
-  "edit-edge": async (args: {
-    cell_id: string;
-    text?: string;
-    source_id?: string;
-    target_id?: string;
-    style?: string;
-  }): Promise<CallToolResult> => {
-    const result = diagram.editEdge(args.cell_id, {
-      text: args.text,
-      sourceId: args.source_id,
-      targetId: args.target_id,
-      style: args.style,
-    });
-    if ("error" in result) {
-      return errorResult(result.error);
+  "edit-edge": (args: {
+    edges: Array<{
+      cell_id: string;
+      text?: string;
+      source_id?: string;
+      target_id?: string;
+      style?: string;
+    }>;
+  }): CallToolResult => {
+    if (!args.edges || args.edges.length === 0) {
+      return errorResult({
+        code: "INVALID_INPUT",
+        message: "Must provide a non-empty 'edges' array",
+      });
     }
-    return successResult({ cell: result });
+    const results = diagram.batchEditEdges(args.edges);
+    const successCount = results.filter(r => r.success).length;
+    const errorCount = results.filter(r => !r.success).length;
+    return successResult({
+      summary: { total: results.length, succeeded: successCount, failed: errorCount },
+      results,
+    });
   },
 
-  "list-paged-model": async (args: {
+  "list-paged-model": (args: {
     page?: number;
     page_size?: number;
     filter?: { cell_type?: string };
-  }): Promise<CallToolResult> => {
+  }): CallToolResult => {
     const page = args.page ?? 0;
     const pageSize = args.page_size ?? 50;
 
@@ -214,26 +245,25 @@ export function createHandlers(log: ToolLogger) {
       pageSize,
       totalCells: cells.length,
       totalPages: Math.ceil(cells.length / pageSize),
-      active_page: diagram.getActivePage(),
       active_layer: diagram.getActiveLayer(),
       cells: pagedCells,
     });
   },
 
-  "list-layers": async (): Promise<CallToolResult> => {
+  "list-layers": (): CallToolResult => {
     return successResult({
       layers: diagram.listLayers(),
       active_layer_id: diagram.getActiveLayer().id,
     });
   },
 
-  "get-active-layer": async (): Promise<CallToolResult> => {
+  "get-active-layer": (): CallToolResult => {
     return successResult({ layer: diagram.getActiveLayer() });
   },
 
-  "set-active-layer": async (args: {
+  "set-active-layer": (args: {
     layer_id: string;
-  }): Promise<CallToolResult> => {
+  }): CallToolResult => {
     const result = diagram.setActiveLayer(args.layer_id);
     if ("error" in result) {
       return errorResult(result.error);
@@ -241,15 +271,15 @@ export function createHandlers(log: ToolLogger) {
     return successResult({ layer: result });
   },
 
-  "create-layer": async (args: { name: string }): Promise<CallToolResult> => {
+  "create-layer": (args: { name: string }): CallToolResult => {
     const layer = diagram.createLayer(args.name);
     return successResult({ layer, total_layers: diagram.listLayers().length });
   },
 
-  "move-cell-to-layer": async (args: {
+  "move-cell-to-layer": (args: {
     cell_id: string;
     target_layer_id: string;
-  }): Promise<CallToolResult> => {
+  }): CallToolResult => {
     const result = diagram.moveCellToLayer(args.cell_id, args.target_layer_id);
     if ("error" in result) {
       return errorResult(result.error);
@@ -257,98 +287,39 @@ export function createHandlers(log: ToolLogger) {
     return successResult({ cell: result });
   },
 
-  "export-diagram": async (args: { compress?: boolean }): Promise<CallToolResult> => {
+  "export-diagram": (args: { compress?: boolean }): CallToolResult => {
     const compressed = args?.compress ?? false;
+    const xml = diagram.toXml({ compress: compressed });
+    const stats = diagram.getStats();
 
     if (compressed) {
-      // Generate uncompressed XML first for size logging, then compress
-      const originalXml = diagram.toXml({ compress: false });
-      const xml = diagram.toXml({ compress: true });
-      const stats = diagram.getStats();
-      const prefix = "[tool:export-diagram]".padEnd(30);
-      const originalSize = textEncoder.encode(originalXml).length;
       const compressedSize = textEncoder.encode(xml).length;
-      const reduction = ((1 - compressedSize / originalSize) * 100).toFixed(2);
-      log.debug(`${timestamp()} ${prefix} original size: ${formatBytes(originalSize)}`);
-      log.debug(`${timestamp()} ${prefix} compression reduced size by ${reduction}% (${formatBytes(originalSize)} → ${formatBytes(compressedSize)})`);
-      return successResult({
-        xml,
-        stats,
-        compression: { enabled: true, algorithm: "deflate-raw", encoding: "base64" },
-      });
+      const prefix = "[tool:export-diagram]".padEnd(30);
+      log.debug(`${timestamp()} ${prefix} compressed size: ${formatBytes(compressedSize)}`);
     }
 
-    const xml = diagram.toXml({ compress: false });
-    const stats = diagram.getStats();
     return successResult({
       xml,
       stats,
-      compression: { enabled: false },
+      compression: compressed
+        ? { enabled: true, algorithm: "deflate-raw", encoding: "base64" }
+        : { enabled: false },
     });
   },
 
-  "get-diagram-stats": async (): Promise<CallToolResult> => {
+  "get-diagram-stats": (): CallToolResult => {
     const stats = diagram.getStats();
     return successResult({ stats });
   },
 
-  "clear-diagram": async (): Promise<CallToolResult> => {
+  "clear-diagram": (): CallToolResult => {
     const cleared = diagram.clear();
     return successResult({ message: "Diagram cleared", cleared });
   },
 
-  // ─── Multi-Page Handlers ────────────────────────────────────────
-
-  "create-page": async (args: { name: string }): Promise<CallToolResult> => {
-    const page = diagram.createPage(args.name);
-    return successResult({ page, total_pages: diagram.listPages().length });
-  },
-
-  "list-pages": async (): Promise<CallToolResult> => {
-    return successResult({
-      pages: diagram.listPages(),
-      active_page: diagram.getActivePage(),
-    });
-  },
-
-  "get-active-page": async (): Promise<CallToolResult> => {
-    return successResult({ page: diagram.getActivePage() });
-  },
-
-  "set-active-page": async (args: { page_id: string }): Promise<CallToolResult> => {
-    const result = diagram.setActivePage(args.page_id);
-    if ("error" in result) {
-      return errorResult(result.error);
-    }
-    const stats = diagram.getStats();
-    return successResult({
-      page: result,
-      cells: stats.total_cells,
-      vertices: stats.vertices,
-      edges: stats.edges,
-      layers: stats.layers,
-    });
-  },
-
-  "rename-page": async (args: { page_id: string; name: string }): Promise<CallToolResult> => {
-    const result = diagram.renamePage(args.page_id, args.name);
-    if ("error" in result) {
-      return errorResult(result.error);
-    }
-    return successResult({ page: result });
-  },
-
-  "delete-page": async (args: { page_id: string }): Promise<CallToolResult> => {
-    const result = diagram.deletePage(args.page_id);
-    if (!result.deleted) {
-      return errorResult(result.error!);
-    }
-    return successResult({ deleted: true, remaining_pages: diagram.listPages() });
-  },
-
   // ─── Group / Container Handlers ─────────────────────────────────
 
-  "create-groups": async (args: {
+  "create-groups": (args: {
     groups: Array<{
       x?: number;
       y?: number;
@@ -358,7 +329,7 @@ export function createHandlers(log: ToolLogger) {
       style?: string;
       temp_id?: string;
     }>;
-  }): Promise<CallToolResult> => {
+  }): CallToolResult => {
     if (!args.groups || args.groups.length === 0) {
       return errorResult({
         code: "INVALID_INPUT",
@@ -386,12 +357,12 @@ export function createHandlers(log: ToolLogger) {
     });
   },
 
-  "add-cells-to-group": async (args: {
+  "add-cells-to-group": (args: {
     assignments: Array<{
       cell_id: string;
       group_id: string;
     }>;
-  }): Promise<CallToolResult> => {
+  }): CallToolResult => {
     if (!args.assignments || args.assignments.length === 0) {
       return errorResult({
         code: "INVALID_INPUT",
@@ -418,9 +389,9 @@ export function createHandlers(log: ToolLogger) {
     });
   },
 
-  "remove-cell-from-group": async (args: {
+  "remove-cell-from-group": (args: {
     cell_id: string;
-  }): Promise<CallToolResult> => {
+  }): CallToolResult => {
     const result = diagram.removeCellFromGroup(args.cell_id);
     if ("error" in result) {
       return errorResult(result.error);
@@ -428,9 +399,9 @@ export function createHandlers(log: ToolLogger) {
     return successResult({ cell: result });
   },
 
-  "list-group-children": async (args: {
+  "list-group-children": (args: {
     group_id: string;
-  }): Promise<CallToolResult> => {
+  }): CallToolResult => {
     const result = diagram.listGroupChildren(args.group_id);
     if ("error" in result) {
       return errorResult(result.error);
@@ -440,9 +411,9 @@ export function createHandlers(log: ToolLogger) {
 
   // ─── Import Handler ─────────────────────────────────────────────
 
-  "import-diagram": async (args: {
+  "import-diagram": (args: {
     xml: string;
-  }): Promise<CallToolResult> => {
+  }): CallToolResult => {
     const result = diagram.importXml(args.xml);
     if ("error" in result) {
       return errorResult(result.error);
@@ -453,7 +424,7 @@ export function createHandlers(log: ToolLogger) {
     });
   },
 
-  "get-shape-categories": async (): Promise<CallToolResult> => {
+  "get-shape-categories": (): CallToolResult => {
     const basicCategories = [
       { id: "general", name: "General" },
       { id: "flowchart", name: "Flowchart" },
@@ -469,9 +440,9 @@ export function createHandlers(log: ToolLogger) {
     });
   },
 
-  "get-shapes-in-category": async (args: {
+  "get-shapes-in-category": (args: {
     category_id: string;
-  }): Promise<CallToolResult> => {
+  }): CallToolResult => {
     const categoryId = args.category_id.toLowerCase();
 
     // Check basic shape categories first
@@ -511,9 +482,9 @@ export function createHandlers(log: ToolLogger) {
     });
   },
 
-  "get-shape-by-name": async (args: {
+  "get-shape-by-name": (args: {
     shape_name: string;
-  }): Promise<CallToolResult> => {
+  }): CallToolResult => {
     const resolved = resolveShape(args.shape_name);
     if (resolved) {
       return successResult({
@@ -534,7 +505,7 @@ export function createHandlers(log: ToolLogger) {
     });
   },
 
-  "add-cells-of-shape": async (args: {
+  "add-cells-of-shape": (args: {
     cells: Array<{
       shape_name: string;
       x?: number;
@@ -545,7 +516,7 @@ export function createHandlers(log: ToolLogger) {
       style?: string;
       temp_id?: string;
     }>;
-  }): Promise<CallToolResult> => {
+  }): CallToolResult => {
     if (!args.cells || args.cells.length === 0) {
       return errorResult({
         code: "INVALID_INPUT",
@@ -603,9 +574,9 @@ export function createHandlers(log: ToolLogger) {
     });
   },
 
-  "set-cell-shape": async (args: {
+  "set-cell-shape": (args: {
     cells: Array<{ cell_id: string; shape_name: string }>;
-  }): Promise<CallToolResult> => {
+  }): CallToolResult => {
     if (!args.cells || args.cells.length === 0) {
       return errorResult({
         code: "INVALID_INPUT",
@@ -664,7 +635,7 @@ export function createHandlers(log: ToolLogger) {
     });
   },
 
-  "add-cells": async (args: {
+  "add-cells": (args: {
     cells: Array<{
       type: "vertex" | "edge";
       x?: number;
@@ -678,7 +649,7 @@ export function createHandlers(log: ToolLogger) {
       temp_id?: string;
     }>;
     dry_run?: boolean;
-  }): Promise<CallToolResult> => {
+  }): CallToolResult => {
     const items = args.cells.map(c => ({
       type: c.type,
       x: c.x,
@@ -701,7 +672,7 @@ export function createHandlers(log: ToolLogger) {
     });
   },
 
-  "edit-cells": async (args: {
+  "edit-cells": (args: {
     cells: Array<{
       cell_id: string;
       text?: string;
@@ -711,7 +682,7 @@ export function createHandlers(log: ToolLogger) {
       height?: number;
       style?: string;
     }>;
-  }): Promise<CallToolResult> => {
+  }): CallToolResult => {
     const results = diagram.batchEditCells(args.cells);
     const successCount = results.filter(r => r.success).length;
     const errorCount = results.filter(r => !r.success).length;
@@ -721,7 +692,7 @@ export function createHandlers(log: ToolLogger) {
     });
   },
 
-  "get-style-presets": async (): Promise<CallToolResult> => {
+  "get-style-presets": (): CallToolResult => {
     const presets = {
       azure: {
         primary: "fillColor=#0078D4;strokeColor=#0078D4;fontColor=#ffffff;",
@@ -754,10 +725,10 @@ export function createHandlers(log: ToolLogger) {
     return successResult({ presets });
   },
 
-  "search-shapes": async (args: {
+  "search-shapes": (args: {
     queries: string[];
     limit?: number;
-  }): Promise<CallToolResult> => {
+  }): CallToolResult => {
     const limit = args.limit ?? 10;
 
     if (!args.queries || args.queries.length === 0) {

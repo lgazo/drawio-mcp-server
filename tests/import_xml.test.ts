@@ -78,22 +78,10 @@ describe("DiagramModel importXml", () => {
       assertEquals(edges[0].targetId, "3");
     });
 
-    it("should use diagram name attribute as page name", () => {
-      const xml = `<mxfile>
-        <diagram id="d1" name="My Custom Page">
-          <mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/></root></mxGraphModel>
-        </diagram>
-      </mxfile>`;
-
-      model.importXml(xml);
-      const pages = model.listPages();
-      assertEquals(pages.length, 1);
-      assertEquals(pages[0].name, "My Custom Page");
-    });
   });
 
   describe("multi-page import", () => {
-    it("should import multiple pages", () => {
+    it("should merge cells from multiple pages into single model", () => {
       const xml = `<mxfile>
         <diagram id="p1" name="Page 1">
           <mxGraphModel>
@@ -123,43 +111,14 @@ describe("DiagramModel importXml", () => {
       assertEquals("error" in result, false);
       if (!("error" in result)) {
         assertEquals(result.pages, 2);
+        assertEquals(result.cells, 2);
       }
 
-      const pages = model.listPages();
-      assertEquals(pages.length, 2);
-      assertEquals(pages[0].name, "Page 1");
-      assertEquals(pages[1].name, "Page 2");
-
-      // Active page should be the first one
-      const activePage = model.getActivePage();
-      assertEquals(activePage.name, "Page 1");
-
-      // Check cells on the active (first) page
-      const cells1 = model.listCells();
-      assertEquals(cells1.length, 1);
-      assertEquals(cells1[0].value, "Cell on Page 1");
-
-      // Switch to second page and check cells
-      model.setActivePage(pages[1].id);
-      const cells2 = model.listCells();
-      assertEquals(cells2.length, 1);
-      assertEquals(cells2[0].value, "Cell on Page 2");
-    });
-
-    it("should default page names when name attribute is missing", () => {
-      const xml = `<mxfile>
-        <diagram id="p1">
-          <mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/></root></mxGraphModel>
-        </diagram>
-        <diagram id="p2">
-          <mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/></root></mxGraphModel>
-        </diagram>
-      </mxfile>`;
-
-      model.importXml(xml);
-      const pages = model.listPages();
-      assertEquals(pages[0].name, "Page-1");
-      assertEquals(pages[1].name, "Page-2");
+      // All cells from both pages merged into single model
+      const cells = model.listCells();
+      assertEquals(cells.length, 2);
+      assert(cells.some(c => c.value === "Cell on Page 1"));
+      assert(cells.some(c => c.value === "Cell on Page 2"));
     });
   });
 
@@ -417,21 +376,6 @@ describe("DiagramModel importXml", () => {
       assertEquals(cells[0].value, "New Cell");
     });
 
-    it("should clear previous pages when importing", () => {
-      model.createPage("Extra Page");
-      assertEquals(model.listPages().length, 2);
-
-      const xml = `<mxfile>
-        <diagram id="p1" name="Only Page">
-          <mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/></root></mxGraphModel>
-        </diagram>
-      </mxfile>`;
-
-      model.importXml(xml);
-      const pages = model.listPages();
-      assertEquals(pages.length, 1);
-      assertEquals(pages[0].name, "Only Page");
-    });
   });
 
   describe("roundtrip: export then import", () => {
@@ -462,32 +406,6 @@ describe("DiagramModel importXml", () => {
       const edges = newModel.listCells({ cellType: "edge" });
       assertEquals(edges.length, 1);
       assertEquals(edges[0].value, "connects");
-    });
-
-    it("should preserve multiple pages through roundtrip", () => {
-      model.addRectangle({ text: "Page1 Cell" });
-      model.createPage("Second");
-      const pages = model.listPages();
-      model.setActivePage(pages[1].id);
-      model.addRectangle({ text: "Page2 Cell" });
-
-      const xml = model.toXml();
-      const newModel = new DiagramModel();
-      newModel.importXml(xml);
-
-      const newPages = newModel.listPages();
-      assertEquals(newPages.length, 2);
-
-      // Check first page
-      const cells1 = newModel.listCells();
-      assertEquals(cells1.length, 1);
-      assertEquals(cells1[0].value, "Page1 Cell");
-
-      // Check second page
-      newModel.setActivePage(newPages[1].id);
-      const cells2 = newModel.listCells();
-      assertEquals(cells2.length, 1);
-      assertEquals(cells2[0].value, "Page2 Cell");
     });
 
     it("should preserve groups through roundtrip", () => {

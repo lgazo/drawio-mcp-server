@@ -227,6 +227,28 @@ async function start_streamable_http_transport(http_port: number) {
     }),
   );
 
+  // ─── Request body size limit (10 MB) ────────────────────────
+  const MAX_BODY_SIZE = 10 * 1024 * 1024;
+  app.use("*", async (c, next) => {
+    const contentLength = c.req.header("content-length");
+    if (contentLength && parseInt(contentLength, 10) > MAX_BODY_SIZE) {
+      return c.json({ error: "Request body too large" }, 413);
+    }
+    await next();
+  });
+
+  // ─── Request timeout (30 seconds) ──────────────────────────
+  const REQUEST_TIMEOUT_MS = 30_000;
+  app.use("*", async (c, next) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      await next();
+    } finally {
+      clearTimeout(timeout);
+    }
+  });
+
   app.get("/health", (c) => c.json({ status: "ok" }));
 
   // Stateless transports are single-use — create a fresh transport

@@ -260,6 +260,23 @@ describe("createToolHandlerFactory", () => {
       assert(/[\d.]+ KB/.test(resultLog!));
     });
 
+    it("should log 0.00 KB when content has no text property", async () => {
+      const imageResult = {
+        content: [{ type: "image" as const, data: "abc", mimeType: "image/png" }],
+      };
+      const handlerSpy = spy((_args: any) => Promise.resolve(imageResult));
+      const handlerMap: ToolHandlerMap = { "img-tool": handlerSpy };
+
+      const createToolHandler = createToolHandlerFactory(handlerMap, log);
+      const handler = createToolHandler("img-tool", true);
+      await handler({}, mockExtra);
+
+      const debugMessages = debugSpy.calls.map((c: any) => c.args[0] as string);
+      const resultLog = debugMessages.find((msg: string) => msg.includes("ok in"));
+      assertExists(resultLog);
+      assert(resultLog!.includes("0.00 KB"));
+    });
+
     it("should include duration in success log", async () => {
       const mockResult = {
         content: [{ type: "text" as const, text: "{}" }],
