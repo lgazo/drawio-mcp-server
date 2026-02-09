@@ -211,8 +211,8 @@ export function createHandlers(log: ToolLogger) {
       });
     }
     const results = diagram.batchEditEdges(args.edges);
-    const successCount = results.filter(r => r.success).length;
-    const errorCount = results.filter(r => !r.success).length;
+    const successCount = results.reduce((n, r) => n + (r.success ? 1 : 0), 0);
+    const errorCount = results.length - successCount;
     return successResult({
       summary: { total: results.length, succeeded: successCount, failed: errorCount },
       results,
@@ -375,8 +375,8 @@ export function createHandlers(log: ToolLogger) {
       groupId: a.group_id,
     }));
     const results = diagram.batchAddCellsToGroup(items);
-    const successCount = results.filter((r) => r.success).length;
-    const errorCount = results.filter((r) => !r.success).length;
+    const successCount = results.reduce((n, r) => n + (r.success ? 1 : 0), 0);
+    const errorCount = results.length - successCount;
     return successResult({
       summary: { total: results.length, succeeded: successCount, failed: errorCount },
       results: results.map((r) => ({
@@ -560,8 +560,8 @@ export function createHandlers(log: ToolLogger) {
       };
     });
 
-    const successCount = results.filter((r) => r.success).length;
-    const errorCount = results.filter((r) => !r.success).length;
+    const successCount = results.reduce((n, r) => n + (r.success ? 1 : 0), 0);
+    const errorCount = results.length - successCount;
 
     return successResult({
       success: errorCount === 0,
@@ -622,8 +622,8 @@ export function createHandlers(log: ToolLogger) {
       };
     });
 
-    const successCount = results.filter((r) => r.success).length;
-    const errorCount = results.filter((r) => !r.success).length;
+    const successCount = results.reduce((n, r) => n + (r.success ? 1 : 0), 0);
+    const errorCount = results.length - successCount;
 
     return successResult({
       summary: {
@@ -663,8 +663,8 @@ export function createHandlers(log: ToolLogger) {
       tempId: c.temp_id,
     }));
     const results = diagram.batchAddCells(items, { dryRun: args.dry_run });
-    const successCount = results.filter(r => r.success).length;
-    const errorCount = results.filter(r => !r.success).length;
+    const successCount = results.reduce((n, r) => n + (r.success ? 1 : 0), 0);
+    const errorCount = results.length - successCount;
     return successResult({
       summary: { total: results.length, succeeded: successCount, failed: errorCount },
       results,
@@ -684,8 +684,8 @@ export function createHandlers(log: ToolLogger) {
     }>;
   }): CallToolResult => {
     const results = diagram.batchEditCells(args.cells);
-    const successCount = results.filter(r => r.success).length;
-    const errorCount = results.filter(r => !r.success).length;
+    const successCount = results.reduce((n, r) => n + (r.success ? 1 : 0), 0);
+    const errorCount = results.length - successCount;
     return successResult({
       summary: { total: results.length, succeeded: successCount, failed: errorCount },
       results,

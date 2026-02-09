@@ -495,6 +495,7 @@ export function initializeShapes(libraryPath?: string): AzureIconLibrary {
   cachedLibrary = null;
   cachedSearchIndex = null;
   cachedSearchResults = new Map();
+  cachedCategoryNames = null;
   cachedLibrary = loadAzureIconLibrary(configuredLibraryPath);
   return cachedLibrary;
 }
@@ -507,6 +508,7 @@ export function resetAzureIconLibrary(): void {
   cachedLibrary = null;
   cachedSearchIndex = null;
   cachedSearchResults = new Map();
+  cachedCategoryNames = null;
 }
 
 /**
@@ -645,11 +647,17 @@ export function searchAzureIcons(
 }
 
 /**
- * Get all categories
+ * Get all categories (cached after first call).
+ * Invalidated by `resetAzureIconLibrary` and `initializeShapes`.
  */
+let cachedCategoryNames: string[] | null = null;
+
 export function getAzureCategories(): string[] {
-  const library = getAzureIconLibrary();
-  return Array.from(library.categories.keys()).sort();
+  if (!cachedCategoryNames) {
+    const library = getAzureIconLibrary();
+    cachedCategoryNames = Array.from(library.categories.keys()).sort();
+  }
+  return cachedCategoryNames;
 }
 
 /**
