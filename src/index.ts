@@ -28,7 +28,7 @@ import {
   validLogLevels,
 } from "./mcp_server_logger.js";
 
-const VERSION = "1.6.1";
+const VERSION = "1.7.0";
 
 /**
  * Display help message and exit
@@ -499,6 +499,24 @@ server.tool(
           .optional()
           .describe(
             "Filter by cell type: 'edge' for connection lines, 'vertex' for vertices/shapes, 'object' for any cell type, 'layer' for layer cells, 'group' for grouped cells",
+          ),
+        parent_ids: z
+          .array(z.string())
+          .optional()
+          .describe(
+            "Filter cells to only those whose parent is one of the specified parent IDs.",
+          ),
+        layer_ids: z
+          .array(z.string())
+          .optional()
+          .describe(
+            "Filter cells to only those whose parent is one of the specified layer IDs. Alias for parent_ids.",
+          ),
+        ids: z
+          .array(z.string())
+          .optional()
+          .describe(
+            "Filter cells to only those whose ID is one of the specified IDs.",
           ),
         attributes: Attributes.optional().describe(
           'Boolean logic array expressions for filtering cell attributes. Format: ["and" | "or", ...expressions] or ["equal", key, value]. Matches against cell attributes and parsed style properties.',
