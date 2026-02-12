@@ -41,6 +41,10 @@
   ],
   "author": "Ladislav Gazo",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lgazo/drawio-mcp-server"
+  },
   "packageManager": "pnpm@10.8.1",
   "dependencies": {
     "@hono/node-server": "1.19.7",
