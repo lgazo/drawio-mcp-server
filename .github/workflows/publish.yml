@@ -29,5 +29,11 @@ jobs:
       - name: Build
         run: pnpm run build
 
+      - name: Update npm to latest
+        run: npm install -g npm@latest
+
+      - name: Clear npm auth token
+        run: npm config set //registry.npmjs.org/:_authToken ""
+
       - name: Publish
-        run: pnpm publish
+        run: npm publish --provenance --access public
