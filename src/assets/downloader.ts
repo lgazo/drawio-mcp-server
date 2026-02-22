@@ -130,17 +130,12 @@ export async function downloadAndExtractAssets(
 
 export async function ensureAssets(
   config: {
-    readonly assetSource: "cdn" | "download";
     readonly assetPath?: string;
   },
   onProgress?: (msg: string) => void,
 ): Promise<{ readonly assetRoot: string; readonly isLocal: boolean }> {
   const { getCacheDir, getAssetRoot, assetsExist } =
     await import("./manager.js");
-
-  if (config.assetSource === "cdn") {
-    return { assetRoot: "", isLocal: false };
-  }
 
   const cacheDir = getCacheDir(config.assetPath);
   const assetRoot = getAssetRoot(config);

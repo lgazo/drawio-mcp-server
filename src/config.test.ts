@@ -156,7 +156,6 @@ describe("parseConfig", () => {
       httpPort: 3000,
       transports: ["stdio"],
       editorEnabled: false,
-      assetSource: "download",
     });
   });
 
@@ -166,7 +165,6 @@ describe("parseConfig", () => {
       httpPort: 3000,
       transports: ["stdio"],
       editorEnabled: false,
-      assetSource: "download",
     });
   });
 
@@ -176,7 +174,6 @@ describe("parseConfig", () => {
       httpPort: 3000,
       transports: ["stdio"],
       editorEnabled: false,
-      assetSource: "download",
     });
   });
 
@@ -186,7 +183,6 @@ describe("parseConfig", () => {
       httpPort: 4242,
       transports: ["stdio"],
       editorEnabled: false,
-      assetSource: "download",
     });
   });
 
@@ -198,7 +194,6 @@ describe("parseConfig", () => {
       httpPort: 4242,
       transports: ["stdio"],
       editorEnabled: false,
-      assetSource: "download",
     });
   });
 
@@ -208,7 +203,6 @@ describe("parseConfig", () => {
       httpPort: 3000,
       transports: ["stdio"],
       editorEnabled: false,
-      assetSource: "download",
     });
   });
 
@@ -248,7 +242,6 @@ describe("parseConfig", () => {
       httpPort: 3000,
       transports: ["stdio"],
       editorEnabled: false,
-      assetSource: "download",
     });
   });
 
@@ -258,7 +251,6 @@ describe("parseConfig", () => {
       httpPort: 3000,
       transports: ["stdio"],
       editorEnabled: false,
-      assetSource: "download",
     });
   });
 
@@ -269,7 +261,6 @@ describe("parseConfig", () => {
         httpPort: 5000,
         transports: ["stdio"],
         editorEnabled: false,
-        assetSource: "download",
       },
     );
   });
@@ -280,7 +271,6 @@ describe("parseConfig", () => {
       httpPort: 3000,
       transports: ["stdio"],
       editorEnabled: false,
-      assetSource: "download",
     });
   });
 
@@ -290,7 +280,6 @@ describe("parseConfig", () => {
       httpPort: 3000,
       transports: ["stdio", "http"],
       editorEnabled: false,
-      assetSource: "download",
     });
   });
 
@@ -305,7 +294,6 @@ describe("parseConfig", () => {
       httpPort: 3000,
       transports: ["stdio"],
       editorEnabled: true,
-      assetSource: "download",
     });
   });
 
@@ -315,7 +303,6 @@ describe("parseConfig", () => {
       httpPort: 3000,
       transports: ["stdio"],
       editorEnabled: true,
-      assetSource: "download",
     });
   });
 
@@ -325,7 +312,6 @@ describe("parseConfig", () => {
       httpPort: 3000,
       transports: ["stdio"],
       editorEnabled: false,
-      assetSource: "download",
     });
   });
 
@@ -335,7 +321,6 @@ describe("parseConfig", () => {
       httpPort: 3000,
       transports: ["stdio"],
       editorEnabled: true,
-      assetSource: "download",
     });
   });
 
@@ -345,7 +330,6 @@ describe("parseConfig", () => {
       httpPort: 3000,
       transports: ["stdio"],
       editorEnabled: false,
-      assetSource: "download",
     });
   });
 });
@@ -365,7 +349,6 @@ describe("buildConfig", () => {
       httpPort: 3000,
       transports: ["stdio"],
       editorEnabled: false,
-      assetSource: "download",
     });
   });
 
@@ -377,7 +360,6 @@ describe("buildConfig", () => {
       httpPort: 3000,
       transports: ["stdio"],
       editorEnabled: false,
-      assetSource: "download",
     });
   });
 
@@ -389,7 +371,6 @@ describe("buildConfig", () => {
       httpPort: 4242,
       transports: ["stdio"],
       editorEnabled: false,
-      assetSource: "download",
     });
   });
 

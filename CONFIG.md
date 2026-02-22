@@ -8,8 +8,7 @@
 | `--extension-port`, `-p` | WebSocket port for browser extension | 3333 |
 | `--http-port` | HTTP transport port | 3000 |
 | `--transport` | Transport type: `stdio`, `http`, or `stdio,http` | `stdio` |
-| `--asset-source` | Asset source mode: `cdn` or `download` | `download` |
-| `--asset-path` | Custom path for downloaded assets (forces download mode) | - |
+| `--asset-path` | Custom path for downloaded assets | - |
 
 ## Built-in Editor
 

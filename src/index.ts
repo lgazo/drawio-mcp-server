@@ -37,8 +37,6 @@ import {
   validLogLevels,
 } from "./mcp_server_logger.js";
 import {
-  getCdnHtml,
-  getCdnBootstrapJs,
   getLocalPluginPath,
   isUsingLocalAssets,
   getAssetRoot,
@@ -62,8 +60,7 @@ Options:
   --editor, -e                   Enable draw.io editor endpoint
   --http-port                    HTTP server port for Streamable HTTP transport (default: 3000)
   --transport                    Transport type: stdio, http (default: stdio)
-  --asset-source <cdn|download> Asset source mode (default: download)
-  --asset-path <path>           Custom path for downloaded assets (forces download mode)
+  --asset-path <path>           Custom path for downloaded assets
   --help, -h                     Show this help message
 
 Examples:
@@ -72,7 +69,6 @@ Examples:
   drawio-mcp-server -p 8080                   # Short form
   drawio-mcp-server --editor                  # Enable draw.io editor endpoint
   drawio-mcp-server -e --http                 # Enable editor and HTTP transport
-  drawio-mcp-server --editor --asset-source download  # Download assets locally
   drawio-mcp-server --editor --asset-path /data/assets # Use custom asset path
   `);
   process.exit(0);
@@ -645,7 +641,6 @@ function registerConfigRoute(app: Hono, config: ServerConfig) {
 
 function registerEditorRoutes(app: Hono, config: ServerConfig) {
   const assetConfig: AssetConfig = {
-    assetSource: config.assetSource,
     assetPath: config.assetPath,
   };
   const isLocal = isUsingLocalAssets(assetConfig);
@@ -661,34 +656,10 @@ function registerEditorRoutes(app: Hono, config: ServerConfig) {
     return c.text("Plugin not found", 404);
   });
 
-  if (config.assetSource === "cdn") {
-    app.get("/js/bootstrap.js", async (c) => {
-      try {
-        const bootstrapJs = await getCdnBootstrapJs();
-        c.header("Content-Type", "application/javascript");
-        return c.body(bootstrapJs);
-      } catch (err) {
-        log.debug("Failed to fetch CDN bootstrap.js:", err);
-        return c.text("Failed to load bootstrap.js", 503);
-      }
-    });
-  }
-
   app.use("/*", async (c, next) => {
     let path = c.req.path;
     if (path === "" || path === "/") {
       path = "index.html";
-    }
-
-    if (config.assetSource === "cdn") {
-      try {
-        const cdnHtml = await getCdnHtml();
-        c.header("Content-Type", "text/html");
-        return c.body(cdnHtml);
-      } catch (err) {
-        log.debug("Failed to fetch CDN HTML:", err);
-        return c.text("Failed to load editor. CDN unavailable.", 503);
-      }
     }
 
     if (!isLocal || !assetRoot) {
@@ -758,7 +729,7 @@ function registerEditorRoutes(app: Hono, config: ServerConfig) {
   });
 
   log.debug(
-    `Draw.io editor enabled at: http://localhost:${config.httpPort}/ (mode: ${config.assetSource})`,
+    `Draw.io editor enabled at: http://localhost:${config.httpPort}/`,
   );
 }
 
@@ -830,11 +801,10 @@ async function main() {
   const config: ServerConfig = configResult;
   const features = getHttpFeatureConfig(config);
 
-  // Initialize assets if needed (download mode)
-  if (features.enableEditor && config.assetSource === "download") {
+  // Initialize assets if needed
+  if (features.enableEditor) {
     console.log("Initializing draw.io assets...");
     const assetConfig: AssetConfig = {
-      assetSource: config.assetSource,
       assetPath: config.assetPath,
     };
     await ensureAssets(assetConfig, (msg) => console.log(msg));
