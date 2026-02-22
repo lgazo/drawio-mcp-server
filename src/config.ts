@@ -1,10 +1,15 @@
 /**
  * Application configuration interface
  */
+export type AssetSource = "cdn" | "download";
+
 export interface ServerConfig {
   readonly extensionPort: number;
   readonly httpPort: number;
   readonly transports: TransportType[];
+  readonly editorEnabled: boolean;
+  readonly assetSource: AssetSource;
+  readonly assetPath?: string;
 }
 
 export type TransportType = "stdio" | "http";
@@ -16,6 +21,8 @@ const DEFAULT_CONFIG: ServerConfig = {
   extensionPort: 3333,
   httpPort: 3000,
   transports: ["stdio"],
+  editorEnabled: false,
+  assetSource: "download",
 } as const;
 
 /**
@@ -146,6 +153,9 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
   let httpPortValue: string | undefined;
   let parsedHttpPort: number | undefined;
   let transportValues: string[] | undefined;
+  let editorEnabled = false;
+  let assetSource: AssetSource = DEFAULT_CONFIG.assetSource;
+  let assetPath: string | undefined;
 
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
@@ -177,6 +187,41 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
 
       transportValues = [nextValue];
       i += 1;
+    } else if (arg === "--editor" || arg === "-e") {
+      const nextValue = args[i + 1];
+      if (nextValue !== undefined && (nextValue === "false" || nextValue === "true")) {
+        editorEnabled = nextValue === "true";
+        i += 1;
+      } else {
+        editorEnabled = true;
+      }
+    } else if (arg === "--editor=true") {
+      editorEnabled = true;
+    } else if (arg === "--editor=false") {
+      editorEnabled = false;
+    } else if (arg === "--asset-source") {
+      const nextValue = args[i + 1];
+
+      if (nextValue === undefined) {
+        return new Error("--asset-source flag requires a value: cdn or download");
+      }
+
+      if (nextValue !== "cdn" && nextValue !== "download") {
+        return new Error("--asset-source must be either 'cdn' or 'download'");
+      }
+
+      assetSource = nextValue;
+      i += 1;
+    } else if (arg === "--asset-path") {
+      const nextValue = args[i + 1];
+
+      if (nextValue === undefined) {
+        return new Error("--asset-path flag requires a path");
+      }
+
+      assetPath = nextValue;
+      assetSource = "download"; // --asset-path forces download mode
+      i += 1;
     }
   }
 
@@ -206,6 +251,9 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
       httpPort:
         parsedHttpPort !== undefined ? parsedHttpPort : DEFAULT_CONFIG.httpPort,
       transports,
+      editorEnabled,
+      assetSource,
+      assetPath,
     };
   }
 
@@ -219,6 +267,9 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
       ...DEFAULT_CONFIG,
       httpPort: parsedHttpPort as number,
       transports,
+      editorEnabled,
+      assetSource,
+      assetPath,
     };
   }
 
@@ -231,6 +282,9 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
   return {
     ...DEFAULT_CONFIG,
     transports,
+    editorEnabled,
+    assetSource,
+    assetPath,
   };
 };
 
@@ -243,3 +297,19 @@ export const buildConfig = (): ServerConfig | Error => {
   const args = process.argv.slice(2);
   return parseConfig(args);
 };
+
+export interface HttpFeatureConfig {
+  readonly enableMcp: boolean;
+  readonly enableEditor: boolean;
+  readonly enableHealth: boolean;
+  readonly enableConfig: boolean;
+}
+
+export function getHttpFeatureConfig(config: ServerConfig): HttpFeatureConfig {
+  return {
+    enableMcp: config.transports.includes("http"),
+    enableEditor: config.editorEnabled,
+    enableHealth: true,
+    enableConfig: true,
+  };
+}

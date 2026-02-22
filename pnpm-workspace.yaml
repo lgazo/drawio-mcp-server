@@ -1,2 +1,3 @@
 onlyBuiltDependencies:
   - unrs-resolver
+  - esbuild

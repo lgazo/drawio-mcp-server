@@ -155,6 +155,8 @@ describe("parseConfig", () => {
       extensionPort: 3333,
       httpPort: 3000,
       transports: ["stdio"],
+      editorEnabled: false,
+      assetSource: "download",
     });
   });
 
@@ -163,6 +165,8 @@ describe("parseConfig", () => {
       extensionPort: 8080,
       httpPort: 3000,
       transports: ["stdio"],
+      editorEnabled: false,
+      assetSource: "download",
     });
   });
 
@@ -171,6 +175,8 @@ describe("parseConfig", () => {
       extensionPort: 8080,
       httpPort: 3000,
       transports: ["stdio"],
+      editorEnabled: false,
+      assetSource: "download",
     });
   });
 
@@ -179,6 +185,8 @@ describe("parseConfig", () => {
       extensionPort: 3333,
       httpPort: 4242,
       transports: ["stdio"],
+      editorEnabled: false,
+      assetSource: "download",
     });
   });
 
@@ -189,6 +197,8 @@ describe("parseConfig", () => {
       extensionPort: 8080,
       httpPort: 4242,
       transports: ["stdio"],
+      editorEnabled: false,
+      assetSource: "download",
     });
   });
 
@@ -197,6 +207,8 @@ describe("parseConfig", () => {
       extensionPort: 3333,
       httpPort: 3000,
       transports: ["stdio"],
+      editorEnabled: false,
+      assetSource: "download",
     });
   });
 
@@ -235,6 +247,8 @@ describe("parseConfig", () => {
       extensionPort: 9090,
       httpPort: 3000,
       transports: ["stdio"],
+      editorEnabled: false,
+      assetSource: "download",
     });
   });
 
@@ -243,6 +257,8 @@ describe("parseConfig", () => {
       extensionPort: 9090,
       httpPort: 3000,
       transports: ["stdio"],
+      editorEnabled: false,
+      assetSource: "download",
     });
   });
 
@@ -252,6 +268,8 @@ describe("parseConfig", () => {
         extensionPort: 3333,
         httpPort: 5000,
         transports: ["stdio"],
+        editorEnabled: false,
+        assetSource: "download",
       },
     );
   });
@@ -261,6 +279,8 @@ describe("parseConfig", () => {
       extensionPort: 3333,
       httpPort: 3000,
       transports: ["stdio"],
+      editorEnabled: false,
+      assetSource: "download",
     });
   });
 
@@ -269,12 +289,64 @@ describe("parseConfig", () => {
       extensionPort: 3333,
       httpPort: 3000,
       transports: ["stdio", "http"],
+      editorEnabled: false,
+      assetSource: "download",
     });
   });
 
   test("rejects unknown transport", () => {
     const result = parseConfig(["--transport", "foo"]);
     expect(result).toBeInstanceOf(Error);
+  });
+
+  test("--editor flag enables editor", () => {
+    expect(parseConfig(["--editor"])).toEqual({
+      extensionPort: 3333,
+      httpPort: 3000,
+      transports: ["stdio"],
+      editorEnabled: true,
+      assetSource: "download",
+    });
+  });
+
+  test("-e flag enables editor", () => {
+    expect(parseConfig(["-e"])).toEqual({
+      extensionPort: 3333,
+      httpPort: 3000,
+      transports: ["stdio"],
+      editorEnabled: true,
+      assetSource: "download",
+    });
+  });
+
+  test("--editor false disables editor explicitly", () => {
+    expect(parseConfig(["--editor", "false"])).toEqual({
+      extensionPort: 3333,
+      httpPort: 3000,
+      transports: ["stdio"],
+      editorEnabled: false,
+      assetSource: "download",
+    });
+  });
+
+  test("--editor=true enables editor", () => {
+    expect(parseConfig(["--editor=true"])).toEqual({
+      extensionPort: 3333,
+      httpPort: 3000,
+      transports: ["stdio"],
+      editorEnabled: true,
+      assetSource: "download",
+    });
+  });
+
+  test("--editor=false disables editor explicitly", () => {
+    expect(parseConfig(["--editor=false"])).toEqual({
+      extensionPort: 3333,
+      httpPort: 3000,
+      transports: ["stdio"],
+      editorEnabled: false,
+      assetSource: "download",
+    });
   });
 });
 
@@ -292,6 +364,8 @@ describe("buildConfig", () => {
       extensionPort: 3333,
       httpPort: 3000,
       transports: ["stdio"],
+      editorEnabled: false,
+      assetSource: "download",
     });
   });
 
@@ -302,6 +376,8 @@ describe("buildConfig", () => {
       extensionPort: 8080,
       httpPort: 3000,
       transports: ["stdio"],
+      editorEnabled: false,
+      assetSource: "download",
     });
   });
 
@@ -312,6 +388,8 @@ describe("buildConfig", () => {
       extensionPort: 3333,
       httpPort: 4242,
       transports: ["stdio"],
+      editorEnabled: false,
+      assetSource: "download",
     });
   });
 

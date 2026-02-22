@@ -9,9 +9,12 @@ import { cors } from "hono/cors";
 
 import EventEmitter from "node:events";
 import { createServer } from "node:net";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { readFileSync, existsSync, statSync, readdirSync } from "node:fs";
 
 import { WebSocket, WebSocketServer } from "ws";
-import { buildConfig, shouldShowHelp, type ServerConfig } from "./config.js";
+import { buildConfig, shouldShowHelp, type ServerConfig, getHttpFeatureConfig, type HttpFeatureConfig } from "./config.js";
 import {
   Bus,
   bus_reply_stream,
@@ -27,8 +30,17 @@ import {
   create_logger as create_server_logger,
   validLogLevels,
 } from "./mcp_server_logger.js";
+import {
+  getCdnHtml,
+  getCdnBootstrapJs,
+  getLocalPluginPath,
+  isUsingLocalAssets,
+  getAssetRoot,
+  ensureAssets,
+  type AssetConfig,
+} from "./assets/index.js";
 
-const VERSION = "1.7.0";
+const VERSION = "1.8.0";
 
 /**
  * Display help message and exit
@@ -41,12 +53,21 @@ Usage: drawio-mcp-server [options]
 
 Options:
   --extension-port, -p <number>  WebSocket server port for browser extension (default: 3333)
+  --editor, -e                   Enable draw.io editor endpoint
+  --http-port                    HTTP server port for Streamable HTTP transport (default: 3000)
+  --transport                    Transport type: stdio, http (default: stdio)
+  --asset-source <cdn|download> Asset source mode (default: download)
+  --asset-path <path>           Custom path for downloaded assets (forces download mode)
   --help, -h                     Show this help message
 
 Examples:
   drawio-mcp-server                           # Use default extension port 3333
   drawio-mcp-server --extension-port 8080     # Use custom extension port 8080
   drawio-mcp-server -p 8080                   # Short form
+  drawio-mcp-server --editor                  # Enable draw.io editor endpoint
+  drawio-mcp-server -e --http                 # Enable editor and HTTP transport
+  drawio-mcp-server --editor --asset-source download  # Download assets locally
+  drawio-mcp-server --editor --asset-path /data/assets # Use custom asset path
   `);
   process.exit(0);
 }
@@ -584,14 +605,7 @@ async function start_stdio_transport() {
   log.debug(`Draw.io MCP Server STDIO transport active`);
 }
 
-async function start_streamable_http_transport(http_port: number) {
-  // Create a stateless transport (no options = no session management)
-  const transport = new WebStandardStreamableHTTPServerTransport();
-
-  // Create the Hono app
-  const app = new Hono();
-
-  // Enable CORS for all origins
+function setupCors(app: Hono) {
   app.use(
     "*",
     cors({
@@ -606,22 +620,179 @@ async function start_streamable_http_transport(http_port: number) {
       exposeHeaders: ["mcp-session-id", "mcp-protocol-version"],
     }),
   );
+}
 
+function registerHealthRoute(app: Hono) {
   app.get("/health", (c) =>
     c.json({ status: server.isConnected() ? "ok" : "mcp not ready" }),
   );
+}
 
+function registerConfigRoute(app: Hono, config: ServerConfig) {
+  app.get("/api/config", (c) =>
+    c.json({
+      websocketPort: config.extensionPort,
+      serverUrl: `http://localhost:${config.httpPort}`,
+    }),
+  );
+}
+
+function registerEditorRoutes(app: Hono, config: ServerConfig) {
+  const assetConfig: AssetConfig = {
+    assetSource: config.assetSource,
+    assetPath: config.assetPath,
+  };
+  const isLocal = isUsingLocalAssets(assetConfig);
+  const assetRoot = isLocal ? getAssetRoot(assetConfig) : null;
+  const localPluginPath = getLocalPluginPath();
+
+  app.get("/js/mcp-plugin.js", (c) => {
+    if (existsSync(localPluginPath)) {
+      const content = readFileSync(localPluginPath);
+      c.header("Content-Type", "application/javascript");
+      return c.body(content);
+    }
+    return c.text("Plugin not found", 404);
+  });
+
+  if (config.assetSource === "cdn") {
+    app.get("/js/bootstrap.js", async (c) => {
+      try {
+        const bootstrapJs = await getCdnBootstrapJs();
+        c.header("Content-Type", "application/javascript");
+        return c.body(bootstrapJs);
+      } catch (err) {
+        log.debug("Failed to fetch CDN bootstrap.js:", err);
+        return c.text("Failed to load bootstrap.js", 503);
+      }
+    });
+  }
+
+  app.use("/*", async (c, next) => {
+    let path = c.req.path;
+    if (path === "" || path === "/") {
+      path = "index.html";
+    }
+
+    if (config.assetSource === "cdn") {
+      try {
+        const cdnHtml = await getCdnHtml();
+        c.header("Content-Type", "text/html");
+        return c.body(cdnHtml);
+      } catch (err) {
+        log.debug("Failed to fetch CDN HTML:", err);
+        return c.text("Failed to load editor. CDN unavailable.", 503);
+      }
+    }
+
+    if (!isLocal || !assetRoot) {
+      await next();
+      return;
+    }
+
+    let filePath = join(assetRoot, path);
+
+    if (existsSync(filePath)) {
+      const fileStats = statSync(filePath);
+
+      if (fileStats.isDirectory()) {
+        const normalizedPath = path.endsWith("/") ? path.slice(0, -1) : path;
+        const parentDir = join(assetRoot, normalizedPath);
+        if (existsSync(parentDir) && statSync(parentDir).isDirectory()) {
+          const entries = readdirSync(parentDir);
+          const firstFile = entries.find((e: string) => !statSync(join(parentDir, e)).isDirectory());
+          if (firstFile) {
+            filePath = join(parentDir, firstFile);
+          } else {
+            await next();
+            return;
+          }
+        } else {
+          await next();
+          return;
+        }
+      }
+
+      let content = readFileSync(filePath);
+      const ext = filePath.split(".").pop()?.toLowerCase();
+
+      if (ext === "html") {
+        const contentStr = content.toString("utf-8");
+        if (contentStr.includes("</body>") && !contentStr.includes("mcp-plugin.js")) {
+          const pluginScript = `<script src="/js/mcp-plugin.js"></script>`;
+          content = Buffer.from(contentStr.replace("</body>", `${pluginScript}</body>`));
+        }
+      }
+
+      const contentTypes: Record<string, string> = {
+        html: "text/html",
+        css: "text/css",
+        js: "application/javascript",
+        json: "application/json",
+        svg: "image/svg+xml",
+        png: "image/png",
+        ico: "image/x-icon",
+        map: "application/json",
+      };
+      c.header("Content-Type", contentTypes[ext || ""] || "text/plain");
+      return c.body(content);
+    }
+    await next();
+  });
+
+  app.get("/", (c) => {
+    return c.redirect("/index.html?offline=1&local=1");
+  });
+
+  log.debug(
+    `Draw.io editor enabled at: http://localhost:${config.httpPort}/ (mode: ${config.assetSource})`,
+  );
+}
+
+function registerMcpRoute(app: Hono): WebStandardStreamableHTTPServerTransport {
+  const transport = new WebStandardStreamableHTTPServerTransport();
   app.all("/mcp", (c) => transport.handleRequest(c.req.raw));
+  return transport;
+}
 
-  await server.connect(transport);
+function createHttpApp(
+  config: ServerConfig,
+  features: HttpFeatureConfig,
+): { app: Hono; mcpTransport: WebStandardStreamableHTTPServerTransport | undefined } {
+  const app = new Hono();
+  setupCors(app);
+
+  if (features.enableHealth) registerHealthRoute(app);
+  if (features.enableConfig) registerConfigRoute(app, config);
+  const mcpTransport = features.enableMcp ? registerMcpRoute(app) : undefined;
+  if (features.enableEditor) registerEditorRoutes(app, config);
+
+  return { app, mcpTransport };
+}
+
+async function startHttpServer(
+  httpPort: number,
+  config: ServerConfig,
+  features: HttpFeatureConfig,
+) {
+  const { app, mcpTransport } = createHttpApp(config, features);
+
+  if (mcpTransport) {
+    await server.connect(mcpTransport);
+  }
 
   serve({
     fetch: app.fetch,
-    port: http_port,
+    port: httpPort,
   });
-  log.debug(`Draw.io MCP Server Streamable HTTP transport active`);
-  log.debug(`Health check: http://localhost:${http_port}/health`);
-  log.debug(`MCP endpoint: http://localhost:${http_port}/mcp`);
+
+  log.debug(`Draw.io MCP Server HTTP active on port ${httpPort}`);
+  if (features.enableMcp) {
+    log.debug(`MCP endpoint: http://localhost:${httpPort}/mcp`);
+  }
+  if (features.enableEditor) {
+    log.debug(`Editor: http://localhost:${httpPort}/`);
+  }
 }
 
 async function main() {
@@ -641,14 +812,24 @@ async function main() {
   }
 
   const config: ServerConfig = configResult;
+  const features = getHttpFeatureConfig(config);
+
+  // Initialize assets if needed (download mode)
+  if (features.enableEditor && config.assetSource === "download") {
+    console.log("Initializing draw.io assets...");
+    const assetConfig: AssetConfig = {
+      assetSource: config.assetSource,
+      assetPath: config.assetPath,
+    };
+    await ensureAssets(assetConfig, (msg) => console.log(msg));
+    console.log("Assets ready!");
+  }
 
   await start_websocket_server(config.extensionPort);
   if (config.transports.indexOf("stdio") > -1) {
     await start_stdio_transport();
   }
-  if (config.transports.indexOf("http") > -1) {
-    start_streamable_http_transport(config.httpPort);
-  }
+  startHttpServer(config.httpPort, config, features);
 
   log.debug(`Draw.io MCP Server running on ${config.transports}`);
 }
