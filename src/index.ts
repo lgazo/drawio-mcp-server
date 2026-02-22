@@ -728,9 +728,7 @@ function registerEditorRoutes(app: Hono, config: ServerConfig) {
     return c.redirect("/index.html?offline=1&local=1");
   });
 
-  log.debug(
-    `Draw.io editor enabled at: http://localhost:${config.httpPort}/`,
-  );
+  log.debug(`Draw.io editor enabled at: http://localhost:${config.httpPort}/`);
 }
 
 function registerMcpRoute(app: Hono): WebStandardStreamableHTTPServerTransport {
