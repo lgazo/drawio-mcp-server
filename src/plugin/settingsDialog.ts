@@ -24,7 +24,10 @@ export type SettingsMessage =
   | { type: "OPEN" }
   | { type: "CLOSE" }
   | { type: "UPDATE_CONFIG"; config: PluginConfig }
-  | { type: "UPDATE_CONNECTION_STATE"; state: "connecting" | "connected" | "disconnected" }
+  | {
+      type: "UPDATE_CONNECTION_STATE";
+      state: "connecting" | "connected" | "disconnected";
+    }
   | { type: "UPDATE_PORT"; port: string }
   | { type: "SAVE" }
   | { type: "RESET" };
@@ -130,7 +133,10 @@ function createDialogHeader(title: string, onClose: () => void): HTMLElement {
   return header;
 }
 
-function createDialogBody(state: SettingsDialogState, actions: SettingsDialogActions): HTMLElement {
+function createDialogBody(
+  state: SettingsDialogState,
+  actions: SettingsDialogActions,
+): HTMLElement {
   const body = document.createElement("div");
   body.className = "dialog-body";
   body.style.cssText = `
@@ -195,7 +201,9 @@ function createStatusSection(state: SettingsDialogState): HTMLElement {
   }
 
   const statusText = document.createElement("span");
-  statusText.textContent = state.connectionState.charAt(0).toUpperCase() + state.connectionState.slice(1);
+  statusText.textContent =
+    state.connectionState.charAt(0).toUpperCase() +
+    state.connectionState.slice(1);
   statusText.style.fontWeight = "500";
 
   statusIndicator.appendChild(indicator);
@@ -215,7 +223,10 @@ function createStatusSection(state: SettingsDialogState): HTMLElement {
   return section;
 }
 
-function createFormSection(state: SettingsDialogState, actions: SettingsDialogActions): HTMLElement {
+function createFormSection(
+  state: SettingsDialogState,
+  actions: SettingsDialogActions,
+): HTMLElement {
   const section = document.createElement("div");
   section.className = "form-section";
 
@@ -256,9 +267,11 @@ function createFormSection(state: SettingsDialogState, actions: SettingsDialogAc
 
   input.addEventListener("input", (e) => {
     const value = (e.target as HTMLInputElement).value;
-    window.dispatchEvent(new CustomEvent("mcp-settings-message", {
-      detail: { type: "UPDATE_PORT", port: value }
-    }));
+    window.dispatchEvent(
+      new CustomEvent("mcp-settings-message", {
+        detail: { type: "UPDATE_PORT", port: value },
+      }),
+    );
   });
 
   const hint = document.createElement("div");
@@ -289,7 +302,10 @@ function createFormSection(state: SettingsDialogState, actions: SettingsDialogAc
   return section;
 }
 
-function createDialogFooter(state: SettingsDialogState, actions: SettingsDialogActions): HTMLElement {
+function createDialogFooter(
+  state: SettingsDialogState,
+  actions: SettingsDialogActions,
+): HTMLElement {
   const footer = document.createElement("div");
   footer.className = "dialog-footer";
   footer.style.cssText = `
@@ -315,20 +331,24 @@ function createDialogFooter(state: SettingsDialogState, actions: SettingsDialogA
   `;
 
   const cancelBtn = createButton("Cancel", "ghost", () => {
-    window.dispatchEvent(new CustomEvent("mcp-settings-message", {
-      detail: { type: "CLOSE" }
-    }));
+    window.dispatchEvent(
+      new CustomEvent("mcp-settings-message", {
+        detail: { type: "CLOSE" },
+      }),
+    );
   });
 
   const saveBtn = createButton(
     state.isSaving ? "Saving..." : "Save",
     "primary",
     () => {
-      window.dispatchEvent(new CustomEvent("mcp-settings-message", {
-        detail: { type: "SAVE" }
-      }));
+      window.dispatchEvent(
+        new CustomEvent("mcp-settings-message", {
+          detail: { type: "SAVE" },
+        }),
+      );
     },
-    state.isSaving
+    state.isSaving,
   );
 
   rightActions.appendChild(cancelBtn);
@@ -340,7 +360,12 @@ function createDialogFooter(state: SettingsDialogState, actions: SettingsDialogA
   return footer;
 }
 
-function createButton(text: string, variant: "primary" | "secondary" | "ghost", onClick: () => void, disabled = false): HTMLElement {
+function createButton(
+  text: string,
+  variant: "primary" | "secondary" | "ghost",
+  onClick: () => void,
+  disabled = false,
+): HTMLElement {
   const btn = document.createElement("button");
   btn.textContent = text;
   btn.disabled = disabled;
@@ -411,7 +436,7 @@ function createButton(text: string, variant: "primary" | "secondary" | "ghost", 
 
 export function createSettingsDialog(
   initialState: SettingsDialogState,
-  actions: SettingsDialogActions
+  actions: SettingsDialogActions,
 ): { element: HTMLElement; update: (state: SettingsDialogState) => void } {
   let currentState = { ...initialState };
   let dialogElement: HTMLElement | null = null;
@@ -449,7 +474,10 @@ export function createSettingsDialog(
     return container;
   };
 
-  const setupMessageListeners = (container: HTMLElement, actions: SettingsDialogActions): void => {
+  const setupMessageListeners = (
+    container: HTMLElement,
+    actions: SettingsDialogActions,
+  ): void => {
     const handleMessage = (event: CustomEvent<SettingsMessage>) => {
       const message = event.detail;
 
@@ -471,13 +499,19 @@ export function createSettingsDialog(
       }
     };
 
-    window.addEventListener("mcp-settings-message", handleMessage as EventListener);
+    window.addEventListener(
+      "mcp-settings-message",
+      handleMessage as EventListener,
+    );
 
     const observer = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         mutation.removedNodes.forEach((node) => {
           if (node === container) {
-            window.removeEventListener("mcp-settings-message", handleMessage as EventListener);
+            window.removeEventListener(
+              "mcp-settings-message",
+              handleMessage as EventListener,
+            );
             observer.disconnect();
           }
         });

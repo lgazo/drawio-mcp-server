@@ -63,17 +63,20 @@ interface DrawioUI {
 const createToolHandler = (
   toolName: string,
   parameterKeys: Set<string>,
-  executeFunction: (ui: DrawioUI, options: Record<string, unknown>) => unknown
+  executeFunction: (ui: DrawioUI, options: Record<string, unknown>) => unknown,
 ) => {
   return (request: any): any => {
     const optionEntries = Object.entries(request).filter(([key, _value]) => {
       return parameterKeys.has(key);
     });
 
-    const options = optionEntries.reduce((acc, [key, value]) => {
-      acc[key] = value;
-      return acc;
-    }, {} as Record<string, unknown>);
+    const options = optionEntries.reduce(
+      (acc, [key, value]) => {
+        acc[key] = value;
+        return acc;
+      },
+      {} as Record<string, unknown>,
+    );
 
     let reply;
     try {
@@ -85,7 +88,10 @@ const createToolHandler = (
         result: remove_circular_dependencies(result),
       };
     } catch (error) {
-      console.error(`[plugin] Tool ${toolName} failed for request ID ${request.__request_id}:`, error);
+      console.error(
+        `[plugin] Tool ${toolName} failed for request ID ${request.__request_id}:`,
+        error,
+      );
       reply = {
         __event: reply_name(toolName, request.__request_id),
         __request_id: request.__request_id,
@@ -104,7 +110,10 @@ const createToolHandler = (
 
 let ui: DrawioUI;
 let wsManager: WebSocketManager | null = null;
-let settingsDialog: { element: HTMLElement; update: (state: SettingsDialogState) => void } | null = null;
+let settingsDialog: {
+  element: HTMLElement;
+  update: (state: SettingsDialogState) => void;
+} | null = null;
 
 const toolDefinitions = [
   {
@@ -112,47 +121,47 @@ const toolDefinitions = [
     params: new Set<string>([]),
     handler: (ui: DrawioUI, _options: Record<string, unknown>) => {
       return ui.editor.graph.getSelectionCell() || "no cell selected";
-    }
+    },
   },
   {
     name: "add-rectangle",
     params: new Set(["x", "y", "width", "height", "text", "style"]),
-    handler: add_new_rectangle
+    handler: add_new_rectangle,
   },
   {
     name: "delete-cell-by-id",
     params: new Set(["cell_id"]),
-    handler: delete_cell_by_id
+    handler: delete_cell_by_id,
   },
   {
     name: "add-edge",
     params: new Set(["source_id", "target_id", "style", "text"]),
-    handler: add_edge
+    handler: add_edge,
   },
   {
     name: "get-shape-categories",
     params: new Set([]),
-    handler: get_shape_categories
+    handler: get_shape_categories,
   },
   {
     name: "get-shapes-in-category",
     params: new Set(["category_id"]),
-    handler: get_shapes_in_category
+    handler: get_shapes_in_category,
   },
   {
     name: "get-shape-by-name",
     params: new Set(["shape_name"]),
-    handler: get_shape_by_name
+    handler: get_shape_by_name,
   },
   {
     name: "add-cell-of-shape",
     params: new Set(["x", "y", "width", "height", "text", "style"]),
-    handler: add_cell_of_shape
+    handler: add_cell_of_shape,
   },
   {
     name: "set-cell-shape",
     params: new Set(["cell_id", "shape_name"]),
-    handler: set_cell_shape
+    handler: set_cell_shape,
   },
   {
     name: "set-cell-data",
@@ -160,48 +169,48 @@ const toolDefinitions = [
     handler: (ui: DrawioUI, options: Record<string, unknown>) => {
       const mxUtils = (window as any).mxUtils;
       return set_cell_data(mxUtils)(ui, options);
-    }
+    },
   },
   {
     name: "list-paged-model",
     params: new Set(["page", "page_size", "filter"]),
-    handler: list_paged_model
+    handler: list_paged_model,
   },
   {
     name: "edit-cell",
     params: new Set(["cell_id", "text", "x", "y", "width", "height", "style"]),
-    handler: edit_cell
+    handler: edit_cell,
   },
   {
     name: "edit-edge",
     params: new Set(["cell_id", "text", "source_id", "target_id", "style"]),
-    handler: edit_edge
+    handler: edit_edge,
   },
   {
     name: "list-layers",
     params: new Set([]),
-    handler: list_layers
+    handler: list_layers,
   },
   {
     name: "set-active-layer",
     params: new Set(["layer_id"]),
-    handler: set_active_layer
+    handler: set_active_layer,
   },
   {
     name: "move-cell-to-layer",
     params: new Set(["cell_id", "target_layer_id"]),
-    handler: move_cell_to_layer
+    handler: move_cell_to_layer,
   },
   {
     name: "get-active-layer",
     params: new Set([]),
-    handler: get_active_layer
+    handler: get_active_layer,
   },
   {
     name: "create-layer",
     params: new Set(["name"]),
-    handler: create_layer
-  }
+    handler: create_layer,
+  },
 ];
 
 const toolHandlers = new Map<string, (request: any) => any>();
@@ -318,23 +327,24 @@ const showSettings = (): void => {
 
 const addMenuItem = (ui: DrawioUI): void => {
   if (!ui.menus) {
-    console.warn("[plugin] Menu bar not available, cannot add MCP Settings menu item");
+    console.warn(
+      "[plugin] Menu bar not available, cannot add MCP Settings menu item",
+    );
     return;
   }
 
   const menubar = ui.menus;
 
   try {
-    let targetMenu = menubar.get("extras") ||
-      menubar.get("file") ||
-      menubar.get("edit");
+    let targetMenu =
+      menubar.get("extras") || menubar.get("file") || menubar.get("edit");
 
     if (!targetMenu) {
       console.warn("[plugin] Could not find suitable menu to add MCP Settings");
       return;
     }
 
-    ui.actions.addAction('Draw.io MCP', function () {
+    ui.actions.addAction("Draw.io MCP", function () {
       showSettings();
     });
 
@@ -343,9 +353,8 @@ const addMenuItem = (ui: DrawioUI): void => {
     targetMenu.funct = function (targetMenu: any, parent: any) {
       oldFunct.apply(this, arguments);
 
-      ui.menus.addMenuItems(targetMenu, ['Draw.io MCP'], parent);
+      ui.menus.addMenuItems(targetMenu, ["Draw.io MCP"], parent);
     };
-
   } catch (error) {
     console.error("[plugin] Failed to add menu item:", error);
   }
@@ -362,7 +371,7 @@ function initPlugin() {
         console.debug("[plugin] Plugin loaded successfully");
         ui = drawioUI;
 
-        toolDefinitions.forEach(def => {
+        toolDefinitions.forEach((def) => {
           const handler = createToolHandler(def.name, def.params, def.handler);
           toolHandlers.set(def.name, handler);
         });

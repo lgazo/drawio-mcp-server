@@ -24,7 +24,9 @@ export interface WebSocketManagerOptions {
   pingInterval?: number;
 }
 
-export function createWebSocketManager(options: WebSocketManagerOptions): WebSocketManager {
+export function createWebSocketManager(
+  options: WebSocketManagerOptions,
+): WebSocketManager {
   let socket: WebSocket | null = null;
   let reconnectAttempts = 0;
   let currentState: ConnectionState = "disconnected";
@@ -41,7 +43,9 @@ export function createWebSocketManager(options: WebSocketManagerOptions): WebSoc
 
   const updateState = (newState: ConnectionState): void => {
     if (currentState !== newState) {
-      console.debug(`[websocketManager] State change: ${currentState} → ${newState}`);
+      console.debug(
+        `[websocketManager] State change: ${currentState} → ${newState}`,
+      );
       currentState = newState;
     }
   };
@@ -73,7 +77,10 @@ export function createWebSocketManager(options: WebSocketManagerOptions): WebSoc
             messageHandler(parsedMessage);
           }
         } catch (error) {
-          console.error("[websocketManager] Failed to parse WebSocket message:", error);
+          console.error(
+            "[websocketManager] Failed to parse WebSocket message:",
+            error,
+          );
         }
       });
 
@@ -88,9 +95,11 @@ export function createWebSocketManager(options: WebSocketManagerOptions): WebSoc
         console.error("[websocketManager] WebSocket error:", event);
         updateState("disconnected");
       });
-
     } catch (error) {
-      console.error("[websocketManager] Failed to create WebSocket connection:", error);
+      console.error(
+        "[websocketManager] Failed to create WebSocket connection:",
+        error,
+      );
       updateState("disconnected");
     }
   };
@@ -115,7 +124,9 @@ export function createWebSocketManager(options: WebSocketManagerOptions): WebSoc
 
   const send = (message: any): void => {
     if (!socket || socket.readyState !== WebSocket.OPEN) {
-      console.warn("[websocketManager] Cannot send message: WebSocket not connected");
+      console.warn(
+        "[websocketManager] Cannot send message: WebSocket not connected",
+      );
       return;
     }
 
@@ -136,14 +147,18 @@ export function createWebSocketManager(options: WebSocketManagerOptions): WebSoc
 
   const attemptReconnect = (): void => {
     if (reconnectAttempts >= maxReconnectAttempts) {
-      console.error("[websocketManager] Max reconnection attempts reached. Giving up.");
+      console.error(
+        "[websocketManager] Max reconnection attempts reached. Giving up.",
+      );
       return;
     }
 
     reconnectAttempts++;
     const delay = reconnectDelay * Math.pow(1.5, reconnectAttempts - 1);
 
-    console.log(`[websocketManager] Attempting to reconnect in ${Math.round(delay / 1000)} seconds... (attempt ${reconnectAttempts}/${maxReconnectAttempts})`);
+    console.log(
+      `[websocketManager] Attempting to reconnect in ${Math.round(delay / 1000)} seconds... (attempt ${reconnectAttempts}/${maxReconnectAttempts})`,
+    );
 
     reconnectTimeoutId = window.setTimeout(() => {
       reconnectTimeoutId = null;

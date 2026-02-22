@@ -189,7 +189,10 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
       i += 1;
     } else if (arg === "--editor" || arg === "-e") {
       const nextValue = args[i + 1];
-      if (nextValue !== undefined && (nextValue === "false" || nextValue === "true")) {
+      if (
+        nextValue !== undefined &&
+        (nextValue === "false" || nextValue === "true")
+      ) {
         editorEnabled = nextValue === "true";
         i += 1;
       } else {
@@ -203,7 +206,9 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
       const nextValue = args[i + 1];
 
       if (nextValue === undefined) {
-        return new Error("--asset-source flag requires a value: cdn or download");
+        return new Error(
+          "--asset-source flag requires a value: cdn or download",
+        );
       }
 
       if (nextValue !== "cdn" && nextValue !== "download") {

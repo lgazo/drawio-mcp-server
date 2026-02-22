@@ -14,7 +14,13 @@ import { fileURLToPath } from "node:url";
 import { readFileSync, existsSync, statSync, readdirSync } from "node:fs";
 
 import { WebSocket, WebSocketServer } from "ws";
-import { buildConfig, shouldShowHelp, type ServerConfig, getHttpFeatureConfig, type HttpFeatureConfig } from "./config.js";
+import {
+  buildConfig,
+  shouldShowHelp,
+  type ServerConfig,
+  getHttpFeatureConfig,
+  type HttpFeatureConfig,
+} from "./config.js";
 import {
   Bus,
   bus_reply_stream,
@@ -700,7 +706,9 @@ function registerEditorRoutes(app: Hono, config: ServerConfig) {
         const parentDir = join(assetRoot, normalizedPath);
         if (existsSync(parentDir) && statSync(parentDir).isDirectory()) {
           const entries = readdirSync(parentDir);
-          const firstFile = entries.find((e: string) => !statSync(join(parentDir, e)).isDirectory());
+          const firstFile = entries.find(
+            (e: string) => !statSync(join(parentDir, e)).isDirectory(),
+          );
           if (firstFile) {
             filePath = join(parentDir, firstFile);
           } else {
@@ -718,9 +726,14 @@ function registerEditorRoutes(app: Hono, config: ServerConfig) {
 
       if (ext === "html") {
         const contentStr = content.toString("utf-8");
-        if (contentStr.includes("</body>") && !contentStr.includes("mcp-plugin.js")) {
+        if (
+          contentStr.includes("</body>") &&
+          !contentStr.includes("mcp-plugin.js")
+        ) {
           const pluginScript = `<script src="/js/mcp-plugin.js"></script>`;
-          content = Buffer.from(contentStr.replace("</body>", `${pluginScript}</body>`));
+          content = Buffer.from(
+            contentStr.replace("</body>", `${pluginScript}</body>`),
+          );
         }
       }
 
@@ -758,7 +771,10 @@ function registerMcpRoute(app: Hono): WebStandardStreamableHTTPServerTransport {
 function createHttpApp(
   config: ServerConfig,
   features: HttpFeatureConfig,
-): { app: Hono; mcpTransport: WebStandardStreamableHTTPServerTransport | undefined } {
+): {
+  app: Hono;
+  mcpTransport: WebStandardStreamableHTTPServerTransport | undefined;
+} {
   const app = new Hono();
   setupCors(app);
 

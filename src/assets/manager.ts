@@ -19,7 +19,9 @@ export function getCacheDir(customPath?: string): string {
   }
   const dir = cachedir(DEFAULT_CACHE_NAME);
   if (!dir) {
-    throw new Error("Could not determine cache directory. Use --asset-path to specify one.");
+    throw new Error(
+      "Could not determine cache directory. Use --asset-path to specify one.",
+    );
   }
   return dir;
 }
@@ -38,7 +40,9 @@ export function assetsExist(config: AssetConfig): boolean {
 export async function fetchCdnHtml(): Promise<string> {
   const response = await fetch(`${CDN_BASE_URL}/index.html`);
   if (!response.ok) {
-    throw new Error(`Failed to fetch CDN HTML: ${response.status} ${response.statusText}`);
+    throw new Error(
+      `Failed to fetch CDN HTML: ${response.status} ${response.statusText}`,
+    );
   }
   return response.text();
 }
@@ -47,17 +51,19 @@ export function rewriteAssetUrls(html: string): string {
   const cdnBase = CDN_BASE_URL;
   const editorPath = "/";
 
-  return html
-    .replace(/href="styles\//g, `href="${cdnBase}/styles/`)
-    .replace(/href="images\//g, `href="${cdnBase}/images/`)
-    .replace(/href="img\//g, `href="${cdnBase}/img/`)
-    .replace(/href="favicon.ico"/g, `href="${cdnBase}/favicon.ico"`)
-    // Don't rewrite js/bootstrap.js - we serve it locally with monkeypatch
-    .replace(/src="js\/bootstrap.js"/g, `src="${editorPath}/js/bootstrap.js"`)
-    // Rewrite other JS to CDN
-    .replace(/src="js\//g, `src="${cdnBase}/js/`)
-    .replace(/src="images\//g, `src="${cdnBase}/images/"`)
-    .replace(/src="img\//g, `src="${cdnBase}/img/"`);
+  return (
+    html
+      .replace(/href="styles\//g, `href="${cdnBase}/styles/`)
+      .replace(/href="images\//g, `href="${cdnBase}/images/`)
+      .replace(/href="img\//g, `href="${cdnBase}/img/`)
+      .replace(/href="favicon.ico"/g, `href="${cdnBase}/favicon.ico"`)
+      // Don't rewrite js/bootstrap.js - we serve it locally with monkeypatch
+      .replace(/src="js\/bootstrap.js"/g, `src="${editorPath}/js/bootstrap.js"`)
+      // Rewrite other JS to CDN
+      .replace(/src="js\//g, `src="${cdnBase}/js/`)
+      .replace(/src="images\//g, `src="${cdnBase}/images/"`)
+      .replace(/src="img\//g, `src="${cdnBase}/img/"`)
+  );
 }
 
 export function getMxscriptMonkeypatch(cdnBase: string): string {
@@ -136,7 +142,9 @@ export function isUsingLocalAssets(config: AssetConfig): boolean {
 export async function fetchCdnBootstrapJs(): Promise<string> {
   const response = await fetch(`${CDN_BASE_URL}/js/bootstrap.js`);
   if (!response.ok) {
-    throw new Error(`Failed to fetch bootstrap.js: ${response.status} ${response.statusText}`);
+    throw new Error(
+      `Failed to fetch bootstrap.js: ${response.status} ${response.statusText}`,
+    );
   }
   return response.text();
 }

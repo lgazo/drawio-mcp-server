@@ -144,11 +144,7 @@ export function remove_circular_dependencies<T>(
       let stripped_value = {};
 
       if (
-        (
-          key === "parent"
-          || key === "source"
-          || key === "target"
-        ) &&
+        (key === "parent" || key === "source" || key === "target") &&
         value !== undefined &&
         value !== null
       ) {
@@ -168,10 +164,7 @@ export function remove_circular_dependencies<T>(
   return result as T;
 }
 
-export function add_new_rectangle(
-  ui: any,
-  options: DrawioCellOptions,
-) {
+export function add_new_rectangle(ui: any, options: DrawioCellOptions) {
   const { editor } = ui;
   const { graph } = editor;
 
@@ -385,12 +378,16 @@ export function set_cell_shape(ui: any, options: DrawioCellOptions) {
     throw new Error(`set_cell_shape could not find cell with id '${cell_id}'`);
   }
   if (cell.edge) {
-    throw new Error(`Cell '${cell_id}' is an edge; set_cell_shape expects a vertex`);
+    throw new Error(
+      `Cell '${cell_id}' is an edge; set_cell_shape expects a vertex`,
+    );
   }
 
   const style = shapeLibrary?.[shape_name]?.style;
   if (!style) {
-    throw new Error(`set_cell_shape could not find a shape named '${shape_name}'`);
+    throw new Error(
+      `set_cell_shape could not find a shape named '${shape_name}'`,
+    );
   }
 
   model.beginUpdate();
@@ -440,7 +437,6 @@ export function set_cell_data(ui: any, options: DrawioCellOptions) {
     d = d.cloneNode(!0);
     d.setAttribute(key, value);
     graph.getModel().setValue(cell, d);
-
   } catch (e) {
     console.error(`[set-cell-data] error`, e);
   } finally {
@@ -473,7 +469,10 @@ export function get_shapes_in_category(ui: any, options: DrawioCellOptions) {
     });
 }
 
-export function get_shape_by_name(ui: any, options: DrawioCellOptions): any | null {
+export function get_shape_by_name(
+  ui: any,
+  options: DrawioCellOptions,
+): any | null {
   const shapes = shapeLibrary;
   const shape = shapes[options.shape_name as string];
   if (!shape) return null;
@@ -518,10 +517,7 @@ export function add_cell_of_shape(ui: any, options: DrawioCellOptions) {
   }
 }
 
-export function list_paged_model(
-  ui: any,
-  options: DrawioCellOptions = {},
-) {
+export function list_paged_model(ui: any, options: DrawioCellOptions = {}) {
   const { editor } = ui;
   const { graph } = editor;
   const model = graph.getModel();
@@ -555,7 +551,8 @@ export function list_paged_model(
     }
 
     if (cell.value && typeof cell.value === "object" && cell.value.attributes) {
-      const transformed_attributes = transform_cells_NamedNodeMap_to_attributes(cell);
+      const transformed_attributes =
+        transform_cells_NamedNodeMap_to_attributes(cell);
       Object.assign(attributes, transformed_attributes);
     }
 
@@ -587,14 +584,14 @@ export function list_paged_model(
     const filter = options.filter;
 
     if (filter.cell_type) {
-      filtered_cells = filtered_cells.filter(cell =>
-        matches_cell_type(cell, filter.cell_type)
+      filtered_cells = filtered_cells.filter((cell) =>
+        matches_cell_type(cell, filter.cell_type),
       );
     }
 
     if (filter.ids && filter.ids.length > 0) {
-      filtered_cells = filtered_cells.filter(cell =>
-        filter.ids.includes(cell.id)
+      filtered_cells = filtered_cells.filter((cell) =>
+        filter.ids.includes(cell.id),
       );
     }
   }
@@ -603,7 +600,9 @@ export function list_paged_model(
   const page_size = Math.max(1, options.page_size || 50);
   const start_index = page * page_size;
 
-  const paginated_ids = filtered_cells.slice(start_index, start_index + page_size).map((c: any) => c.id);
+  const paginated_ids = filtered_cells
+    .slice(start_index, start_index + page_size)
+    .map((c: any) => c.id);
 
   const transformed_cells = [];
 
@@ -624,7 +623,7 @@ export function list_layers(ui: any) {
   const model = graph.getModel();
   const root = model.getRoot();
   const layers = [];
-  
+
   for (let i = 0; i < model.getChildCount(root); i++) {
     const layer = model.getChildAt(root, i);
     if (layer) {
@@ -632,11 +631,11 @@ export function list_layers(ui: any) {
         id: layer.getId(),
         name: layer.getValue() || `Layer ${i}`,
         visible: layer.isVisible(),
-        locked: !layer.isConnectable()
+        locked: !layer.isConnectable(),
       });
     }
   }
-  
+
   return layers;
 }
 
@@ -645,16 +644,16 @@ export function set_active_layer(ui: any, options: DrawioCellOptions) {
   const { graph } = editor;
   const model = graph.getModel();
   const layer = model.getCell(options.layer_id);
-  
+
   if (!layer) {
     throw new Error(`Layer with ID ${options.layer_id} not found`);
   }
-  
+
   graph.setDefaultParent(layer);
-  
+
   return {
     id: layer.getId(),
-    name: layer.getValue() || 'Unnamed Layer'
+    name: layer.getValue() || "Unnamed Layer",
   };
 }
 
@@ -662,28 +661,30 @@ export function move_cell_to_layer(ui: any, options: DrawioCellOptions) {
   const { editor } = ui;
   const { graph } = editor;
   const model = graph.getModel();
-  
+
   const cell = model.getCell(options.cell_id);
   const targetLayer = model.getCell(options.target_layer_id);
-  
+
   if (!cell) {
     throw new Error(`Cell with ID ${options.cell_id} not found`);
   }
-  
+
   if (!targetLayer) {
-    throw new Error(`Target layer with ID ${options.target_layer_id} not found`);
+    throw new Error(
+      `Target layer with ID ${options.target_layer_id} not found`,
+    );
   }
-  
+
   model.beginUpdate();
   try {
     model.add(targetLayer, cell);
   } finally {
     model.endUpdate();
   }
-  
+
   return {
     moved_cell: options.cell_id,
-    to_layer: options.target_layer_id
+    to_layer: options.target_layer_id,
   };
 }
 
@@ -691,10 +692,10 @@ export function get_active_layer(ui: any) {
   const { editor } = ui;
   const { graph } = editor;
   const activeLayer = graph.getDefaultParent();
-  
+
   return {
     id: activeLayer.getId(),
-    name: activeLayer.getValue() || 'Default Layer'
+    name: activeLayer.getValue() || "Default Layer",
   };
 }
 
@@ -703,7 +704,7 @@ export function create_layer(ui: any, options: DrawioCellOptions) {
   const { graph } = editor;
   const model = graph.getModel();
   const root = model.getRoot();
-  
+
   model.beginUpdate();
   let newLayer;
   try {
@@ -713,9 +714,9 @@ export function create_layer(ui: any, options: DrawioCellOptions) {
   } finally {
     model.endUpdate();
   }
-  
+
   return {
     id: newLayer.getId(),
-    name: options.name
+    name: options.name,
   };
 }

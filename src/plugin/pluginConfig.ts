@@ -15,7 +15,7 @@ export const DEFAULT_PLUGIN_CONFIG: PluginConfig = {
   serverUrl: "",
 };
 
-const PLUGIN_CONFIG_KEY = 'drawio-mcp-plugin-config';
+const PLUGIN_CONFIG_KEY = "drawio-mcp-plugin-config";
 
 let cachedConfig: PluginConfig | null = null;
 
@@ -25,18 +25,19 @@ export async function fetchPluginConfig(): Promise<PluginConfig> {
   }
 
   try {
-    const response = await fetch('/api/config');
+    const response = await fetch("/api/config");
     if (response.ok) {
       const serverConfig = await response.json();
       cachedConfig = {
-        websocketPort: serverConfig.websocketPort || DEFAULT_PLUGIN_CONFIG.websocketPort,
+        websocketPort:
+          serverConfig.websocketPort || DEFAULT_PLUGIN_CONFIG.websocketPort,
         serverUrl: serverConfig.serverUrl || window.location.origin,
       };
       writePluginConfig(cachedConfig);
       return cachedConfig;
     }
   } catch (error) {
-    console.warn('[pluginConfig] Failed to fetch config from server:', error);
+    console.warn("[pluginConfig] Failed to fetch config from server:", error);
   }
 
   return readPluginConfig();
@@ -53,7 +54,7 @@ export function readPluginConfig(): PluginConfig {
       }
     }
   } catch (error) {
-    console.warn('[pluginConfig] Failed to read from localStorage:', error);
+    console.warn("[pluginConfig] Failed to read from localStorage:", error);
   }
 
   return { ...DEFAULT_PLUGIN_CONFIG };
@@ -64,39 +65,49 @@ export function writePluginConfig(config: PluginConfig): void {
     localStorage.setItem(PLUGIN_CONFIG_KEY, JSON.stringify(config));
     cachedConfig = config;
   } catch (error) {
-    console.error('[pluginConfig] Failed to write to localStorage:', error);
+    console.error("[pluginConfig] Failed to write to localStorage:", error);
     throw error;
   }
 }
 
-export function createDefaultPluginConfig(partial?: Partial<PluginConfig>): PluginConfig {
+export function createDefaultPluginConfig(
+  partial?: Partial<PluginConfig>,
+): PluginConfig {
   return {
-    websocketPort: partial?.websocketPort ?? DEFAULT_PLUGIN_CONFIG.websocketPort,
+    websocketPort:
+      partial?.websocketPort ?? DEFAULT_PLUGIN_CONFIG.websocketPort,
     serverUrl: partial?.serverUrl ?? DEFAULT_PLUGIN_CONFIG.serverUrl,
   };
 }
 
-export function validatePluginConfig(config: unknown): { isValid: boolean; config?: PluginConfig; error?: string } {
-  if (!config || typeof config !== 'object') {
-    return { isValid: false, error: 'Configuration must be an object' };
+export function validatePluginConfig(config: unknown): {
+  isValid: boolean;
+  config?: PluginConfig;
+  error?: string;
+} {
+  if (!config || typeof config !== "object") {
+    return { isValid: false, error: "Configuration must be an object" };
   }
 
   const cfg = config as any;
 
-  if (typeof cfg.websocketPort !== 'number') {
-    return { isValid: false, error: 'websocketPort must be a number' };
+  if (typeof cfg.websocketPort !== "number") {
+    return { isValid: false, error: "websocketPort must be a number" };
   }
 
   if (cfg.websocketPort < 1024 || cfg.websocketPort > 65535) {
-    return { isValid: false, error: 'websocketPort must be between 1024 and 65535' };
+    return {
+      isValid: false,
+      error: "websocketPort must be between 1024 and 65535",
+    };
   }
 
   return {
     isValid: true,
     config: {
       websocketPort: cfg.websocketPort,
-      serverUrl: cfg.serverUrl || '',
-    }
+      serverUrl: cfg.serverUrl || "",
+    },
   };
 }
 
@@ -110,7 +121,7 @@ export function resetPluginConfigToDefaults(): void {
     localStorage.removeItem(PLUGIN_CONFIG_KEY);
     cachedConfig = null;
   } catch (error) {
-    console.error('[pluginConfig] Failed to reset config:', error);
+    console.error("[pluginConfig] Failed to reset config:", error);
     throw error;
   }
 }
