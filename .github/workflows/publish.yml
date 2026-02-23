@@ -36,4 +36,4 @@ jobs:
         run: npm config set //registry.npmjs.org/:_authToken ""
 
       - name: Publish
-        run: npm publish --provenance --access public
+        run: npm publish --no-git-checks --provenance --access public
