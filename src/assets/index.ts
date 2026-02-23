@@ -4,7 +4,6 @@ export {
   getAssetRoot,
   assetsExist,
   getLocalPluginPath,
-  getLocalAssetPath,
   isUsingLocalAssets,
   type AssetConfig,
 } from "./manager.js";

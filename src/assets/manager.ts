@@ -39,12 +39,6 @@ export function getLocalPluginPath(): string {
   return join(__dirname, "..", "..", "build", "plugin", "mcp-plugin.js");
 }
 
-export function getLocalAssetPath(): string {
-  return join(__dirname, "..", "assets", "drawio", "webapp");
-}
-
 export function isUsingLocalAssets(config: AssetConfig): boolean {
-  const localPath = getLocalAssetPath();
-  const indexPath = join(localPath, "index.html");
-  return existsSync(indexPath);
+  return assetsExist(config);
 }
