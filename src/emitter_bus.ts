@@ -20,7 +20,7 @@ export function create_bus(log: Logger) {
       on_reply_from_extension: (event_name, reply) => {
         const listener = (emitter_data: any) => {
           log.debug(`[bus] received from Extension`, emitter_data);
-          if (emitter_data && emitter_data.__event === event_name) {
+          if (emitter_data && emitter_data.__request_id && event_name.endsWith(emitter_data.__request_id)) {
             reply(emitter_data);
           }
         };
