@@ -3,6 +3,7 @@ export default {
   preset: "ts-jest/presets/default-esm",
   testEnvironment: "jest-environment-node",
   extensionsToTreatAsEsm: [".ts"],
+  rootDir: ".",
   moduleNameMapper: {
     "^(\\.{1,2}/.*)\\.js$": "$1",
   },
@@ -14,7 +15,8 @@ export default {
       },
     ],
   },
-  testMatch: ["**/*.test.ts"],
+  testMatch: ["**/build/**/*.test.js"],
+  testPathIgnorePatterns: ["/node_modules/", "/src/"],
   collectCoverageFrom: [
     "src/**/*.ts",
     // exclude as it contains boundary injection logic mainly
