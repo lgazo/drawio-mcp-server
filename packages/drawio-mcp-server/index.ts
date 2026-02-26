@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 import { readFileSync, existsSync, statSync, readdirSync } from "node:fs";
 
 import { WebSocket, WebSocketServer } from "ws";
+const VERSION = process.env.npm_package_version ?? "2.0.0";
 import {
   buildConfig,
   shouldShowHelp,
@@ -43,8 +44,6 @@ import {
   ensureAssets,
   type AssetConfig,
 } from "./assets/index.js";
-
-const VERSION = "1.8.0";
 
 /**
  * Display help message and exit

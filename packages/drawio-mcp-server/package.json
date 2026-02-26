@@ -20,7 +20,6 @@
     "test:watch": "jest --watch",
     "test:coverage": "NODE_OPTIONS=--experimental-vm-modules jest --coverage",
     "clean": "rimraf build coverage .eslintcache",
-    "prebuild": "pnpm run clean",
     "download-assets": "curl -sL \"$(curl -sL https://api.github.com/repos/jgraph/drawio/releases/latest | grep -o '\"browser_download_url\": *\"[^\"]*\\.war\"' | head -1 | cut -d'\"' -f4)\" -o draw.war && unzip -q -o draw.war -d assets/drawio/webapp && rm draw.war"
   },
   "engines": {
