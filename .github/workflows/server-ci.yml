@@ -1,10 +1,14 @@
-name: CI
+name: Server CI
 
 on:
   push:
     branches: [main]
+    paths:
+      - 'packages/drawio-mcp-server/**'
   pull_request:
     branches: [main]
+    paths:
+      - 'packages/drawio-mcp-server/**'
 
 jobs:
   test:
@@ -23,17 +27,22 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: "pnpm"
+          cache-dependency-path: packages/drawio-mcp-server/pnpm-lock.yaml
 
       - name: Install dependencies
         run: pnpm install
+        working-directory: packages/drawio-mcp-server
 
       - name: Check types
         run: pnpm run build
+        working-directory: packages/drawio-mcp-server
 
       - name: Run linter
         run: |
           pnpm run lint
           pnpm run format:check
+        working-directory: packages/drawio-mcp-server
 
       - name: Run tests
         run: pnpm test
+        working-directory: packages/drawio-mcp-server

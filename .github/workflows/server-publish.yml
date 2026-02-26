@@ -1,8 +1,10 @@
-name: Publish Package
+name: Server Publish
 
 on:
   release:
     types: created
+    paths:
+      - 'packages/drawio-mcp-server/**'
   workflow_dispatch:
 
 jobs:
@@ -22,12 +24,15 @@ jobs:
           node-version: "23.x"
           registry-url: "https://registry.npmjs.org"
           cache: "pnpm"
+          cache-dependency-path: packages/drawio-mcp-server/pnpm-lock.yaml
 
       - name: Install dependencies
         run: pnpm install
+        working-directory: packages/drawio-mcp-server
 
       - name: Build
         run: pnpm run build
+        working-directory: packages/drawio-mcp-server
 
       - name: Update npm to latest
         run: npm install -g npm@latest
@@ -37,3 +42,4 @@ jobs:
 
       - name: Publish
         run: npm publish --no-git-checks --provenance --access public
+        working-directory: packages/drawio-mcp-server
