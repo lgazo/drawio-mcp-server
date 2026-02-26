@@ -578,7 +578,7 @@ export function list_paged_model(ui: any, options: DrawioCellOptions = {}) {
     }
   }
 
-  let filtered_cells = Object.values(cells);
+  let filtered_cells: any[] = Object.values(cells);
 
   if (options.filter) {
     const filter = options.filter;

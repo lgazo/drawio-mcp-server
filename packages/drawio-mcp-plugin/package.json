@@ -1,0 +1,29 @@
+{
+  "name": "drawio-mcp-plugin",
+  "version": "2.0.0",
+  "description": "Draw.io MCP Plugin - Browser plugin that runs inside Draw.io",
+  "type": "module",
+  "main": "./dist/plugin.js",
+  "types": "./dist/plugin.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc && esbuild src/plugin.ts --bundle --outfile=dist/mcp-plugin.js --format=iife --global-name=DrawMcp --target=chrome120",
+    "clean": "rimraf dist"
+  },
+  "keywords": [
+    "mcp",
+    "modelcontextprotocol",
+    "drawio",
+    "diagrams.net",
+    "plugin"
+  ],
+  "author": "Ladislav Gazo",
+  "license": "MIT",
+  "devDependencies": {
+    "esbuild": "^0.24.0",
+    "rimraf": "6.1.2",
+    "typescript": "5.9.3"
+  }
+}

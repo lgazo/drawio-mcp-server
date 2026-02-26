@@ -1,3 +1,6 @@
 onlyBuiltDependencies:
-  - unrs-resolver
   - esbuild
+  - unrs-resolver
+
+packages:
+  - 'packages/*'

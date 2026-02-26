@@ -1,0 +1,76 @@
+{
+  "name": "drawio-mcp-server",
+  "version": "2.0.0",
+  "description": "Provides Draw.io services to MCP Clients",
+  "type": "module",
+  "main": "build/index.js",
+  "bin": {
+    "drawio-mcp-server": "./build/index.js"
+  },
+  "scripts": {
+    "build": "tsc && mkdir -p build/plugin && cp node_modules/drawio-mcp-plugin/dist/mcp-plugin.js build/plugin/mcp-plugin.js",
+    "ci": "pnpm install --frozen-lockfile",
+    "dev": "tsc --watch",
+    "inspect": "HOST=0.0.0.0 pnpx @modelcontextprotocol/inspector --config ./inspector.json --server drawio",
+    "prepublishOnly": "pnpm run build",
+    "lint": "tsc --noEmit",
+    "format": "prettier --write \"**/*.ts\"",
+    "format:check": "prettier --check \"**/*.ts\"",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "NODE_OPTIONS=--experimental-vm-modules jest --coverage",
+    "clean": "rimraf build coverage .eslintcache",
+    "prebuild": "pnpm run clean",
+    "download-assets": "curl -sL \"$(curl -sL https://api.github.com/repos/jgraph/drawio/releases/latest | grep -o '\"browser_download_url\": *\"[^\"]*\\.war\"' | head -1 | cut -d'\"' -f4)\" -o draw.war && unzip -q -o draw.war -d assets/drawio/webapp && rm draw.war"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "files": [
+    "build"
+  ],
+  "keywords": [
+    "mcp",
+    "modelcontextprotocol",
+    "server",
+    "draw.io",
+    "drawio",
+    "diagrams.net",
+    "diagramsnet",
+    "diagram",
+    "claude"
+  ],
+  "author": "Ladislav Gazo",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lgazo/drawio-mcp-server"
+  },
+  "packageManager": "pnpm@10.8.1",
+  "dependencies": {
+    "drawio-mcp-plugin": "workspace:*",
+    "@hono/node-server": "1.19.7",
+    "@modelcontextprotocol/sdk": "1.25.1",
+    "cachedir": "^2.4.0",
+    "hono": "4.11.1",
+    "nanoid": "5.1.6",
+    "unzipper": "^0.12.0",
+    "ws": "8.18.3",
+    "zod": "4.2.1"
+  },
+  "devDependencies": {
+    "@jest/globals": "30.2.0",
+    "@types/jest": "30.0.0",
+    "@types/node": "25.0.3",
+    "@types/unzipper": "^0.10.11",
+    "@types/ws": "^8.18.1",
+    "esbuild": "^0.24.0",
+    "globals": "16.5.0",
+    "jest": "30.2.0",
+    "jest-environment-node": "30.2.0",
+    "prettier": "3.7.4",
+    "rimraf": "6.1.2",
+    "ts-jest": "29.4.6",
+    "typescript": "5.9.3"
+  }
+}

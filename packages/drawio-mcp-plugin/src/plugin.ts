@@ -167,8 +167,7 @@ const toolDefinitions = [
     name: "set-cell-data",
     params: new Set(["cell_id", "key", "value"]),
     handler: (ui: DrawioUI, options: Record<string, unknown>) => {
-      const mxUtils = (window as any).mxUtils;
-      return set_cell_data(mxUtils)(ui, options);
+      return set_cell_data(ui, options);
     },
   },
   {

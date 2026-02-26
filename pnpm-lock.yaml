@@ -6,7 +6,21 @@ settings:
 
 importers:
 
-  .:
+  .: {}
+
+  packages/drawio-mcp-plugin:
+    devDependencies:
+      esbuild:
+        specifier: ^0.24.0
+        version: 0.24.2
+      rimraf:
+        specifier: 6.1.2
+        version: 6.1.2
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
+  packages/drawio-mcp-server:
     dependencies:
       '@hono/node-server':
         specifier: 1.19.7
@@ -17,6 +31,9 @@ importers:
       cachedir:
         specifier: ^2.4.0
         version: 2.4.0
+      drawio-mcp-plugin:
+        specifier: workspace:*
+        version: link:../drawio-mcp-plugin
       hono:
         specifier: 4.11.1
         version: 4.11.1
@@ -1109,6 +1126,7 @@ packages:
 
   glob@10.5.0:
     resolution: {integrity: sha512-DfXN8DfhJ7NH3Oe7cFmu3NCu1wKbkReJ8TorzSAFbSKrlNaQSKfIzqYqVY8zlbs2NLBbWpRiU52GX2PbaBVNkg==}
+    deprecated: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
     hasBin: true
 
   glob@13.0.0:
@@ -1117,7 +1135,7 @@ packages:
 
   glob@7.2.3:
     resolution: {integrity: sha512-nFR0zLpU2YCaRxwoCJvL6UvCH2JFyFVIvwTLsIf21AuHlMskA1hhTdk+LlYJtOlYt9v6dvszD2BGRqBL+iQK9Q==}
-    deprecated: Glob versions prior to v9 are no longer supported
+    deprecated: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
 
   globals@16.5.0:
     resolution: {integrity: sha512-c/c15i26VrJ4IRt5Z89DnIzCGDn9EcebibhAOjw5ibqEHsE1wLUgkPn9RDmNcUKyU87GeaL633nyJ+pplFR2ZQ==}
