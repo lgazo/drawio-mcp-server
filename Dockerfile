@@ -14,14 +14,13 @@ FROM node:22-slim AS deps
 
 WORKDIR /app
 
-# Enable corepack for pnpm
 RUN corepack enable && corepack prepare pnpm@10.8.1 --activate
 
-# Copy only what pnpm needs to resolve dependencies
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY packages/drawio-mcp-plugin ./packages/drawio-mcp-plugin
+COPY packages/drawio-mcp-server ./packages/drawio-mcp-server
 
-# Install production dependencies only — no devDependencies
-RUN pnpm install --frozen-lockfile --prod
+RUN pnpm install --frozen-lockfile
 
 # ---------------------------------------------------------------------------
 # Stage 2: Build TypeScript
@@ -33,32 +32,30 @@ WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@10.8.1 --activate
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json ./
-COPY src/ src/
+COPY packages/drawio-mcp-plugin ./packages/drawio-mcp-plugin
+COPY packages/drawio-mcp-server ./packages/drawio-mcp-server
 
-# Install ALL dependencies (including devDependencies for tsc)
 RUN pnpm install --frozen-lockfile
 
-# Compile TypeScript → build/
-RUN pnpm run build
+RUN pnpm --filter drawio-mcp-server run build
 
 # ---------------------------------------------------------------------------
-# Stage 3: Distroless runtime — nothing but Node.js and our code
+# Stage 3: Runtime — install production deps and run
 # ---------------------------------------------------------------------------
-FROM gcr.io/distroless/nodejs22-debian12 AS runtime
+FROM node:22-slim AS runtime
 
 WORKDIR /app
 
-# Production node_modules from stage 1
-COPY --from=deps /app/node_modules ./node_modules
+RUN corepack enable && corepack prepare pnpm@10.8.1 --activate
 
-# Compiled JavaScript from stage 2
-COPY --from=build /app/build ./build
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY packages/drawio-mcp-plugin ./packages/drawio-mcp-plugin
+COPY packages/drawio-mcp-server ./packages/drawio-mcp-server
 
-# package.json needed for ESM module resolution ("type": "module")
-COPY package.json ./
+RUN pnpm install --frozen-lockfile --prod
 
-# WebSocket extension port + HTTP transport port
+COPY --from=build /app/packages/drawio-mcp-server/build ./packages/drawio-mcp-server/build
+
 EXPOSE 3333 3000
 
-# Distroless has no shell — CMD is passed directly to the Node.js entrypoint
-CMD ["build/index.js"]
+CMD ["node", "packages/drawio-mcp-server/build/index.js", "--editor"]
