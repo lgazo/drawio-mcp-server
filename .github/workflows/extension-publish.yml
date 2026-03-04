@@ -1,0 +1,35 @@
+name: Publish Extension
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "23.x"
+          registry-url: "https://registry.npmjs.org"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build
+        run: pnpm run build
+        working-directory: packages/drawio-mcp-extension
+
+      - name: Build Chrome
+        run: pnpm run zip
+        working-directory: packages/drawio-mcp-extension
+
+      - name: Build Firefox
+        run: pnpm run zip:firefox
+        working-directory: packages/drawio-mcp-extension

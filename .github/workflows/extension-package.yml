@@ -1,0 +1,48 @@
+name: Extension Package
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [23.x]
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "pnpm"
+
+      - name: Set env
+        run: echo "VERSION=$(pnpm pkg get version | sed 's/^"//;s/"$//')" >> $GITHUB_ENV
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Package Chrome
+        run: pnpm run zip
+        working-directory: packages/drawio-mcp-extension
+
+      - name: Package Firefox
+        run: pnpm run zip:firefox
+        working-directory: packages/drawio-mcp-extension
+
+      - name: check
+        run: ls -la .output
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: extension-zip
+          path: |
+            .output/drawio-mcp-extension-${{ env.VERSION }}-chrome.zip
+            .output/drawio-mcp-extension-${{ env.VERSION }}-firefox.zip
+            .output/drawio-mcp-extension-${{ env.VERSION }}-sources.zip
