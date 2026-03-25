@@ -1,0 +1,21 @@
+name: Roam Code Analysis
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+  pull-requests: write
+jobs:
+  roam:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install roam-code
+      - run: roam index
+      - run: roam fitness
+      - run: roam pr-risk --json

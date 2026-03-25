@@ -1,0 +1,11 @@
+rules:
+  - name: No circular imports in core
+    type: dependency
+    source: "src/**"
+    forbidden_target: "tests/**"
+    reason: "Production code should not import test modules"
+  - name: Complexity threshold
+    type: metric
+    metric: cognitive_complexity
+    threshold: 30
+    reason: "Functions above 30 cognitive complexity need refactoring"
