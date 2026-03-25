@@ -266,7 +266,7 @@ server.tool(
 const TOOL_add_edge = "add-edge";
 server.tool(
   TOOL_add_edge,
-  "This tool creates an edge, sometimes called also a relation, between two vertexes (cells).",
+  "This tool creates an edge, sometimes called also a relation, between two vertexes (cells). When source and target are the same shape (self-connector), a loop edge style is automatically applied if no custom style is provided.",
   {
     source_id: z
       .string()
@@ -286,6 +286,17 @@ server.tool(
       )
       .default(
         "edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;",
+      ),
+    points: z
+      .array(
+        z.object({
+          x: z.number().describe("X coordinate of the waypoint"),
+          y: z.number().describe("Y coordinate of the waypoint"),
+        }),
+      )
+      .optional()
+      .describe(
+        "Array of {x, y} waypoints to control edge routing. Useful for custom paths or self-connectors where straight lines are barely visible.",
       ),
     parent_id: z
       .string()
@@ -473,7 +484,7 @@ server.tool(
 const TOOL_edit_edge = "edit-edge";
 server.tool(
   TOOL_edit_edge,
-  "Update properties of an existing edge by its ID. Only provided fields are modified; unspecified properties remain unchanged.",
+  "Update properties of an existing edge by its ID. Only provided fields are modified; unspecified properties remain unchanged. Supports setting waypoints for edge geometry control.",
   {
     cell_id: z
       .string()
@@ -494,6 +505,17 @@ server.tool(
       .optional()
       .describe(
         "Replace the edge's style string (semi-colon separated `key=value` pairs).",
+      ),
+    points: z
+      .array(
+        z.object({
+          x: z.number().describe("X coordinate of the waypoint"),
+          y: z.number().describe("Y coordinate of the waypoint"),
+        }),
+      )
+      .optional()
+      .describe(
+        "Array of {x, y} waypoints to set as edge geometry control points. Replaces existing waypoints. Use an empty array to clear waypoints.",
       ),
   },
   default_tool(TOOL_edit_edge, context),
@@ -606,9 +628,7 @@ server.tool(
   "Sets the parent of a cell, making it a child of the specified parent cell. This allows creating hierarchical relationships where moving the parent also moves its children.",
   {
     cell_id: z.string().describe("ID of the cell to reparent"),
-    parent_id: z
-      .string()
-      .describe("ID of the new parent cell"),
+    parent_id: z.string().describe("ID of the new parent cell"),
   },
   default_tool(TOOL_set_cell_parent, context),
 );

@@ -9,6 +9,7 @@ Let's do some Vibe Diagramming with the most wide-spread diagramming tool called
 
 ## Key Highlights
 
+- Edge geometry control with waypoints and automatic self-connector routing ![v2.0.0](https://img.shields.io/badge/v2.0.0-blue)
 - Parent-child relationships for nested shapes and grouping ![v2.0.0](https://img.shields.io/badge/v2.0.0-blue)
 - Built-in Draw.io editor - no browser extension required ![v1.8.0](https://img.shields.io/badge/v1.8.0-blue)
 - MCP server that lets AI agents control Draw.io diagrams

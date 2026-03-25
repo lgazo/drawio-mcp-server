@@ -52,13 +52,14 @@ Creates a new rectangle shape on the active Draw.io page with customizable prope
 
 ### `add-edge`
 
-Creates a connection between two cells (vertices).
+Creates a connection between two cells (vertices). When source and target are the same shape (self-connector), a loop edge style is automatically applied so the line is visible and selectable.
 
 *Parameters*:
 - `source_id`: ID of the source cell
 - `target_id`: ID of the target cell
 - `text`: Optional text label for the edge
 - `style`: Optional style properties for the edge
+- `points`: Optional array of `{x, y}` waypoints to control edge routing (useful for custom paths or self-connectors)
 - `parent_id`: Optional ID of parent cell (creates as child instead of at diagram root)
 
 ### `delete-cell-by-id`
@@ -114,6 +115,7 @@ Updates an existing edge connection between cells by ID.
 - `text`: Optional edge label text
 - `source_id`, `target_id`: Optional IDs of new source/target cells
 - `style`: Optional replacement style string
+- `points`: Optional array of `{x, y}` waypoints to set edge geometry control points (replaces existing waypoints; use empty array to clear)
 
 ### `set-cell-parent`
 

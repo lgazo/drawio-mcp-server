@@ -128,7 +128,7 @@ const toolDefinitions = [
   },
   {
     name: "add-edge",
-    params: new Set(["source_id", "target_id", "style", "text", "parent_id"]),
+    params: new Set(["source_id", "target_id", "style", "text", "parent_id", "points"]),
     handler: add_edge,
   },
   {
@@ -175,7 +175,7 @@ const toolDefinitions = [
   },
   {
     name: "edit-edge",
-    params: new Set(["cell_id", "text", "source_id", "target_id", "style"]),
+    params: new Set(["cell_id", "text", "source_id", "target_id", "style", "points"]),
     handler: edit_edge,
   },
   {

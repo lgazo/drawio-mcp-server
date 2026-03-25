@@ -31,6 +31,7 @@ export interface DrawioCellOptions {
   page?: number;
   page_size?: number;
   filter?: any;
+  points?: Array<{ x: number; y: number }>;
 }
 
 export interface TransformedCell {
@@ -372,6 +373,9 @@ export function delete_cell_by_id(
   }
 }
 
+const SELF_CONNECTOR_DEFAULT_STYLE =
+  "edgeStyle=loopEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;";
+
 export function add_edge(ui: any, options: DrawioCellOptions): any | null {
   const { editor } = ui;
   const { graph } = editor;
@@ -384,7 +388,11 @@ export function add_edge(ui: any, options: DrawioCellOptions): any | null {
     return null;
   }
 
-  const defaultStyle = "endArrow=classic;html=1;rounded=0;";
+  const isSelfConnector = options.source_id === options.target_id;
+
+  const defaultStyle = isSelfConnector
+    ? SELF_CONNECTOR_DEFAULT_STYLE
+    : "endArrow=classic;html=1;rounded=0;";
   const style = options.style || defaultStyle;
   const text = options.text || "";
   const parent = resolve_parent(graph, options.parent_id);
@@ -399,6 +407,14 @@ export function add_edge(ui: any, options: DrawioCellOptions): any | null {
       target,
       style,
     );
+
+    if (options.points && options.points.length > 0) {
+      const geo = edge.getGeometry();
+      const mxPoint = (window as any).mxPoint;
+      geo.points = options.points.map((p) => new mxPoint(p.x, p.y));
+      model.setGeometry(edge, geo);
+    }
+
     return edge;
   } finally {
     model.endUpdate();
@@ -505,6 +521,13 @@ export function edit_edge(ui: any, options: DrawioCellOptions): any {
 
     if (options.style !== undefined) {
       graph.setCellStyle(options.style as CellStyle, [edge]);
+    }
+
+    if (options.points !== undefined) {
+      const geo = edge.getGeometry().clone();
+      const mxPoint = (window as any).mxPoint;
+      geo.points = options.points.map((p) => new mxPoint(p.x, p.y));
+      model.setGeometry(edge, geo);
     }
   } finally {
     model.endUpdate();
