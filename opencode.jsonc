@@ -1,0 +1,10 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "drawio": {
+      "type": "remote",
+      "url": "http://localhost:3000/mcp",
+      "enabled": true,
+    },
+  },
+}

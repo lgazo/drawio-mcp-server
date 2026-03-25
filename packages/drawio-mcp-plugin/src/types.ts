@@ -3,10 +3,10 @@
  * Used by both the plugin (standalone) and extension integration
  */
 
-import { DrawioCellOptions } from "./drawio-tools.js";
+import { DrawioCellOptions, TransformedCell } from "./drawio-tools.js";
 
 export type OptionKey = string;
-export type { DrawioCellOptions };
+export type { DrawioCellOptions, TransformedCell };
 
 export type DrawIOFunction = (
   ui: DrawioUI,

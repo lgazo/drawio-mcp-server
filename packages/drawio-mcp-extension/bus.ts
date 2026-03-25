@@ -1,13 +1,12 @@
-import { remove_circular_dependencies } from "./drawio";
-import { reply_name } from "./events";
+import { remove_circular_dependencies, reply_name } from "drawio-mcp-plugin";
 import {
   bus_reply_stream,
   bus_request_stream,
-  DrawioCellOptions,
   OnRequestFromServer,
   OnStandardToolRequestFromServer,
   SendReplyToServer,
 } from "./types";
+import type { DrawioCellOptions } from "drawio-mcp-plugin";
 
 export const send_reply_to_server: SendReplyToServer = (reply: any) => {
   console.debug(`[bus] sending reply`, reply);
@@ -43,7 +42,7 @@ export const on_standard_tool_request_from_server: OnStandardToolRequestFromServ
       const options = option_entries.reduce((acc, [key, value]) => {
         acc[key] = value;
         return acc;
-      }, {} as DrawioCellOptions);
+      }, {} as Record<string, unknown>) as DrawioCellOptions;
 
       let reply;
       try {

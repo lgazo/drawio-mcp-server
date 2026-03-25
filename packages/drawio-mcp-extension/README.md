@@ -1,22 +1,8 @@
 # Draw.io MCP Browser Extension
 
-Let's do some Vibe Diagramming with the most wide-spread diagramming tool called Draw.io (Diagrams.net).
-
-This is a necessary counterpart for [Draw.io MCP Server](https://github.com/lgazo/drawio-mcp-server)
-
-[![Discord channel](https://shields.io/static/v1?logo=discord&message=draw.io%20mcp&label=chat&color=5865F2&logoColor=white)](https://discord.gg/dM4PWdf42q) [![Build project](https://github.com/lgazo/drawio-mcp-extension/actions/workflows/ci.yml/badge.svg)](https://github.com/lgazo/drawio-mcp-extension/actions/workflows/ci.yml)
-
-
-## Requirements
-
-### Optional for Development
-- **pnpm** - Preferred package manager
+Browser extension for connecting [Draw.io MCP Server](../../README.md) to Draw.io running in your browser.
 
 ## Installation
-
-For detailed end-to-end Draw.io MCP installation please follow the description on [Draw.io MCP Server](https://github.com/lgazo/drawio-mcp-server).
-
-There are the following options to install the Extension itself.
 
 ### Web Store
 
@@ -33,19 +19,17 @@ There are the following options to install the Extension itself.
   ></a>
 </p>
 
-### Release package
+### Release Package
 
-You can download a ZIP for one of the browsers in the [Release section](https://github.com/lgazo/drawio-mcp-extension/releases).
+Download a ZIP for your browser from the [Release section](https://github.com/lgazo/drawio-mcp-server/releases).
 
-### GitHub CI package
+### CI Package
 
-You can download a ZIP with both versions of the Extension for Chrome and Firefox in the [`package` workflow](https://github.com/lgazo/drawio-mcp-extension/actions/workflows/package.yml).
+Download a ZIP with both Chrome and Firefox versions from the [`Extension Package` workflow](https://github.com/lgazo/drawio-mcp-server/actions/workflows/extension-package.yml).
 
-Just open a job run, scroll to the **Artifact** section, download the ZIP and side load the extension for one of the supported browsers.
+Open a job run, scroll to the **Artifact** section, download the ZIP and side load the extension.
 
-### Local build
-
-You can build a version of the extension by running:
+### Local Build
 
 ```sh
 pnpm run build
@@ -57,9 +41,7 @@ or
 pnpm run build:firefox
 ```
 
-It will build expanded version in the `.output` folder.
-
-If you need a ZIP/CRX, run one of the following:
+For a ZIP/CRX:
 
 ```sh
 pnpm run zip
@@ -78,7 +60,7 @@ pnpm run zip:firefox
 By default, the extension connects to the Draw.io MCP Server on port `3333`. You can configure a different port through the extension options:
 
 1. Click on the extension icon to open the popup
-2. Click the **⚙️ Settings** button (or access extension settings through your browser's extension management page)
+2. Click the **Settings** button
 3. Enter your desired port number (1024-65535)
 4. Click **Save Settings**
 
@@ -89,48 +71,14 @@ The connection will automatically reconnect with the new configuration. The conf
 ### Connection Status
 
 The extension icon indicates the current connection state:
-- 🟢 Green: Connected to the server
-- 🟠 Orange: Connecting/reconnecting
-- 🔴 Red: Disconnected
+- Green: Connected to the server
+- Orange: Connecting/reconnecting
+- Red: Disconnected
 
 You can also view the current configured port and connection status in the extension popup.
 
-## Sponsoring
+## Documentation
 
-If you enjoy the project or find it useful, consider supporting its continued development.
-
-
-lightning invoice:
-
-![lightning invoice](./lightning_qr.png)
-
-```
-lnbc1p5f8wvnpp5kk0qt60waplesw3sjxu7tcqwmdp6ysq570dc4ln52krd3u5nzq6sdp82pshjgr5dusyymrfde4jq4mpd3kx2apq24ek2uscqzpuxqr8pqsp5gvr72xcs883qt4hea6v3u7803stcwfnk5c9w0ykqr9a40qqwnpys9qxpqysgqfzlhm0cz5vqy7wqt7rwpmkacukrk59k89ltd5n642wzru2jn88tyd78gr4y3j6u64k2u4sd4qgavlsnccl986velrg3x0pe95sx7p4sqtatttp
-```
-
-lightning address:
-```
-ladislav@blink.sv
-```
-
-<div align="center">
-<a href="https://liberapay.com/ladislav/donate"><img alt="Donate using Liberapay" src="https://liberapay.com/assets/widgets/donate.svg"></a>
-</div>
-
-## Related Resources
-
-[Troubleshooting](./TROUBLESHOOTING.md)
-
-[Contributing](./CONTRIBUTING.md)
-
-[Development](./DEVELOPMENT.md)
-
-## Star History
-
-<a href="https://star-history.com/#lgazo/drawio-mcp-extension&Date">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=lgazo/drawio-mcp-extension&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=lgazo/drawio-mcp-extension&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=lgazo/drawio-mcp-extension&type=Date" />
- </picture>
-</a>
+- [Troubleshooting](./TROUBLESHOOTING.md)
+- [Development](./DEVELOPMENT.md)
+- [Main project documentation](../../README.md)

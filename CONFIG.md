@@ -87,7 +87,7 @@ Default WebSocket port is 3333. To customize:
 }
 ```
 
-When using a custom port, ensure the browser extension is configured to connect to the same port. See the [extension documentation](https://github.com/lgazo/drawio-mcp-extension) for port configuration instructions.
+When using a custom port, ensure the browser extension is configured to connect to the same port. See the [extension documentation](./packages/drawio-mcp-extension/README.md) for port configuration instructions.
 
 ## MCP Client Configuration Examples
 

@@ -32,7 +32,7 @@ Two ways to use:
 No additional requirements - runs out of the box with `--editor` flag.
 
 ### For Browser Extension
-- **Browser extension** - [drawio-mcp-extension](https://github.com/lgazo/drawio-mcp-extension)
+- **Browser extension** - [drawio-mcp-extension](./packages/drawio-mcp-extension/README.md)
 - Draw.io open in your browser
 
 ### Optional
@@ -152,7 +152,7 @@ The server runs as part of your MCP host. Detailed configuration for all support
 
 ## Alternative: Browser Extension
 
-Instead of the built-in editor, you can use the [browser extension](https://github.com/lgazo/drawio-mcp-extension) to connect to Draw.io running in your browser. This works with or without the `--editor` flag.
+Instead of the built-in editor, you can use the [browser extension](./packages/drawio-mcp-extension/README.md) to connect to Draw.io running in your browser. This works with or without the `--editor` flag.
 
 1. Open [Draw.io in your browser](https://app.diagrams.net/)
 2. Install the Draw.io MCP Browser Extension:
@@ -173,7 +173,7 @@ Configuration without `--editor`:
 }
 ```
 
-See the [extension documentation](https://github.com/lgazo/drawio-mcp-extension) for more details.
+See the [extension documentation](./packages/drawio-mcp-extension/README.md) for more details.
 
 ## Related Resources
 

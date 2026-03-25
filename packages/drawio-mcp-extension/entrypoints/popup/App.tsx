@@ -45,7 +45,7 @@ function App() {
   return (
     <>
       <div>
-        <a href="https://github.com/lgazo/drawio-mcp-extension" target="_blank">
+        <a href="https://github.com/lgazo/drawio-mcp-server" target="_blank">
           <img src={logoSrc} className="logo" alt="Draw.io MCP logo" />
         </a>
       </div>

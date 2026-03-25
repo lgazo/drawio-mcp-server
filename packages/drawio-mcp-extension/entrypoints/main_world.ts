@@ -16,7 +16,7 @@ import {
   move_cell_to_layer,
   get_active_layer,
   create_layer,
-} from "@/drawio";
+} from "drawio-mcp-plugin";
 import { on_standard_tool_request_from_server } from "../bus";
 import { DrawioUI } from "../types";
 
@@ -29,7 +29,6 @@ export default defineUnlistedScript(() => {
         console.log("plugin loaded", ui);
         const { editor } = ui;
         const { graph } = editor;
-        const mxUtils = window.mxUtils;
 
         //TODO: just for testing / exploring Draw.io
         // window.ui = ui;
@@ -116,7 +115,7 @@ export default defineUnlistedScript(() => {
           TOOL_set_cell_data,
           ui,
           new Set(["cell_id", "key", "value"]),
-          set_cell_data(mxUtils),
+          set_cell_data,
         );
 
         const TOOL_list_paged_model = "list-paged-model";

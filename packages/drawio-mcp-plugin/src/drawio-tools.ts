@@ -5,6 +5,7 @@
  */
 
 import { shapeLibrary } from "./shape-library.js";
+import type { MxGraphIsLayer } from "./types.js";
 
 export type CellId = string;
 export type CellStyle = string;
@@ -29,6 +30,31 @@ export interface DrawioCellOptions {
   page?: number;
   page_size?: number;
   filter?: any;
+}
+
+export interface TransformedCell {
+  id: string;
+  mxObjectId: string;
+  value:
+  | string
+  | {
+    attributes?: any;
+    nodeName?: string;
+    localName?: string;
+    tagName?: string;
+  };
+  geometry?: any;
+  style?: CellStyle;
+  edge?: boolean;
+  edges?: any[];
+  parent?: any;
+  source?: any;
+  target?: any;
+  layer?: {
+    id: string;
+    name: string;
+  };
+  tags?: string[];
 }
 
 function transform_NamedNodeMap_to_record(attributes: any) {
@@ -139,7 +165,25 @@ export function remove_circular_dependencies<T>(
       key !== "previousSibling" &&
       key !== "nextSibling" &&
       key !== "nodeValue" &&
-      key !== "textContent"
+      key !== "textContent" &&
+      key !== "ELEMENT_NODE" &&
+      key !== "ATTRIBUTE_NODE" &&
+      key !== "TEXT_NODE" &&
+      key !== "CDATA_SECTION_NODE" &&
+      key !== "ENTITY_REFERENCE_NODE" &&
+      key !== "ENTITY_NODE" &&
+      key !== "PROCESSING_INSTRUCTION_NODE" &&
+      key !== "COMMENT_NODE" &&
+      key !== "DOCUMENT_NODE" &&
+      key !== "DOCUMENT_TYPE_NODE" &&
+      key !== "DOCUMENT_FRAGMENT_NODE" &&
+      key !== "NOTATION_NODE" &&
+      key !== "DOCUMENT_POSITION_DISCONNECTED" &&
+      key !== "DOCUMENT_POSITION_PRECEDING" &&
+      key !== "DOCUMENT_POSITION_FOLLOWING" &&
+      key !== "DOCUMENT_POSITION_CONTAINS" &&
+      key !== "DOCUMENT_POSITION_CONTAINED_BY" &&
+      key !== "DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC"
     ) {
       let stripped_value = {};
 
@@ -162,6 +206,102 @@ export function remove_circular_dependencies<T>(
   }
 
   return result as T;
+}
+
+/**
+ * Transforms a cell object to retain only essential fields and sanitize data
+ */
+export function transform_cell_for_display(
+  cell: any,
+): TransformedCell | null {
+  if (!cell || typeof cell !== "object") {
+    return null;
+  }
+
+  const transformed: TransformedCell = {
+    id: cell.id || "",
+    mxObjectId: cell.mxObjectId || "",
+    value: "",
+    geometry: cell.geometry,
+    style: cell.style,
+    edge: cell.edge,
+    edges: cell.edges,
+    parent: cell.parent,
+    source: cell.source,
+    target: cell.target,
+  };
+
+  if (cell.value !== null && cell.value !== undefined) {
+    if (typeof cell.value === "string") {
+      transformed.value = cell.value;
+    } else if (typeof cell.value === "object") {
+      const transformed_attributes = transform_cells_NamedNodeMap_to_attributes(cell);
+
+      transformed.value = {
+        attributes: transformed_attributes,
+        nodeName: cell.value.nodeName,
+        localName: cell.value.localName,
+        tagName: cell.value.tagName,
+      };
+    }
+  }
+
+  return transformed;
+}
+
+/**
+ * Gets the layer information for a given cell
+ */
+export function get_cell_layer(
+  graph: any,
+  cell: any,
+): { id: string; name: string } | null {
+  if (!cell || !graph) {
+    return null;
+  }
+
+  try {
+    const layer = graph.getLayerForCell(cell);
+    if (layer) {
+      return {
+        id: layer.id || "",
+        name: layer.value || "Default Layer",
+      };
+    }
+  } catch (error) {
+    console.warn("Could not get layer for cell:", error);
+  }
+
+  return null;
+}
+
+/**
+ * Gets the tags for a given cell
+ */
+export function get_cell_tags(graph: any, cell: any): string[] {
+  if (!cell || !graph) {
+    return [];
+  }
+
+  try {
+    const tags = graph.getTagsForCell(cell);
+    return tags || [];
+  } catch (error) {
+    console.warn("Could not get tags for cell:", error);
+    return [];
+  }
+}
+
+function mx_isRoot(root_cell: any) {
+  return function (cell: any): boolean {
+    return null != cell && cell == root_cell;
+  };
+}
+
+function mx_isLayer(root_cell: any) {
+  return function (cell: any): boolean {
+    return mx_isRoot(root_cell)(cell.getParent());
+  };
 }
 
 export function add_new_rectangle(ui: any, options: DrawioCellOptions) {
@@ -517,7 +657,20 @@ export function add_cell_of_shape(ui: any, options: DrawioCellOptions) {
   }
 }
 
-export function list_paged_model(ui: any, options: DrawioCellOptions = {}) {
+export function list_paged_model(
+  ui: any,
+  options: {
+    page?: number;
+    page_size?: number;
+    filter?: {
+      cell_type?: "edge" | "node" | "object" | "layer";
+      parent_ids?: string[];
+      layer_ids?: string[];
+      ids?: string[];
+      attributes?: any[];
+    };
+  } = {},
+): TransformedCell[] {
   const { editor } = ui;
   const { graph } = editor;
   const model = graph.getModel();
@@ -563,7 +716,39 @@ export function list_paged_model(ui: any, options: DrawioCellOptions = {}) {
     return attributes;
   }
 
-  function matches_cell_type(cell: any, cell_type: string): boolean {
+  function evaluate_filter_expression(
+    expression: any[],
+    attributes: Record<string, any>,
+  ): boolean {
+    if (!Array.isArray(expression) || expression.length === 0) {
+      return true;
+    }
+
+    const [operator, ...operands] = expression;
+
+    switch (operator) {
+      case "and":
+        return operands.every((op) =>
+          evaluate_filter_expression(op, attributes),
+        );
+      case "or":
+        return operands.some((op) =>
+          evaluate_filter_expression(op, attributes),
+        );
+      case "equal":
+        if (operands.length !== 2) return false;
+        const [key, value] = operands;
+        return attributes[key] === value;
+      default:
+        return true;
+    }
+  }
+
+  function matches_cell_type(
+    cell: any,
+    cell_type: string,
+    isLayer: MxGraphIsLayer,
+  ): boolean {
     switch (cell_type) {
       case "edge":
         return cell.edge === true || cell.edge === 1;
@@ -573,6 +758,8 @@ export function list_paged_model(ui: any, options: DrawioCellOptions = {}) {
         return cell.value?.nodeName === "object";
       case "group":
         return cell.style === "group";
+      case "layer":
+        return isLayer(cell);
       default:
         return true;
     }
@@ -582,35 +769,76 @@ export function list_paged_model(ui: any, options: DrawioCellOptions = {}) {
 
   if (options.filter) {
     const filter = options.filter;
+    const allParentIds = [
+      ...(filter.parent_ids || []),
+      ...(filter.layer_ids || []),
+    ];
 
-    if (filter.cell_type) {
-      filtered_cells = filtered_cells.filter((cell) =>
-        matches_cell_type(cell, filter.cell_type),
-      );
-    }
+    filtered_cells = filtered_cells.filter((cell) => {
+      if (
+        options.filter?.cell_type &&
+        !matches_cell_type(
+          cell,
+          options.filter.cell_type,
+          mx_isLayer(model.root),
+        )
+      ) {
+        return false;
+      }
 
-    if (filter.ids && filter.ids.length > 0) {
-      filtered_cells = filtered_cells.filter((cell) =>
-        filter.ids.includes(cell.id),
-      );
-    }
+      if (options.filter?.attributes && options.filter.attributes.length > 0) {
+        const cellAttributes = extract_cell_attributes(cell);
+        if (
+          !evaluate_filter_expression(options.filter.attributes, cellAttributes)
+        ) {
+          return false;
+        }
+      }
+
+      if (allParentIds.length > 0) {
+        const parent = cell.parent;
+        if (!parent || !parent.id || !allParentIds.includes(parent.id)) {
+          return false;
+        }
+      }
+
+      if (filter.ids && filter.ids.length > 0) {
+        if (!filter.ids.includes(cell.id)) {
+          return false;
+        }
+      }
+
+      return true;
+    });
   }
 
   const page = Math.max(0, options.page || 0);
   const page_size = Math.max(1, options.page_size || 50);
   const start_index = page * page_size;
 
-  const paginated_ids = filtered_cells
-    .slice(start_index, start_index + page_size)
-    .map((c: any) => c.id);
+  const cell_ids = filtered_cells.map((cell) => cell.id);
+  const paginated_ids = cell_ids.slice(start_index, start_index + page_size);
 
-  const transformed_cells = [];
+  const transformed_cells: TransformedCell[] = [];
 
   for (const cell_id of paginated_ids) {
     const cell = cells[cell_id];
     if (cell) {
       const sanitized_cell = remove_circular_dependencies(cell);
-      transformed_cells.push(sanitized_cell);
+      const transformed_cell = transform_cell_for_display(sanitized_cell);
+
+      if (transformed_cell) {
+        const layer_info = get_cell_layer(graph, cell);
+        if (layer_info) {
+          transformed_cell.layer = layer_info;
+        }
+
+        const tags_info = get_cell_tags(graph, cell);
+        if (tags_info && tags_info.length > 0) {
+          transformed_cell.tags = tags_info;
+        }
+        transformed_cells.push(transformed_cell);
+      }
     }
   }
 

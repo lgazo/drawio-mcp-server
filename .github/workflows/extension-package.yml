@@ -27,6 +27,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Build Plugin
+        run: pnpm run build
+        working-directory: packages/drawio-mcp-plugin
+
       - name: Package Chrome
         run: pnpm run zip
         working-directory: packages/drawio-mcp-extension

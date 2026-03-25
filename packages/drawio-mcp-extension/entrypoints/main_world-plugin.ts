@@ -17,14 +17,22 @@ import {
   move_cell_to_layer,
   get_active_layer,
   create_layer,
-} from "@/drawio";
+  readPluginConfig,
+  writePluginConfig,
+  buildWebSocketUrl,
+  createWebSocketManager,
+  createSettingsDialog,
+  showSettingsDialog,
+  hideSettingsDialog,
+  reply_name,
+} from "drawio-mcp-plugin";
+import type {
+  WebSocketManager,
+  PluginConfig,
+  SettingsDialogState,
+  SettingsDialogActions,
+} from "drawio-mcp-plugin";
 import { DrawioUI } from "../types";
-
-// Import plugin modules
-import { readPluginConfig, writePluginConfig, buildWebSocketUrl } from "../utils/plugin/pluginConfig";
-import { createWebSocketManager, type WebSocketManager } from "../utils/plugin/websocketManager";
-import { createSettingsDialog, showSettingsDialog, hideSettingsDialog, type SettingsDialogState, type SettingsDialogActions } from "../utils/plugin/settingsDialog";
-import { reply_name } from "@/events";
 
 /**
  * Functional tool handler factory
@@ -129,10 +137,7 @@ const toolDefinitions = [
   {
     name: "set-cell-data",
     params: new Set(["cell_id", "key", "value"]),
-    handler: (ui: DrawioUI, options: Record<string, unknown>) => {
-      const mxUtils = window.mxUtils;
-      return set_cell_data(mxUtils)(ui, options);
-    }
+    handler: set_cell_data
   },
   {
     name: "list-paged-model",
