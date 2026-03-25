@@ -24,6 +24,7 @@ export interface DrawioCellOptions {
   style?: CellStyle;
   key?: string;
   value?: any;
+  parent_id?: string;
   layer_id?: string;
   target_layer_id?: string;
   name?: string;
@@ -304,6 +305,18 @@ function mx_isLayer(root_cell: any) {
   };
 }
 
+function resolve_parent(graph: any, parent_id?: string): any {
+  if (parent_id) {
+    const model = graph.getModel();
+    const parent = model.getCell(parent_id);
+    if (!parent) {
+      throw new Error(`Parent cell '${parent_id}' not found`);
+    }
+    return parent;
+  }
+  return graph.getDefaultParent();
+}
+
 export function add_new_rectangle(ui: any, options: DrawioCellOptions) {
   const { editor } = ui;
   const { graph } = editor;
@@ -316,11 +329,12 @@ export function add_new_rectangle(ui: any, options: DrawioCellOptions) {
   const style =
     options.style ||
     "whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;";
+  const parent = resolve_parent(graph, options.parent_id);
 
   graph.getModel().beginUpdate();
   try {
     const vertex = graph.insertVertex(
-      graph.getDefaultParent(),
+      parent,
       null,
       text,
       x,
@@ -373,11 +387,12 @@ export function add_edge(ui: any, options: DrawioCellOptions): any | null {
   const defaultStyle = "endArrow=classic;html=1;rounded=0;";
   const style = options.style || defaultStyle;
   const text = options.text || "";
+  const parent = resolve_parent(graph, options.parent_id);
 
   model.beginUpdate();
   try {
     const edge = graph.insertEdge(
-      graph.getDefaultParent(),
+      parent,
       null,
       text,
       source,
@@ -633,6 +648,7 @@ export function add_cell_of_shape(ui: any, options: DrawioCellOptions) {
   const height = options.height || 80;
   const text = options.text || "";
   const style = (options.style || "") as CellStyle;
+  const parent = resolve_parent(graph, options.parent_id);
 
   const shape_entry = get_shape_by_name(ui, { shape_name });
 
@@ -641,7 +657,7 @@ export function add_cell_of_shape(ui: any, options: DrawioCellOptions) {
   graph.getModel().beginUpdate();
   try {
     const cell = graph.insertVertex(
-      graph.getDefaultParent(),
+      parent,
       null,
       text,
       x,
@@ -913,6 +929,34 @@ export function move_cell_to_layer(ui: any, options: DrawioCellOptions) {
   return {
     moved_cell: options.cell_id,
     to_layer: options.target_layer_id,
+  };
+}
+
+export function set_cell_parent(ui: any, options: DrawioCellOptions) {
+  const { editor } = ui;
+  const { graph } = editor;
+  const model = graph.getModel();
+
+  const cell = model.getCell(options.cell_id);
+  if (!cell) {
+    throw new Error(`Cell with ID ${options.cell_id} not found`);
+  }
+
+  const parent = model.getCell(options.parent_id);
+  if (!parent) {
+    throw new Error(`Parent cell with ID ${options.parent_id} not found`);
+  }
+
+  model.beginUpdate();
+  try {
+    model.add(parent, cell);
+  } finally {
+    model.endUpdate();
+  }
+
+  return {
+    cell_id: options.cell_id,
+    parent_id: options.parent_id,
   };
 }
 

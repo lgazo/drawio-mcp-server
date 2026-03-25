@@ -34,6 +34,7 @@ import {
   add_cell_of_shape,
   set_cell_shape,
   set_cell_data,
+  set_cell_parent,
   get_shape_by_name,
   get_shape_categories,
   get_shapes_in_category,
@@ -117,7 +118,7 @@ const toolDefinitions = [
   },
   {
     name: "add-rectangle",
-    params: new Set(["x", "y", "width", "height", "text", "style"]),
+    params: new Set(["x", "y", "width", "height", "text", "style", "parent_id"]),
     handler: add_new_rectangle,
   },
   {
@@ -127,7 +128,7 @@ const toolDefinitions = [
   },
   {
     name: "add-edge",
-    params: new Set(["source_id", "target_id", "style", "text"]),
+    params: new Set(["source_id", "target_id", "style", "text", "parent_id"]),
     handler: add_edge,
   },
   {
@@ -147,7 +148,7 @@ const toolDefinitions = [
   },
   {
     name: "add-cell-of-shape",
-    params: new Set(["x", "y", "width", "height", "text", "style"]),
+    params: new Set(["x", "y", "width", "height", "text", "style", "parent_id"]),
     handler: add_cell_of_shape,
   },
   {
@@ -191,6 +192,11 @@ const toolDefinitions = [
     name: "move-cell-to-layer",
     params: new Set(["cell_id", "target_layer_id"]),
     handler: move_cell_to_layer,
+  },
+  {
+    name: "set-cell-parent",
+    params: new Set(["cell_id", "parent_id"]),
+    handler: set_cell_parent,
   },
   {
     name: "get-active-layer",

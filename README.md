@@ -9,10 +9,11 @@ Let's do some Vibe Diagramming with the most wide-spread diagramming tool called
 
 ## Key Highlights
 
+- Parent-child relationships for nested shapes and grouping ![v2.0.0](https://img.shields.io/badge/v2.0.0-blue)
 - Built-in Draw.io editor - no browser extension required ![v1.8.0](https://img.shields.io/badge/v1.8.0-blue)
 - MCP server that lets AI agents control Draw.io diagrams
 - Programmatic diagram creation, inspection, and modification via MCP tools
-- Layer management for complex diagrams ![v1.7.0](https://img.shields.io/badge/v1.7.0-blue)
+- Layer management for complex diagrams
 - Works with any MCP client (Claude Desktop, Claude Code, Zed, Codex, etc.)
 
 ## Introduction

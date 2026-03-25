@@ -253,6 +253,12 @@ server.tool(
         "Semi-colon separated list of Draw.io visual styles, in the form of `key=value`. Example: `whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;`",
       )
       .default("whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;"),
+    parent_id: z
+      .string()
+      .optional()
+      .describe(
+        "ID of the parent cell. If provided, the new rectangle will be created as a child of this cell. If omitted, the rectangle is created at the diagram root level.",
+      ),
   },
   default_tool(TOOL_add_rectangle, context),
 );
@@ -280,6 +286,12 @@ server.tool(
       )
       .default(
         "edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;",
+      ),
+    parent_id: z
+      .string()
+      .optional()
+      .describe(
+        "ID of the parent cell. If provided, the new edge will be created as a child of this cell. If omitted, the edge is created at the diagram root level.",
       ),
   },
   default_tool(TOOL_add_edge, context),
@@ -374,6 +386,12 @@ server.tool(
       .optional()
       .describe(
         "Semi-colon separated list of Draw.io visual styles, in the form of `key=value`. Example: `whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;`",
+      ),
+    parent_id: z
+      .string()
+      .optional()
+      .describe(
+        "ID of the parent cell. If provided, the new cell will be created as a child of this cell. If omitted, the cell is created at the diagram root level.",
       ),
   },
   default_tool(TOOL_add_cell_of_shape, context),
@@ -580,6 +598,19 @@ server.tool(
       .describe("ID of the target layer where the cell will be moved"),
   },
   default_tool(TOOL_move_cell_to_layer, context),
+);
+
+const TOOL_set_cell_parent = "set-cell-parent";
+server.tool(
+  TOOL_set_cell_parent,
+  "Sets the parent of a cell, making it a child of the specified parent cell. This allows creating hierarchical relationships where moving the parent also moves its children.",
+  {
+    cell_id: z.string().describe("ID of the cell to reparent"),
+    parent_id: z
+      .string()
+      .describe("ID of the new parent cell"),
+  },
+  default_tool(TOOL_set_cell_parent, context),
 );
 
 const TOOL_get_active_layer = "get-active-layer";

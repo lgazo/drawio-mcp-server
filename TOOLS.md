@@ -48,6 +48,7 @@ Creates a new rectangle shape on the active Draw.io page with customizable prope
 - Dimensions (`width`, `height`)
 - Text content
 - Visual style (fill color, stroke, etc. using Draw.io style syntax)
+- Parent cell (`parent_id`) to create as a child of another shape
 
 ### `add-edge`
 
@@ -58,6 +59,7 @@ Creates a connection between two cells (vertices).
 - `target_id`: ID of the target cell
 - `text`: Optional text label for the edge
 - `style`: Optional style properties for the edge
+- `parent_id`: Optional ID of parent cell (creates as child instead of at diagram root)
 
 ### `delete-cell-by-id`
 
@@ -76,6 +78,7 @@ Adds a new cell of a specific shape type from the diagram's library.
 - `width`, `height`: Dimensions (optional)
 - `text`: Optional text content
 - `style`: Optional additional style properties
+- `parent_id`: Optional ID of parent cell (creates as child instead of at diagram root)
 
 ### `set-cell-shape`
 
@@ -111,6 +114,16 @@ Updates an existing edge connection between cells by ID.
 - `text`: Optional edge label text
 - `source_id`, `target_id`: Optional IDs of new source/target cells
 - `style`: Optional replacement style string
+
+### `set-cell-parent`
+
+Sets the parent of a cell, making it a child of the specified parent cell. This allows creating hierarchical relationships where moving the parent also moves its children.
+
+*Parameters*:
+- `cell_id`: ID of the cell to reparent
+- `parent_id`: ID of the new parent cell
+
+*Returns*: Confirmation with cell_id and parent_id
 
 ## Layer Management Tools
 
