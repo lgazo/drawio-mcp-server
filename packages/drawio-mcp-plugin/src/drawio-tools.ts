@@ -1015,3 +1015,219 @@ export function create_layer(ui: any, options: DrawioCellOptions) {
     name: options.name,
   };
 }
+
+export interface ExportOptions {
+  format?: "svg" | "png" | "xml";
+  scale?: number;
+  border?: number;
+  background?: string;
+  shadow?: boolean;
+  crop?: boolean;
+  selection_only?: boolean;
+  transparent?: boolean;
+  dpi?: number;
+  embed_xml?: boolean;
+  size?: "selection" | "page" | "diagram";
+}
+
+export interface ExportResult {
+  format: string;
+  mimeType: string;
+  data: string;
+  width?: number;
+  height?: number;
+  warning?: string;
+}
+
+const PNG_SIZE_WARNING_THRESHOLD = 5 * 1024 * 1024;
+
+export function export_diagram(ui: any, options: ExportOptions): ExportResult | Promise<ExportResult> {
+  const format = options.format || "xml";
+  const scale = options.scale ?? 1;
+  const border = options.border ?? 0;
+  const background = options.transparent ? null : (options.background ?? null);
+  const includeShadow = options.shadow ?? false;
+  const cropToDiagram = options.crop ?? true;
+  const selectionOnly = options.selection_only ?? false;
+  const embedXml = options.embed_xml ?? false;
+  const size = options.size ?? "diagram";
+  const dpi = options.dpi ?? 96;
+
+  switch (format) {
+    case "xml":
+      return export_xml(ui, { selectionOnly, size });
+    case "svg":
+      return export_svg(ui, { scale, border, background, includeShadow, cropToDiagram, selectionOnly, embedXml, size });
+    case "png":
+      return export_png(ui, { scale, border, background, includeShadow, cropToDiagram, selectionOnly, embedXml, size, dpi });
+    default:
+      throw new Error(`Unsupported export format: ${format}`);
+  }
+}
+
+interface XmlExportParams {
+  selectionOnly: boolean;
+  size: "selection" | "page" | "diagram";
+}
+
+function export_xml(ui: any, params: XmlExportParams): ExportResult {
+  const mxUtils = (window as any).mxUtils;
+  const { selectionOnly, size } = params;
+
+  const ignoreSelection = !selectionOnly;
+  const currentPage = size === "page" || size === "selection";
+  const uncompressed = true;
+
+  let xml: string;
+  if (size === "selection" && selectionOnly) {
+    const enc = new (window as any).mxCodec();
+    const node = enc.encode(ui.editor.graph.getModel());
+    xml = mxUtils.getXml(node);
+  } else {
+    const node = ui.getXmlFileData(ignoreSelection, currentPage, uncompressed);
+    xml = mxUtils.getXml(node);
+  }
+
+  return {
+    format: "xml",
+    mimeType: "application/xml",
+    data: xml,
+  };
+}
+
+interface SvgExportParams {
+  scale: number;
+  border: number;
+  background: string | null;
+  includeShadow: boolean;
+  cropToDiagram: boolean;
+  selectionOnly: boolean;
+  embedXml: boolean;
+  size: "selection" | "page" | "diagram";
+}
+
+function export_svg(ui: any, params: SvgExportParams): ExportResult {
+  const mxUtils = (window as any).mxUtils;
+  const Graph = (window as any).Graph;
+  const { scale, border, background, includeShadow, selectionOnly, embedXml, size } = params;
+
+  const graph = ui.editor.graph;
+  const ignoreSelection = !selectionOnly && size !== "selection";
+  const bg = background !== "none" ? background : null;
+
+  if (embedXml) {
+    const currentPage = size === "page" || size === "selection";
+    const svgString = ui.getFileData(false, true, null, null, ignoreSelection, currentPage);
+    const bounds = graph.getGraphBounds();
+    const w = Math.ceil(bounds.width * scale + bounds.x * scale + 2 * border);
+    const h = Math.ceil(bounds.height * scale + bounds.y * scale + 2 * border);
+
+    return {
+      format: "svg",
+      mimeType: "image/svg+xml",
+      data: svgString,
+      width: w,
+      height: h,
+    };
+  }
+
+  const svgRoot = graph.getSvg(
+    bg,
+    scale,
+    border,
+    !params.cropToDiagram,
+    null,
+    ignoreSelection,
+  );
+
+  if (graph.shadowVisible || includeShadow) {
+    graph.addSvgShadow(svgRoot, null, null, border === 0);
+  }
+
+  const svgString = (Graph.xmlDeclaration || '<?xml version="1.0" encoding="UTF-8"?>') +
+    '\n' + (Graph.svgDoctype || '') + '\n' + mxUtils.getXml(svgRoot);
+
+  const w = parseInt(svgRoot.getAttribute("width")) || 0;
+  const h = parseInt(svgRoot.getAttribute("height")) || 0;
+
+  return {
+    format: "svg",
+    mimeType: "image/svg+xml",
+    data: svgString,
+    width: w,
+    height: h,
+  };
+}
+
+interface PngExportParams {
+  scale: number;
+  border: number;
+  background: string | null;
+  includeShadow: boolean;
+  cropToDiagram: boolean;
+  selectionOnly: boolean;
+  embedXml: boolean;
+  size: "selection" | "page" | "diagram";
+  dpi: number;
+}
+
+function export_png(ui: any, params: PngExportParams): Promise<ExportResult> {
+  return new Promise((resolve, reject) => {
+    const { scale, border, background, includeShadow, selectionOnly, embedXml, size, dpi, cropToDiagram } = params;
+
+    const imageCache: Record<string, any> = {};
+    const ignoreSelection = !selectionOnly && size !== "selection";
+
+    let xml: string | null = null;
+    if (embedXml) {
+      xml = ui.getFileData(true, null, null, null, ignoreSelection, size === "page" || size === "selection");
+    }
+
+    ui.exportToCanvas(
+      (canvas: HTMLCanvasElement) => {
+        try {
+          let dataUrl: string;
+          if (xml != null) {
+            dataUrl = ui.createImageDataUri(canvas, xml, "png", dpi);
+          } else {
+            dataUrl = canvas.toDataURL("image/png");
+          }
+
+          const base64Data = dataUrl.replace(/^data:image\/png;base64,/, "");
+
+          const result: ExportResult = {
+            format: "png",
+            mimeType: "image/png",
+            data: base64Data,
+            width: canvas.width,
+            height: canvas.height,
+          };
+
+          if (base64Data.length > PNG_SIZE_WARNING_THRESHOLD) {
+            const sizeMB = (base64Data.length / (1024 * 1024)).toFixed(1);
+            result.warning = `PNG export is large (${sizeMB} MB). Consider using SVG or reducing scale to reduce size.`;
+          }
+
+          resolve(result);
+        } catch (err) {
+          reject(err);
+        }
+      },
+      null,
+      imageCache,
+      background,
+      (err: any) => reject(err),
+      null,
+      ignoreSelection,
+      scale,
+      background === null,
+      includeShadow,
+      null,
+      null,
+      border,
+      !cropToDiagram,
+      false,
+      null,
+    );
+  });
+}

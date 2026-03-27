@@ -45,6 +45,7 @@ import {
   move_cell_to_layer,
   get_active_layer,
   create_layer,
+  export_diagram,
   type DrawioCellOptions,
 } from "./drawio-tools";
 import { type DrawioUI } from "./types";
@@ -71,33 +72,43 @@ const createToolHandler = (
       {} as Record<string, unknown>,
     );
 
-    let reply;
-    try {
-      const result = executeFunction(ui, options);
-      reply = {
+    const sendReply = (result: any, success: boolean, error?: any) => {
+      const reply = {
         __event: reply_name(toolName, request.__request_id),
         __request_id: request.__request_id,
-        success: true,
-        result: remove_circular_dependencies(result),
+        success,
+        result: success ? remove_circular_dependencies(result) : undefined,
+        error: !success ? remove_circular_dependencies(error) : undefined,
       };
+      if (wsManager) {
+        wsManager.send(reply);
+      }
+      return reply;
+    };
+
+    try {
+      const result = executeFunction(ui, options);
+      if (result instanceof Promise) {
+        result.then(
+          (resolved) => sendReply(resolved, true),
+          (err) => {
+            console.error(
+              `[plugin] Tool ${toolName} failed for request ID ${request.__request_id}:`,
+              err,
+            );
+            sendReply(undefined, false, err);
+          },
+        );
+        return undefined;
+      }
+      return sendReply(result, true);
     } catch (error) {
       console.error(
         `[plugin] Tool ${toolName} failed for request ID ${request.__request_id}:`,
         error,
       );
-      reply = {
-        __event: reply_name(toolName, request.__request_id),
-        __request_id: request.__request_id,
-        success: false,
-        error: remove_circular_dependencies(error),
-      };
+      return sendReply(undefined, false, error);
     }
-
-    if (wsManager) {
-      wsManager.send(reply);
-    }
-
-    return reply;
   };
 };
 
@@ -207,6 +218,23 @@ const toolDefinitions = [
     name: "create-layer",
     params: new Set(["name"]),
     handler: create_layer,
+  },
+  {
+    name: "export-diagram",
+    params: new Set([
+      "format",
+      "scale",
+      "border",
+      "background",
+      "shadow",
+      "crop",
+      "selection_only",
+      "transparent",
+      "dpi",
+      "embed_xml",
+      "size",
+    ]),
+    handler: export_diagram,
   },
 ];
 

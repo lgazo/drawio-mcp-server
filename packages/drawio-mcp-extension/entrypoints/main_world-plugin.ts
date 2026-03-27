@@ -17,6 +17,7 @@ import {
   move_cell_to_layer,
   get_active_layer,
   create_layer,
+  export_diagram,
   readPluginConfig,
   writePluginConfig,
   buildWebSocketUrl,
@@ -178,6 +179,11 @@ const toolDefinitions = [
     name: "create-layer",
     params: new Set(["name"]),
     handler: create_layer
+  },
+  {
+    name: "export-diagram",
+    params: new Set(["format", "scale", "border", "background", "shadow", "crop", "selection_only", "transparent", "dpi", "embed_xml", "size"]),
+    handler: export_diagram
   }
 ];
 

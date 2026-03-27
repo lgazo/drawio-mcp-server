@@ -66,3 +66,57 @@ export function default_tool(name: string, context: Context) {
 
   return fn;
 }
+
+export function export_tool_handler(name: string, context: Context) {
+  const fn = build_channel(context, name, (reply) => {
+    const { success, result, error } = reply;
+
+    if (!success) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Export failed: ${error || "Unknown error"}`,
+          },
+        ],
+      };
+    }
+
+    const { format, mimeType, data, width, height, warning } = result;
+
+    const content: any[] = [];
+
+    if (warning) {
+      content.push({
+        type: "text",
+        text: `Warning: ${warning}`,
+      });
+    }
+
+    if (format === "png") {
+      content.push({
+        type: "image",
+        mimeType: "image/png",
+        data: data,
+      });
+    } else {
+      content.push({
+        type: "text",
+        text: data,
+      });
+    }
+
+    const dimensions = width && height ? `, ${width}x${height}` : "";
+    content.push({
+      type: "text",
+      text: `Exported ${format} (${mimeType})${dimensions}`,
+    });
+
+    const response: CallToolResult = {
+      content,
+    };
+    return response;
+  });
+
+  return fn;
+}
