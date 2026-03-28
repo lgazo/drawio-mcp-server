@@ -11,7 +11,13 @@ import EventEmitter from "node:events";
 import { createServer } from "node:net";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { readFileSync, writeFileSync, existsSync, statSync, readdirSync } from "node:fs";
+import {
+  readFileSync,
+  writeFileSync,
+  existsSync,
+  statSync,
+  readdirSync,
+} from "node:fs";
 
 import { WebSocket, WebSocketServer } from "ws";
 const VERSION = process.env.npm_package_version ?? "2.0.0";
@@ -658,7 +664,9 @@ server.tool(
   {
     format: z
       .enum(["svg", "png", "xml"])
-      .describe("Export format: svg for vector graphics, png for raster image, xml for raw diagram data"),
+      .describe(
+        "Export format: svg for vector graphics, png for raster image, xml for raw diagram data",
+      ),
     scale: z
       .number()
       .optional()
@@ -683,7 +691,9 @@ server.tool(
       .boolean()
       .optional()
       .default(true)
-      .describe("Crop the export to diagram bounds (true) or full page (false)"),
+      .describe(
+        "Crop the export to diagram bounds (true) or full page (false)",
+      ),
     selection_only: z
       .boolean()
       .optional()
@@ -703,16 +713,22 @@ server.tool(
       .boolean()
       .optional()
       .default(false)
-      .describe("Embed the diagram XML data in SVG/PNG so it can be reopened in draw.io"),
+      .describe(
+        "Embed the diagram XML data in SVG/PNG so it can be reopened in draw.io",
+      ),
     size: z
       .enum(["selection", "page", "diagram"])
       .optional()
       .default("diagram")
-      .describe("What to export: 'selection' for selected cells only, 'page' for current page, 'diagram' for entire model"),
+      .describe(
+        "What to export: 'selection' for selected cells only, 'page' for current page, 'diagram' for entire model",
+      ),
     output_path: z
       .string()
       .optional()
-      .describe("Absolute file path to save the exported file (must be an absolute path)"),
+      .describe(
+        "Absolute file path to save the exported file (must be an absolute path)",
+      ),
   },
   async (args, _extra) => {
     const exportHandler = export_tool_handler(TOOL_export_diagram, context);
@@ -730,12 +746,19 @@ server.tool(
 
       const exportContent = result.content;
       if (args.format === "png") {
-        const imageContent = exportContent.find((c: any) => c.type === "image") as any;
+        const imageContent = exportContent.find(
+          (c: any) => c.type === "image",
+        ) as any;
         if (imageContent) {
-          writeFileSync(args.output_path, Buffer.from(imageContent.data, "base64"));
+          writeFileSync(
+            args.output_path,
+            Buffer.from(imageContent.data, "base64"),
+          );
         }
       } else {
-        const textContent = exportContent.find((c: any) => c.type === "text") as any;
+        const textContent = exportContent.find(
+          (c: any) => c.type === "text",
+        ) as any;
         if (textContent) {
           writeFileSync(args.output_path, textContent.text, "utf-8");
         }
@@ -759,19 +782,19 @@ server.tool(
     data: z
       .string()
       .describe(
-        "The diagram data: raw XML string, or base64-encoded SVG/PNG with embedded XML"
+        "The diagram data: raw XML string, or base64-encoded SVG/PNG with embedded XML",
       ),
     format: z
       .enum(["xml", "svg", "png"])
       .describe(
-        "Input format: xml for raw Draw.io XML, svg for SVG with embedded XML, png for PNG with embedded XML"
+        "Input format: xml for raw Draw.io XML, svg for SVG with embedded XML, png for PNG with embedded XML",
       ),
     mode: z
       .enum(["replace", "add", "new-page"])
       .optional()
       .default("replace")
       .describe(
-        "Import mode: replace clears current diagram and loads new one, add merges imported cells into current diagram, new-page creates a new page with imported diagram"
+        "Import mode: replace clears current diagram and loads new one, add merges imported cells into current diagram, new-page creates a new page with imported diagram",
       ),
     filename: z
       .string()

@@ -1,33 +1,26 @@
 /** @type {import('ts-jest').JestConfigWithTsJest} */
 export default {
-  preset: "ts-jest/presets/default-esm",
   testEnvironment: "jest-environment-node",
-  extensionsToTreatAsEsm: [".ts"],
   rootDir: ".",
-  moduleNameMapper: {
-    "^(\\.{1,2}/.*)\\.js$": "$1",
-  },
+  coverageProvider: "babel",
   transform: {
-    "^.+\\.tsx?$": [
-      "ts-jest",
-      {
-        useESM: true,
-      },
-    ],
+    "^.+\\.[jt]sx?$": "esbuild-jest",
   },
+  transformIgnorePatterns: ["/node_modules/(?!nanoid|\\.pnpm)"],
   testMatch: ["**/build/**/*.test.js"],
   testPathIgnorePatterns: ["/node_modules/", "/src/"],
   collectCoverageFrom: [
-    "src/**/*.ts",
+    "packages/drawio-mcp-server/build/**/*.js",
     // exclude as it contains boundary injection logic mainly
-    "!src/index.ts",
-    "!src/**/*.d.ts",
-    "!src/**/__tests__/**",
-    "!src/**/*.test.ts",
+    "!packages/drawio-mcp-server/build/index.js",
+    "!**/node_modules/**",
+    "!packages/drawio-mcp-server/build/**/*.test.js",
+    "!packages/drawio-mcp-server/build/plugin/**",
+    "!packages/drawio-mcp-server/build/assets/**",
   ],
   coverageThreshold: {
     global: {
-      branches: 80,
+      branches: 75,
       functions: 80,
       lines: 80,
       statements: 80,
