@@ -170,3 +170,37 @@ Creates a new layer in the diagram.
 - `name`: Name for the new layer
 
 *Returns*: Information about the newly created layer
+
+## Diagram Import/Export Tools
+
+### `export-diagram`
+
+Export the current diagram as SVG, PNG, or XML. Returns the diagram data as base64 (PNG) or text (SVG/XML). Optionally saves to a file.
+
+*Parameters*:
+- `format`: Export format: svg for vector graphics, png for raster image, xml for raw diagram data
+- `scale`: Zoom factor for the export (1 = 100%, default: 1)
+- `border`: Border width in pixels around the diagram (default: 0)
+- `background`: Background color in hex format (e.g., #ffffff, default: #ffffff)
+- `shadow`: Include shadow effects in the export (default: false)
+- `crop`: Crop the export to diagram bounds (true) or full page (false, default: true)
+- `selection_only`: Export only the currently selected cells (default: false)
+- `transparent`: Use transparent background (overrides background color, default: false)
+- `dpi`: DPI for PNG export (affects quality, default: 96)
+- `embed_xml`: Embed the diagram XML data in SVG/PNG so it can be reopened in draw.io (default: false)
+- `size`: What to export: 'selection' for selected cells only, 'page' for current page, 'diagram' for entire model (default: diagram)
+- `output_path`: Absolute file path to save the exported file (must be an absolute path)
+
+*Returns*: Export result with format, mimeType, data (base64 for PNG, text for SVG/XML), dimensions, and optional warning
+
+### `import-diagram`
+
+Import a diagram from XML, SVG with embedded XML, or PNG with embedded XML into the current Draw.io instance.
+
+*Parameters*:
+- `data`: The diagram data: raw XML string, or base64-encoded SVG/PNG with embedded XML
+- `format`: Input format: xml for raw Draw.io XML, svg for SVG with embedded XML, png for PNG with embedded XML
+- `mode`: Import mode: replace clears current diagram and loads new one, add merges imported cells into current diagram, new-page creates a new page with imported diagram (default: replace)
+- `filename`: Optional original filename for context
+
+*Returns*: Import result with success status, message, and optional page/cell counts

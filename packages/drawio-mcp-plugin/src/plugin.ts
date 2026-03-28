@@ -46,6 +46,7 @@ import {
   get_active_layer,
   create_layer,
   export_diagram,
+  import_diagram,
   type DrawioCellOptions,
 } from "./drawio-tools";
 import { type DrawioUI } from "./types";
@@ -235,6 +236,11 @@ const toolDefinitions = [
       "size",
     ]),
     handler: export_diagram,
+  },
+  {
+    name: "import-diagram",
+    params: new Set(["data", "format", "mode", "filename"]),
+    handler: import_diagram,
   },
 ];
 
