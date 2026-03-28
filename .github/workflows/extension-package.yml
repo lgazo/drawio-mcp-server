@@ -41,12 +41,13 @@ jobs:
 
       - name: check
         run: ls -la .output
+        working-directory: packages/drawio-mcp-extension
 
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
           name: extension-zip
           path: |
-            .output/drawio-mcp-extension-${{ env.VERSION }}-chrome.zip
-            .output/drawio-mcp-extension-${{ env.VERSION }}-firefox.zip
-            .output/drawio-mcp-extension-${{ env.VERSION }}-sources.zip
+            packages/drawio-mcp-extension/.output/drawio-mcp-extension-${{ env.VERSION }}-chrome.zip
+            packages/drawio-mcp-extension/.output/drawio-mcp-extension-${{ env.VERSION }}-firefox.zip
+            packages/drawio-mcp-extension/.output/drawio-mcp-extension-${{ env.VERSION }}-sources.zip
