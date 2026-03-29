@@ -139,3 +139,4 @@ coverage/
 
 # Build output
 build/
+.artifacts/

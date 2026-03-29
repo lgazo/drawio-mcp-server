@@ -11,6 +11,7 @@ import { createServer } from "node:net";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readFileSync, existsSync, statSync, readdirSync } from "node:fs";
+import { AddressInfo } from "node:net";
 
 import { WebSocket, WebSocketServer } from "ws";
 const VERSION = process.env.npm_package_version ?? "2.0.0";
@@ -43,6 +44,28 @@ import {
   type AssetConfig,
 } from "./assets/index.js";
 import { registerTools } from "./tools/index.js";
+
+const fatalLog = create_console_logger();
+
+export type AppLogger = {
+  log: (level: string, message?: any, ...data: any[]) => void;
+  debug: (message?: any, ...data: any[]) => void;
+};
+
+export type DrawioMcpApp = {
+  server: McpServer;
+  log: AppLogger;
+  context: Context;
+  emitter: EventEmitter;
+  close: () => Promise<void>;
+  startWebSocketServer: (extensionPort?: number) => Promise<WebSocketServer>;
+  startStdioTransport: () => Promise<void>;
+  startHttpServer: (
+    httpPort: number,
+    config: ServerConfig,
+    features: HttpFeatureConfig,
+  ) => Promise<{ server: ReturnType<typeof serve>; port: number }>;
+};
 
 /**
  * Display help message and exit
@@ -86,88 +109,6 @@ async function checkPortAvailable(port: number): Promise<boolean> {
   });
 }
 
-const emitter = new EventEmitter();
-const conns = new Set<WebSocket>();
-
-const bus_to_ws_forwarder_listener = (event: any) => {
-  log.debug(
-    `[bridge] received; forwarding message to #${conns.size} clients`,
-    event,
-  );
-  for (const ws of [...conns]) {
-    if (ws.readyState !== WebSocket.OPEN) {
-      conns.delete(ws);
-      continue;
-    }
-
-    try {
-      ws.send(JSON.stringify(event));
-    } catch (e) {
-      log.debug("[bridge] error forwarding request", e);
-      conns.delete(ws);
-    }
-  }
-};
-emitter.on(bus_request_stream, bus_to_ws_forwarder_listener);
-
-async function start_websocket_server(extensionPort: number) {
-  log.debug(
-    `Draw.io MCP Server (${VERSION}) starting (WebSocket extension port: ${extensionPort})`,
-  );
-  const isPortAvailable = await checkPortAvailable(extensionPort);
-
-  if (!isPortAvailable) {
-    console.error(
-      `[start_websocket_server] Error: Port ${extensionPort} is already in use. Please stop the process using this port and try again.`,
-    );
-    process.exit(1);
-  }
-
-  const server = new WebSocketServer({ port: extensionPort });
-
-  server.on("connection", (ws) => {
-    log.debug(
-      `[ws_handler] A WebSocket client #${conns.size} connected, presumably MCP Extension!`,
-    );
-    conns.add(ws);
-
-    ws.on("message", (data) => {
-      const str = typeof data === "string" ? data : data.toString();
-      try {
-        const json = JSON.parse(str);
-        log.debug(`[ws] received from Extension`, json);
-        emitter.emit(bus_reply_stream, json);
-      } catch (error) {
-        log.debug(`[ws] failed to parse message`, error);
-      }
-    });
-
-    ws.on("close", (code) => {
-      conns.delete(ws);
-      log.debug(`[ws_handler] WebSocket client closed with code ${code}`);
-    });
-
-    ws.on("error", (error) => {
-      log.debug(`[ws_handler] WebSocket client error`, error);
-      conns.delete(ws);
-    });
-  });
-
-  server.on("listening", () => {
-    log.debug(`[start_websocket_server] Listening to port ${extensionPort}`);
-  });
-
-  server.on("error", (error) => {
-    console.error(
-      `[start_websocket_server] Error: Failed to listen on port ${extensionPort}`,
-      error,
-    );
-    process.exit(1);
-  });
-
-  return server;
-}
-
 const logger_type = process.env.LOGGER_TYPE;
 let capabilities: any = {
   resources: {},
@@ -183,33 +124,7 @@ if (logger_type === "mcp_server") {
   };
 }
 
-// Create server instance
-const server = new McpServer(
-  {
-    name: "drawio-mcp-server",
-    version: VERSION,
-  },
-  {
-    capabilities,
-  },
-);
-
-const log =
-  logger_type === "mcp_server"
-    ? create_server_logger(server)
-    : create_console_logger();
-const bus = create_bus(log)(emitter);
-const id_generator = nanoid_id_generator();
-
-const context: Context = {
-  bus,
-  id_generator,
-  log,
-};
-
-registerTools(server, context);
-
-async function start_stdio_transport() {
+async function start_stdio_transport(server: McpServer, log: AppLogger) {
   const transport = new StdioServerTransport();
   await server.connect(transport);
   log.debug(`Draw.io MCP Server STDIO transport active`);
@@ -234,7 +149,7 @@ function setupCors(app: Hono) {
 
 function registerHealthRoute(app: Hono) {
   app.get("/health", (c) =>
-    c.json({ status: server.isConnected() ? "ok" : "mcp not ready" }),
+    c.json({ status: "ok" }),
   );
 }
 
@@ -247,7 +162,7 @@ function registerConfigRoute(app: Hono, config: ServerConfig) {
   );
 }
 
-function registerEditorRoutes(app: Hono, config: ServerConfig) {
+function registerEditorRoutes(app: Hono, config: ServerConfig, log: AppLogger) {
   const assetConfig: AssetConfig = {
     assetPath: config.assetPath,
   };
@@ -339,13 +254,16 @@ function registerEditorRoutes(app: Hono, config: ServerConfig) {
   log.debug(`Draw.io editor enabled at: http://localhost:${config.httpPort}/`);
 }
 
-function registerMcpRoute(app: Hono): WebStandardStreamableHTTPServerTransport {
+function registerMcpRoute(
+  app: Hono,
+): WebStandardStreamableHTTPServerTransport {
   const transport = new WebStandardStreamableHTTPServerTransport();
   app.all("/mcp", (c) => transport.handleRequest(c.req.raw));
   return transport;
 }
 
 function createHttpApp(
+  log: AppLogger,
   config: ServerConfig,
   features: HttpFeatureConfig,
 ): {
@@ -358,34 +276,221 @@ function createHttpApp(
   if (features.enableHealth) registerHealthRoute(app);
   if (features.enableConfig) registerConfigRoute(app, config);
   const mcpTransport = features.enableMcp ? registerMcpRoute(app) : undefined;
-  if (features.enableEditor) registerEditorRoutes(app, config);
+  if (features.enableEditor) registerEditorRoutes(app, config, log);
 
   return { app, mcpTransport };
 }
 
 async function startHttpServer(
+  server: McpServer,
+  log: AppLogger,
   httpPort: number,
   config: ServerConfig,
   features: HttpFeatureConfig,
 ) {
-  const { app, mcpTransport } = createHttpApp(config, features);
+  const { app, mcpTransport } = createHttpApp(log, config, features);
 
   if (mcpTransport) {
     await server.connect(mcpTransport);
   }
 
-  serve({
+  const httpServer = serve({
     fetch: app.fetch,
     port: httpPort,
   });
 
-  log.debug(`Draw.io MCP Server HTTP active on port ${httpPort}`);
+  const listeningPort =
+    httpPort === 0
+      ? ((httpServer.address() as AddressInfo | null)?.port ?? httpPort)
+      : httpPort;
+
+  log.debug(`Draw.io MCP Server HTTP active on port ${listeningPort}`);
   if (features.enableMcp) {
-    log.debug(`MCP endpoint: http://localhost:${httpPort}/mcp`);
+    log.debug(`MCP endpoint: http://localhost:${listeningPort}/mcp`);
   }
   if (features.enableEditor) {
-    log.debug(`Editor: http://localhost:${httpPort}/`);
+    log.debug(`Editor: http://localhost:${listeningPort}/`);
   }
+
+  return {
+    server: httpServer,
+    port: listeningPort,
+  };
+}
+
+export function createDrawioMcpApp(overrides?: {
+  log?: AppLogger;
+}): DrawioMcpApp {
+  const server = new McpServer(
+    {
+      name: "drawio-mcp-server",
+      version: VERSION,
+    },
+    {
+      capabilities,
+    },
+  );
+
+  const log =
+    overrides?.log ??
+    (logger_type === "mcp_server"
+      ? create_server_logger(server)
+      : create_console_logger());
+  const emitter = new EventEmitter();
+  const conns = new Set<WebSocket>();
+  const bus = create_bus(log)(emitter);
+  const id_generator = nanoid_id_generator();
+
+  const context: Context = {
+    bus,
+    id_generator,
+    log,
+  };
+
+  registerTools(server, context);
+
+  const bus_to_ws_forwarder_listener = (event: any) => {
+    log.debug(
+      `[bridge] received; forwarding message to #${conns.size} clients`,
+      event,
+    );
+    for (const ws of [...conns]) {
+      if (ws.readyState !== WebSocket.OPEN) {
+        conns.delete(ws);
+        continue;
+      }
+
+      try {
+        ws.send(JSON.stringify(event));
+      } catch (e) {
+        log.debug("[bridge] error forwarding request", e);
+        conns.delete(ws);
+      }
+    }
+  };
+  emitter.on(bus_request_stream, bus_to_ws_forwarder_listener);
+
+  let wsServer: WebSocketServer | undefined;
+  let httpServer: ReturnType<typeof serve> | undefined;
+
+  async function startWebSocketServer(extensionPort = 3333) {
+    log.debug(
+      `Draw.io MCP Server (${VERSION}) starting (WebSocket extension port: ${extensionPort})`,
+    );
+
+    if (extensionPort !== 0) {
+      const isPortAvailable = await checkPortAvailable(extensionPort);
+      if (!isPortAvailable) {
+        throw new Error(
+          `[start_websocket_server] Error: Port ${extensionPort} is already in use. Please stop the process using this port and try again.`,
+        );
+      }
+    }
+
+    wsServer = new WebSocketServer({ port: extensionPort });
+
+    wsServer.on("connection", (ws) => {
+      log.debug(
+        `[ws_handler] A WebSocket client #${conns.size} connected, presumably MCP Extension!`,
+      );
+      conns.add(ws);
+
+      ws.on("message", (data) => {
+        const str = typeof data === "string" ? data : data.toString();
+        try {
+          const json = JSON.parse(str);
+          log.debug(`[ws] received from Extension`, json);
+          emitter.emit(bus_reply_stream, json);
+        } catch (error) {
+          log.debug(`[ws] failed to parse message`, error);
+        }
+      });
+
+      ws.on("close", (code) => {
+        conns.delete(ws);
+        log.debug(`[ws_handler] WebSocket client closed with code ${code}`);
+      });
+
+      ws.on("error", (error) => {
+        log.debug(`[ws_handler] WebSocket client error`, error);
+        conns.delete(ws);
+      });
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      const onListening = () => {
+        wsServer?.off("error", onError);
+        const address = wsServer?.address() as AddressInfo | null;
+        log.debug(
+          `[start_websocket_server] Listening to port ${address?.port ?? extensionPort}`,
+        );
+        resolve();
+      };
+      const onError = (error: Error) => {
+        wsServer?.off("listening", onListening);
+        reject(error);
+      };
+      wsServer?.once("listening", onListening);
+      wsServer?.once("error", onError);
+    });
+
+    return wsServer;
+  }
+
+  async function close() {
+    emitter.off(bus_request_stream, bus_to_ws_forwarder_listener);
+    for (const ws of [...conns]) {
+      try {
+        ws.close();
+      } catch {
+        // ignore
+      }
+    }
+    conns.clear();
+
+    await server.close();
+
+    if (wsServer) {
+      await new Promise<void>((resolve, reject) => {
+        wsServer?.close((error) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          resolve();
+        });
+      });
+      wsServer = undefined;
+    }
+
+    if (httpServer) {
+      await new Promise<void>((resolve, reject) => {
+        httpServer?.close((error?: Error) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          resolve();
+        });
+      });
+      httpServer = undefined;
+    }
+  }
+
+  return {
+    server,
+    log,
+    context,
+    emitter,
+    close,
+    startWebSocketServer,
+    startStdioTransport: () => start_stdio_transport(server, log),
+    startHttpServer: async (httpPort, config, features) => {
+      const started = await startHttpServer(server, log, httpPort, config, features);
+      httpServer = started.server;
+      return started;
+    },
+  };
 }
 
 async function main() {
@@ -417,16 +522,24 @@ async function main() {
     console.log("Assets ready!");
   }
 
-  await start_websocket_server(config.extensionPort);
-  if (config.transports.indexOf("stdio") > -1) {
-    await start_stdio_transport();
-  }
-  startHttpServer(config.httpPort, config, features);
+  const app = createDrawioMcpApp();
 
-  log.debug(`Draw.io MCP Server running on ${config.transports}`);
+  await app.startWebSocketServer(config.extensionPort);
+  if (config.transports.indexOf("stdio") > -1) {
+    await app.startStdioTransport();
+  }
+  await app.startHttpServer(config.httpPort, config, features);
+
+  app.log.debug(`Draw.io MCP Server running on ${config.transports}`);
 }
 
-main().catch((error) => {
-  log.debug("Fatal error in main():", error);
-  process.exit(1);
-});
+const isMainModule = process.argv[1]
+  ? fileURLToPath(import.meta.url) === process.argv[1]
+  : false;
+
+if (isMainModule) {
+  main().catch((error) => {
+    fatalLog.debug("Fatal error in main():", error);
+    process.exit(1);
+  });
+}

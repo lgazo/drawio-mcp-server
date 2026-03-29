@@ -402,6 +402,10 @@ function initPlugin() {
         console.debug("[plugin] Plugin loaded successfully");
         ui = drawioUI;
 
+        if ((window as any).__DRAWIO_MCP_TEST_HOOKS__ === true) {
+          (window as any).ui = drawioUI;
+        }
+
         toolDefinitions.forEach((def) => {
           const handler = createToolHandler(def.name, def.params, def.handler);
           toolHandlers.set(def.name, handler);

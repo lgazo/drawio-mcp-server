@@ -8,7 +8,7 @@
     "drawio-mcp-server": "./build/index.js"
   },
   "scripts": {
-    "build": "tsc && mkdir -p build/plugin && cp node_modules/drawio-mcp-plugin/dist/mcp-plugin.js build/plugin/mcp-plugin.js",
+    "build": "rimraf build && tsc && mkdir -p build/plugin && cp node_modules/drawio-mcp-plugin/dist/mcp-plugin.js build/plugin/mcp-plugin.js",
     "ci": "pnpm install --frozen-lockfile",
     "dev": "tsc --watch",
     "inspect": "HOST=0.0.0.0 pnpx @modelcontextprotocol/inspector --config ./inspector.json --server drawio",
@@ -16,6 +16,7 @@
     "lint": "tsc --noEmit",
     "format": "prettier --write \"**/*.ts\"",
     "format:check": "prettier --check \"**/*.ts\"",
+    "test:real-environment": "NODE_OPTIONS=--experimental-vm-modules jest build/real-environment --runInBand",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest build/",
     "test:watch": "jest --watch",
     "test:coverage": "jest --config ../../jest.config.js --coverage",
@@ -60,6 +61,7 @@
   },
   "devDependencies": {
     "@jest/globals": "30.2.0",
+    "@playwright/test": "1.54.2",
     "@types/jest": "30.0.0",
     "@types/node": "25.0.3",
     "@types/unzipper": "^0.10.11",

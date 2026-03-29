@@ -318,6 +318,19 @@ function resolve_parent(graph: any, parent_id?: string): any {
   return graph.getDefaultParent();
 }
 
+function normalize_shape_style(shapeName: string, style: string): string {
+  if (!style || !shapeName.startsWith("mxgraph.aws4.")) {
+    return style;
+  }
+
+  const hasExplicitShape = style.includes("shape=");
+  if (hasExplicitShape) {
+    return style;
+  }
+
+  return `shape=${shapeName};${style}`;
+}
+
 export function add_new_rectangle(ui: any, options: DrawioCellOptions) {
   const { editor } = ui;
   const { graph } = editor;
@@ -677,6 +690,13 @@ export function add_cell_of_shape(ui: any, options: DrawioCellOptions) {
 
   if (!shape_entry) return null;
 
+  const mergedStyle = normalize_shape_style(
+    shape_name,
+    [shape_entry.style, style]
+    .filter((entry) => typeof entry === "string" && entry.trim().length > 0)
+    .join(";"),
+  );
+
   graph.getModel().beginUpdate();
   try {
     const cell = graph.insertVertex(
@@ -687,7 +707,7 @@ export function add_cell_of_shape(ui: any, options: DrawioCellOptions) {
       y,
       width,
       height,
-      `${shape_entry.style};${style}`,
+      mergedStyle,
       false,
     );
     return cell;
