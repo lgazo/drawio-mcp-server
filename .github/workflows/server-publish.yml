@@ -38,3 +38,5 @@ jobs:
 
       - name: Publish
         run: pnpm --filter drawio-mcp-server publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
