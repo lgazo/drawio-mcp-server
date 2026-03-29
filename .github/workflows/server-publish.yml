@@ -36,12 +36,6 @@ jobs:
       - name: Build
         run: pnpm --filter drawio-mcp-server run build
 
-      - name: Update npm to latest
-        run: npm install -g npm@latest
-
-      - name: Clear npm auth token
-        run: npm config set //registry.npmjs.org/:_authToken ""
-
       - name: Publish
-        run: npm publish --no-git-checks --provenance --access public
+        run: npm publish --provenance --access public
         working-directory: packages/drawio-mcp-server
