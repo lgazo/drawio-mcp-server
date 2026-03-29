@@ -138,6 +138,16 @@ describe("real environment/shapes", () => {
       "shapes-aws-lambda",
       "before-live-state-verification",
       async () => {
+        const liveCellState = await context.page.evaluate((cellId: string) => {
+          const maybeWindow = window as any;
+          const graph = maybeWindow.ui?.editor?.graph;
+          const cell = graph?.getModel?.().getCell?.(cellId);
+          return {
+            cellStyle: cell?.style ?? null,
+            stateStyle: graph?.view?.getState?.(cell)?.style ?? null,
+          };
+        }, payload.result.id);
+
         const exportedXml = await context.page.evaluate(() => {
           const maybeWindow = window as any;
           const editor = maybeWindow.ui?.editor;
@@ -147,6 +157,7 @@ describe("real environment/shapes", () => {
 
         const lambdaCell = await getCellById(context.page, payload.result.id);
         expect(lambdaCell).not.toBeNull();
+        expect(String(liveCellState.cellStyle ?? "")).toContain("mxgraph.aws4.lambda");
         expect(exportedXml).toContain(`id="${payload.result.id}"`);
         expect(exportedXml).toContain("mxgraph.aws4.lambda");
 
@@ -172,5 +183,56 @@ describe("real environment/shapes", () => {
 
     await expectNoBrowserErrors(context, "shapes-aws-lambda");
     await expectNoServerErrors(context, "shapes-aws-lambda", logCountBefore);
+  }, 180000);
+
+  it("applies AWS Lambda style through set-cell-shape and preserves it in the live diagram", async () => {
+    await resetDiagram(context);
+    context.browserMessages.length = 0;
+    const logCountBefore = context.logger.entries.length;
+
+    const shapeName = "mxgraph.aws4.lambda";
+
+    const { payload: rectangle } = await callToolJson<{
+      success: boolean;
+      result: { id: string };
+    }>(context, "add-rectangle", {
+      x: 220,
+      y: 180,
+      width: 120,
+      height: 120,
+      text: "Lambda by shape",
+    });
+    expectToolSuccess(rectangle);
+
+    await callToolJson(context, "set-cell-shape", {
+      cell_id: rectangle.result.id,
+      shape_name: shapeName,
+    });
+
+    await withVerificationScreenshot(
+      context,
+      "shapes-aws-lambda-set-cell-shape",
+      "before-live-state-verification",
+      async () => {
+        const exportedXml = await context.page.evaluate(() => {
+          const maybeWindow = window as any;
+          const editor = maybeWindow.ui?.editor;
+          const xmlNode = editor?.getGraphXml?.();
+          return (window as any).mxUtils?.getXml?.(xmlNode) ?? "";
+        });
+
+        const lambdaCell = await getCellById(context.page, rectangle.result.id);
+        expect(lambdaCell).not.toBeNull();
+        expect(exportedXml).toContain(`id="${rectangle.result.id}"`);
+        expect(exportedXml).toContain("mxgraph.aws4.lambda");
+      },
+    );
+
+    await expectNoBrowserErrors(context, "shapes-aws-lambda-set-cell-shape");
+    await expectNoServerErrors(
+      context,
+      "shapes-aws-lambda-set-cell-shape",
+      logCountBefore,
+    );
   }, 180000);
 });

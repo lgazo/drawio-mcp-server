@@ -38,13 +38,13 @@ export interface TransformedCell {
   id: string;
   mxObjectId: string;
   value:
-  | string
-  | {
-    attributes?: any;
-    nodeName?: string;
-    localName?: string;
-    tagName?: string;
-  };
+    | string
+    | {
+        attributes?: any;
+        nodeName?: string;
+        localName?: string;
+        tagName?: string;
+      };
   geometry?: any;
   style?: CellStyle;
   edge?: boolean;
@@ -213,9 +213,7 @@ export function remove_circular_dependencies<T>(
 /**
  * Transforms a cell object to retain only essential fields and sanitize data
  */
-export function transform_cell_for_display(
-  cell: any,
-): TransformedCell | null {
+export function transform_cell_for_display(cell: any): TransformedCell | null {
   if (!cell || typeof cell !== "object") {
     return null;
   }
@@ -237,7 +235,8 @@ export function transform_cell_for_display(
     if (typeof cell.value === "string") {
       transformed.value = cell.value;
     } else if (typeof cell.value === "object") {
-      const transformed_attributes = transform_cells_NamedNodeMap_to_attributes(cell);
+      const transformed_attributes =
+        transform_cells_NamedNodeMap_to_attributes(cell);
 
       transformed.value = {
         attributes: transformed_attributes,
@@ -331,6 +330,73 @@ function normalize_shape_style(shapeName: string, style: string): string {
   return `shape=${shapeName};${style}`;
 }
 
+function apply_style_to_cell(graph: any, cell: any, style: string) {
+  if (!style || !cell) {
+    return;
+  }
+
+  const model = graph.getModel();
+  model.setStyle(cell, style);
+
+  if (typeof cell.setStyle === "function") {
+    cell.setStyle(style);
+  }
+
+  if (typeof graph.refresh === "function") {
+    graph.refresh(cell);
+  }
+}
+
+function create_basic_vertex(
+  graph: any,
+  options: {
+    parent: any;
+    text: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  },
+) {
+  return graph.insertVertex(
+    options.parent,
+    null,
+    options.text,
+    options.x,
+    options.y,
+    options.width,
+    options.height,
+    "rounded=0;whiteSpace=wrap;html=1;",
+    false,
+  );
+}
+
+function create_shape_vertex(
+  graph: any,
+  options: {
+    parent: any;
+    text: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    style: string;
+  },
+) {
+  const mxCell = (window as any).mxCell;
+  const mxGeometry = (window as any).mxGeometry;
+
+  const cell = new mxCell(
+    options.text,
+    new mxGeometry(options.x, options.y, options.width, options.height),
+    options.style,
+  );
+  cell.vertex = true;
+
+  graph.addCell(cell, options.parent);
+  return cell;
+}
+
 export function add_new_rectangle(ui: any, options: DrawioCellOptions) {
   const { editor } = ui;
   const { graph } = editor;
@@ -412,14 +478,7 @@ export function add_edge(ui: any, options: DrawioCellOptions): any | null {
 
   model.beginUpdate();
   try {
-    const edge = graph.insertEdge(
-      parent,
-      null,
-      text,
-      source,
-      target,
-      style,
-    );
+    const edge = graph.insertEdge(parent, null, text, source, target, style);
 
     if (options.points && options.points.length > 0) {
       const geo = edge.getGeometry();
@@ -583,7 +642,7 @@ export function set_cell_shape(ui: any, options: DrawioCellOptions) {
 
   model.beginUpdate();
   try {
-    graph.setCellStyle(style, [cell]);
+    apply_style_to_cell(graph, cell, style);
   } finally {
     model.endUpdate();
   }
@@ -677,7 +736,11 @@ export function add_cell_of_shape(ui: any, options: DrawioCellOptions) {
   const { editor } = ui;
   const { graph } = editor;
 
-  const shape_name = options.shape_name || "rectangle";
+  const shape_name = options.shape_name;
+  if (!shape_name) {
+    throw new Error("add_cell_of_shape requires a shape_name");
+  }
+
   const x = options.x || 100;
   const y = options.y || 100;
   const width = options.width || 120;
@@ -693,23 +756,21 @@ export function add_cell_of_shape(ui: any, options: DrawioCellOptions) {
   const mergedStyle = normalize_shape_style(
     shape_name,
     [shape_entry.style, style]
-    .filter((entry) => typeof entry === "string" && entry.trim().length > 0)
-    .join(";"),
+      .filter((entry) => typeof entry === "string" && entry.trim().length > 0)
+      .join(";"),
   );
 
   graph.getModel().beginUpdate();
   try {
-    const cell = graph.insertVertex(
+    const cell = create_shape_vertex(graph, {
       parent,
-      null,
       text,
       x,
       y,
       width,
       height,
-      mergedStyle,
-      false,
-    );
+      style: mergedStyle,
+    });
     return cell;
   } finally {
     graph.getModel().endUpdate();
@@ -1061,7 +1122,10 @@ export interface ExportResult {
 
 const PNG_SIZE_WARNING_THRESHOLD = 5 * 1024 * 1024;
 
-export function export_diagram(ui: any, options: ExportOptions): ExportResult | Promise<ExportResult> {
+export function export_diagram(
+  ui: any,
+  options: ExportOptions,
+): ExportResult | Promise<ExportResult> {
   const format = options.format || "xml";
   const scale = options.scale ?? 1;
   const border = options.border ?? 0;
@@ -1077,9 +1141,28 @@ export function export_diagram(ui: any, options: ExportOptions): ExportResult | 
     case "xml":
       return export_xml(ui, { selectionOnly, size });
     case "svg":
-      return export_svg(ui, { scale, border, background, includeShadow, cropToDiagram, selectionOnly, embedXml, size });
+      return export_svg(ui, {
+        scale,
+        border,
+        background,
+        includeShadow,
+        cropToDiagram,
+        selectionOnly,
+        embedXml,
+        size,
+      });
     case "png":
-      return export_png(ui, { scale, border, background, includeShadow, cropToDiagram, selectionOnly, embedXml, size, dpi });
+      return export_png(ui, {
+        scale,
+        border,
+        background,
+        includeShadow,
+        cropToDiagram,
+        selectionOnly,
+        embedXml,
+        size,
+        dpi,
+      });
     default:
       throw new Error(`Unsupported export format: ${format}`);
   }
@@ -1129,7 +1212,15 @@ interface SvgExportParams {
 function export_svg(ui: any, params: SvgExportParams): ExportResult {
   const mxUtils = (window as any).mxUtils;
   const Graph = (window as any).Graph;
-  const { scale, border, background, includeShadow, selectionOnly, embedXml, size } = params;
+  const {
+    scale,
+    border,
+    background,
+    includeShadow,
+    selectionOnly,
+    embedXml,
+    size,
+  } = params;
 
   const graph = ui.editor.graph;
   const ignoreSelection = !selectionOnly && size !== "selection";
@@ -1137,7 +1228,14 @@ function export_svg(ui: any, params: SvgExportParams): ExportResult {
 
   if (embedXml) {
     const currentPage = size === "page" || size === "selection";
-    const svgString = ui.getFileData(false, true, null, null, ignoreSelection, currentPage);
+    const svgString = ui.getFileData(
+      false,
+      true,
+      null,
+      null,
+      ignoreSelection,
+      currentPage,
+    );
     const bounds = graph.getGraphBounds();
     const w = Math.ceil(bounds.width * scale + bounds.x * scale + 2 * border);
     const h = Math.ceil(bounds.height * scale + bounds.y * scale + 2 * border);
@@ -1164,8 +1262,12 @@ function export_svg(ui: any, params: SvgExportParams): ExportResult {
     graph.addSvgShadow(svgRoot, null, null, border === 0);
   }
 
-  const svgString = (Graph.xmlDeclaration || '<?xml version="1.0" encoding="UTF-8"?>') +
-    '\n' + (Graph.svgDoctype || '') + '\n' + mxUtils.getXml(svgRoot);
+  const svgString =
+    (Graph.xmlDeclaration || '<?xml version="1.0" encoding="UTF-8"?>') +
+    "\n" +
+    (Graph.svgDoctype || "") +
+    "\n" +
+    mxUtils.getXml(svgRoot);
 
   const w = parseInt(svgRoot.getAttribute("width")) || 0;
   const h = parseInt(svgRoot.getAttribute("height")) || 0;
@@ -1193,14 +1295,31 @@ interface PngExportParams {
 
 function export_png(ui: any, params: PngExportParams): Promise<ExportResult> {
   return new Promise((resolve, reject) => {
-    const { scale, border, background, includeShadow, selectionOnly, embedXml, size, dpi, cropToDiagram } = params;
+    const {
+      scale,
+      border,
+      background,
+      includeShadow,
+      selectionOnly,
+      embedXml,
+      size,
+      dpi,
+      cropToDiagram,
+    } = params;
 
     const imageCache: Record<string, any> = {};
     const ignoreSelection = !selectionOnly && size !== "selection";
 
     let xml: string | null = null;
     if (embedXml) {
-      xml = ui.getFileData(true, null, null, null, ignoreSelection, size === "page" || size === "selection");
+      xml = ui.getFileData(
+        true,
+        null,
+        null,
+        null,
+        ignoreSelection,
+        size === "page" || size === "selection",
+      );
     }
 
     ui.exportToCanvas(
@@ -1270,7 +1389,7 @@ function extractXmlFromSvg(svgContent: string): string | null {
   try {
     const parser = new DOMParser();
     const svgDoc = parser.parseFromString(svgContent, "image/svg+xml");
-    
+
     // Look for metadata with mxfile
     const metadata = svgDoc.querySelector("metadata");
     if (metadata) {
@@ -1280,7 +1399,7 @@ function extractXmlFromSvg(svgContent: string): string | null {
         return serializer.serializeToString(mxfile);
       }
     }
-    
+
     // Look for defs with mxfile
     const defs = svgDoc.querySelector("defs");
     if (defs) {
@@ -1290,14 +1409,14 @@ function extractXmlFromSvg(svgContent: string): string | null {
         return serializer.serializeToString(mxfile);
       }
     }
-    
+
     // Look for any mxfile element
     const mxfile = svgDoc.querySelector("mxfile");
     if (mxfile) {
       const serializer = new XMLSerializer();
       return serializer.serializeToString(mxfile);
     }
-    
+
     return null;
   } catch (error) {
     console.error("[import-diagram] Error extracting XML from SVG:", error);
@@ -1313,10 +1432,10 @@ function extractXmlFromPng(base64Png: string): string | null {
     for (let i = 0; i < binaryString.length; i++) {
       bytes[i] = binaryString.charCodeAt(i);
     }
-    
+
     // PNG signature
     const pngSignature = [137, 80, 78, 71, 13, 10, 26, 10];
-    
+
     // Check PNG signature
     for (let i = 0; i < 8; i++) {
       if (bytes[i] !== pngSignature[i]) {
@@ -1324,24 +1443,29 @@ function extractXmlFromPng(base64Png: string): string | null {
         return null;
       }
     }
-    
+
     let offset = 8;
-    
+
     while (offset < bytes.length) {
       // Read chunk length (4 bytes, big-endian)
-      const length = (bytes[offset] << 24) | (bytes[offset + 1] << 16) | 
-                     (bytes[offset + 2] << 8) | bytes[offset + 3];
-      
+      const length =
+        (bytes[offset] << 24) |
+        (bytes[offset + 1] << 16) |
+        (bytes[offset + 2] << 8) |
+        bytes[offset + 3];
+
       // Read chunk type (4 bytes)
       const chunkType = String.fromCharCode(
-        bytes[offset + 4], bytes[offset + 5], 
-        bytes[offset + 6], bytes[offset + 7]
+        bytes[offset + 4],
+        bytes[offset + 5],
+        bytes[offset + 6],
+        bytes[offset + 7],
       );
-      
+
       // Check for tEXt chunks
       if (chunkType === "tEXt") {
         const chunkData = bytes.slice(offset + 8, offset + 8 + length);
-        
+
         // Find null separator
         let nullIndex = -1;
         for (let i = 0; i < chunkData.length; i++) {
@@ -1350,23 +1474,27 @@ function extractXmlFromPng(base64Png: string): string | null {
             break;
           }
         }
-        
+
         if (nullIndex !== -1) {
           const keyword = String.fromCharCode(...chunkData.slice(0, nullIndex));
           const text = String.fromCharCode(...chunkData.slice(nullIndex + 1));
-          
+
           // Look for mxGraphModel or mxfile
-          if (keyword === "mxGraphModel" || keyword === "mxfile" || 
-              text.includes("<mxfile") || text.includes("<mxGraphModel")) {
+          if (
+            keyword === "mxGraphModel" ||
+            keyword === "mxfile" ||
+            text.includes("<mxfile") ||
+            text.includes("<mxGraphModel")
+          ) {
             return text;
           }
         }
       }
-      
+
       // Check for zTXt chunks (compressed)
       if (chunkType === "zTXt") {
         const chunkData = bytes.slice(offset + 8, offset + 8 + length);
-        
+
         // Find null separator
         let nullIndex = -1;
         for (let i = 0; i < chunkData.length; i++) {
@@ -1375,29 +1503,31 @@ function extractXmlFromPng(base64Png: string): string | null {
             break;
           }
         }
-        
+
         if (nullIndex !== -1) {
           const keyword = String.fromCharCode(...chunkData.slice(0, nullIndex));
           const compressionMethod = chunkData[nullIndex + 1];
-          
+
           // Only handle compression method 0 (deflate)
           if (compressionMethod === 0) {
             const compressedData = chunkData.slice(nullIndex + 2);
-            
+
             // Try to decompress using DecompressionStream (modern browsers)
             if (typeof DecompressionStream !== "undefined") {
               // Note: This would need async handling, but we're in a sync context
               // For now, skip zTXt chunks
-              console.warn("[import-diagram] zTXt chunk found but decompression not implemented in sync context");
+              console.warn(
+                "[import-diagram] zTXt chunk found but decompression not implemented in sync context",
+              );
             }
           }
         }
       }
-      
+
       // Move to next chunk (length + type + data + CRC)
       offset += 12 + length;
     }
-    
+
     return null;
   } catch (error) {
     console.error("[import-diagram] Error extracting XML from PNG:", error);
@@ -1405,15 +1535,23 @@ function extractXmlFromPng(base64Png: string): string | null {
   }
 }
 
-export function import_diagram(ui: any, options: Record<string, unknown>): ImportResult {
-  const { data, format, mode = "replace", filename } = options as unknown as ImportOptions;
-  
+export function import_diagram(
+  ui: any,
+  options: Record<string, unknown>,
+): ImportResult {
+  const {
+    data,
+    format,
+    mode = "replace",
+    filename,
+  } = options as unknown as ImportOptions;
+
   if (!data) {
     return { success: false, message: "No data provided" };
   }
-  
+
   let xml: string | null = null;
-  
+
   // Extract XML based on format
   switch (format) {
     case "xml":
@@ -1444,42 +1582,42 @@ export function import_diagram(ui: any, options: Record<string, unknown>): Impor
     default:
       return { success: false, message: `Unsupported format: ${format}` };
   }
-  
+
   if (!xml) {
     return { success: false, message: "Failed to extract XML from input" };
   }
-  
+
   // Validate XML structure
   const mxUtils = (window as any).mxUtils;
   if (!mxUtils) {
     return { success: false, message: "mxUtils not available" };
   }
-  
+
   try {
     // Parse XML to validate it
     const doc = mxUtils.parseXml(xml);
     if (!doc || !doc.documentElement) {
       return { success: false, message: "Invalid XML structure" };
     }
-    
+
     // Check if it's a valid Draw.io XML
     const root = doc.documentElement;
     if (root.nodeName !== "mxfile" && root.nodeName !== "mxGraphModel") {
-      return { 
-        success: false, 
-        message: `Invalid Draw.io XML: expected mxfile or mxGraphModel, got ${root.nodeName}` 
+      return {
+        success: false,
+        message: `Invalid Draw.io XML: expected mxfile or mxGraphModel, got ${root.nodeName}`,
       };
     }
-    
+
     const { editor } = ui;
     const { graph } = editor;
     const model = graph.getModel();
-    
+
     // Count cells in imported XML
     let cellCount = 0;
     const cells = doc.getElementsByTagName("mxCell");
     cellCount = cells.length;
-    
+
     // Handle different import modes
     switch (mode) {
       case "replace":
@@ -1494,7 +1632,7 @@ export function import_diagram(ui: any, options: Record<string, unknown>): Impor
             }
           }
         }
-        
+
         // Clear current diagram first, then load new one
         // Use editor.setGraphXml which handles the reset internally
         if (editor.setGraphXml) {
@@ -1506,16 +1644,18 @@ export function import_diagram(ui: any, options: Record<string, unknown>): Impor
           // Fallback: reset model and use mxCodec to decode
           model.clear();
           model.setRoot(new (window as any).mxCell());
-          const codec = new (window as any).mxCodec(graphModelElement.ownerDocument);
+          const codec = new (window as any).mxCodec(
+            graphModelElement.ownerDocument,
+          );
           codec.decode(graphModelElement, model);
         }
-        
+
         return {
           success: true,
           message: `Diagram replaced successfully${filename ? ` from ${filename}` : ""}`,
           cells: cellCount,
         };
-        
+
       case "add":
         // Merge imported cells into current diagram
         model.beginUpdate();
@@ -1523,7 +1663,7 @@ export function import_diagram(ui: any, options: Record<string, unknown>): Impor
           // Parse the imported XML
           const importedDoc = mxUtils.parseXml(xml);
           const importedRoot = importedDoc.documentElement;
-          
+
           // Get the root element (mxfile or mxGraphModel)
           let graphModel = importedRoot;
           if (importedRoot.nodeName === "mxfile") {
@@ -1533,29 +1673,29 @@ export function import_diagram(ui: any, options: Record<string, unknown>): Impor
               graphModel = diagram.querySelector("mxGraphModel") || diagram;
             }
           }
-          
+
           // Get the root cell from imported model
           const importedRootCell = graphModel.querySelector("root");
           if (importedRootCell) {
             // Get current default parent
             const defaultParent = graph.getDefaultParent();
-            
+
             // Import cells (skip root cells with id 0 and 1)
             const importedCells = importedRootCell.querySelectorAll("mxCell");
             const idMapping: Record<string, string> = {};
-            
+
             importedCells.forEach((cell: any) => {
               const oldId = cell.getAttribute("id");
-              
+
               // Skip root cells
               if (oldId === "0" || oldId === "1") {
                 return;
               }
-              
+
               // Create new cell
               const newCell = new (window as any).mxCell();
               newCell.setId(null); // Generate new ID
-              
+
               // Copy attributes
               if (cell.hasAttribute("value")) {
                 newCell.setValue(cell.getAttribute("value"));
@@ -1569,7 +1709,7 @@ export function import_diagram(ui: any, options: Record<string, unknown>): Impor
               if (cell.hasAttribute("edge")) {
                 newCell.edge = cell.getAttribute("edge") === "1";
               }
-              
+
               // Copy geometry
               const geo = cell.querySelector("mxGeometry");
               if (geo) {
@@ -1577,29 +1717,29 @@ export function import_diagram(ui: any, options: Record<string, unknown>): Impor
                   parseFloat(geo.getAttribute("x") || "0"),
                   parseFloat(geo.getAttribute("y") || "0"),
                   parseFloat(geo.getAttribute("width") || "0"),
-                  parseFloat(geo.getAttribute("height") || "0")
+                  parseFloat(geo.getAttribute("height") || "0"),
                 );
                 if (geo.getAttribute("relative") === "1") {
                   geometry.relative = true;
                 }
                 newCell.setGeometry(geometry);
               }
-              
+
               // Add to model
               model.add(defaultParent, newCell);
               idMapping[oldId] = newCell.getId();
             });
-            
+
             // Update references (source, target, parent)
             importedCells.forEach((cell: any) => {
               const oldId = cell.getAttribute("id");
               const newId = idMapping[oldId];
-              
+
               if (!newId) return;
-              
+
               const newCell = model.getCell(newId);
               if (!newCell) return;
-              
+
               // Update parent
               const parentId = cell.getAttribute("parent");
               if (parentId && idMapping[parentId]) {
@@ -1608,19 +1748,19 @@ export function import_diagram(ui: any, options: Record<string, unknown>): Impor
                   model.add(parentCell, newCell);
                 }
               }
-              
+
               // Update source and target for edges
               if (newCell.edge) {
                 const sourceId = cell.getAttribute("source");
                 const targetId = cell.getAttribute("target");
-                
+
                 if (sourceId && idMapping[sourceId]) {
                   const sourceCell = model.getCell(idMapping[sourceId]);
                   if (sourceCell) {
                     model.setTerminal(newCell, sourceCell, true);
                   }
                 }
-                
+
                 if (targetId && idMapping[targetId]) {
                   const targetCell = model.getCell(idMapping[targetId]);
                   if (targetCell) {
@@ -1633,31 +1773,31 @@ export function import_diagram(ui: any, options: Record<string, unknown>): Impor
         } finally {
           model.endUpdate();
         }
-        
+
         return {
           success: true,
           message: `Diagram imported successfully (added to current diagram)${filename ? ` from ${filename}` : ""}`,
           cells: cellCount,
         };
-        
+
       case "new-page":
         // Create a new page with the imported diagram
         if (!ui.pages || !ui.insertPage) {
-          return { 
-            success: false, 
-            message: "New page creation not supported in this Draw.io version" 
+          return {
+            success: false,
+            message: "New page creation not supported in this Draw.io version",
           };
         }
-        
+
         // Create new page
         const newPage = ui.insertPage();
         if (!newPage) {
           return { success: false, message: "Failed to create new page" };
         }
-        
+
         // Switch to new page
         ui.selectPage(newPage);
-        
+
         // Load diagram into new page
         model.beginUpdate();
         try {
@@ -1672,7 +1812,7 @@ export function import_diagram(ui: any, options: Record<string, unknown>): Impor
               }
             }
           }
-          
+
           if (editor.setGraphXml) {
             editor.setGraphXml(pageGraphModel);
             // Refresh the graph view
@@ -1680,34 +1820,36 @@ export function import_diagram(ui: any, options: Record<string, unknown>): Impor
             graph.fit();
           } else {
             // Fallback: use mxCodec to decode into model
-            const codec = new (window as any).mxCodec(pageGraphModel.ownerDocument);
+            const codec = new (window as any).mxCodec(
+              pageGraphModel.ownerDocument,
+            );
             codec.decode(pageGraphModel, model);
           }
         } finally {
           model.endUpdate();
         }
-        
+
         // Set page name if filename provided
         if (filename && newPage.setName) {
           const pageName = filename.replace(/\.[^/.]+$/, ""); // Remove extension
           newPage.setName(pageName);
         }
-        
+
         return {
           success: true,
           message: `Diagram imported successfully (new page created)${filename ? `: ${filename}` : ""}`,
           pages: ui.pages.length,
           cells: cellCount,
         };
-        
+
       default:
         return { success: false, message: `Unsupported import mode: ${mode}` };
     }
   } catch (error) {
     console.error("[import-diagram] Error importing diagram:", error);
-    return { 
-      success: false, 
-      message: `Import failed: ${error instanceof Error ? error.message : "Unknown error"}` 
+    return {
+      success: false,
+      message: `Import failed: ${error instanceof Error ? error.message : "Unknown error"}`,
     };
   }
 }

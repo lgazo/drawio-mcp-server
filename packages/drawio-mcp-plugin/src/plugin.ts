@@ -160,7 +160,16 @@ const toolDefinitions = [
   },
   {
     name: "add-cell-of-shape",
-    params: new Set(["x", "y", "width", "height", "text", "style", "parent_id"]),
+    params: new Set([
+      "shape_name",
+      "x",
+      "y",
+      "width",
+      "height",
+      "text",
+      "style",
+      "parent_id",
+    ]),
     handler: add_cell_of_shape,
   },
   {
