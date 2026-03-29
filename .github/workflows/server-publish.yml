@@ -37,5 +37,4 @@ jobs:
         run: pnpm --filter drawio-mcp-server run build
 
       - name: Publish
-        run: npm publish --provenance --access public
-        working-directory: packages/drawio-mcp-server
+        run: npm publish --workspace=drawio-mcp-server --provenance --access public
