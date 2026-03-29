@@ -5,7 +5,7 @@
   "type": "module",
   "main": "build/index.js",
   "bin": {
-    "drawio-mcp-server": "./build/index.js"
+    "drawio-mcp-server": "build/index.js"
   },
   "scripts": {
     "build": "rimraf build && tsc && mkdir -p build/plugin && cp node_modules/drawio-mcp-plugin/dist/mcp-plugin.js build/plugin/mcp-plugin.js",
@@ -46,7 +46,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/lgazo/drawio-mcp-server"
+    "url": "git+https://github.com/lgazo/drawio-mcp-server.git"
   },
   "packageManager": "pnpm@10.8.1",
   "dependencies": {
