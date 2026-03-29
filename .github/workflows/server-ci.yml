@@ -51,15 +51,15 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
         working-directory: packages/drawio-mcp-server
 
+      - name: Build plugin
+        run: pnpm --filter drawio-mcp-plugin run build
+
       - name: Build server for asset prefetch
         run: pnpm --filter drawio-mcp-server run build
 
       - name: Prefetch draw.io assets
         run: pnpm run prefetch-assets
         working-directory: packages/drawio-mcp-server
-
-      - name: Build plugin
-        run: pnpm --filter drawio-mcp-plugin run build
 
       - name: Check types
         run: pnpm --filter drawio-mcp-server run lint
