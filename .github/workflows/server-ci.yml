@@ -35,6 +35,26 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Cache draw.io assets
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/drawio-mcp-server
+          key: drawio-assets-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install Playwright browser
+        run: pnpm exec playwright install --with-deps chromium
+        working-directory: packages/drawio-mcp-server
+
+      - name: Prefetch draw.io assets
+        run: pnpm run prefetch-assets
+        working-directory: packages/drawio-mcp-server
+
       - name: Build plugin
         run: pnpm --filter drawio-mcp-plugin run build
 
@@ -49,40 +69,4 @@ jobs:
 
       - name: Run tests
         run: pnpm test
-        working-directory: packages/drawio-mcp-server
-
-  real-environment-test:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: [23.x]
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: "pnpm"
-          cache-dependency-path: pnpm-lock.yaml
-
-      - name: Install dependencies
-        run: pnpm install
-
-      - name: Install Playwright browser
-        run: pnpm exec playwright install --with-deps chromium
-        working-directory: packages/drawio-mcp-server
-
-      - name: Build plugin
-        run: pnpm --filter drawio-mcp-plugin run build
-
-      - name: Build server
-        run: pnpm --filter drawio-mcp-server run build
-
-      - name: Run real environment tests
-        run: pnpm run test:real-environment
         working-directory: packages/drawio-mcp-server

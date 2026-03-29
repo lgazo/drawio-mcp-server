@@ -14,6 +14,7 @@
     "inspect": "HOST=0.0.0.0 pnpx @modelcontextprotocol/inspector --config ./inspector.json --server drawio",
     "prepublishOnly": "pnpm run build",
     "lint": "tsc --noEmit",
+    "prefetch-assets": "node build/prefetch-assets.js",
     "format": "prettier --write \"**/*.ts\"",
     "format:check": "prettier --check \"**/*.ts\"",
     "test:real-environment": "NODE_OPTIONS=--experimental-vm-modules jest build/real-environment --runInBand",
