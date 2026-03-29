@@ -59,7 +59,9 @@ describe("real environment/layers and selection", () => {
     );
     const layers = unwrapToolPayload<any[]>(layersPayload);
     expect(Array.isArray(layers)).toBe(true);
-    expect(layers.some((layer) => layer.id === createdLayer.result.id)).toBe(true);
+    expect(layers.some((layer) => layer.id === createdLayer.result.id)).toBe(
+      true,
+    );
 
     await callToolJson(context, "set-active-layer", {
       layer_id: createdLayer.result.id,
@@ -105,14 +107,19 @@ describe("real environment/layers and selection", () => {
       : Array.isArray(pagedModel)
         ? pagedModel
         : [];
-    expect(pagedCells.some((cell: any) => cell.id === rectangle.result.id)).toBe(true);
+    expect(
+      pagedCells.some((cell: any) => cell.id === rectangle.result.id),
+    ).toBe(true);
 
     await withVerificationScreenshot(
       context,
       "layers-and-selection",
       "before-live-state-verification",
       async () => {
-        const rectangleCell = await getCellById(context.page, rectangle.result.id);
+        const rectangleCell = await getCellById(
+          context.page,
+          rectangle.result.id,
+        );
         expect(rectangleCell).not.toBeNull();
         expect(rectangleCell?.parentId).toBe(createdLayer.result.id);
       },

@@ -33,31 +33,33 @@ describe("real environment/set-cell-parent", () => {
       success: boolean;
       result: { id: string };
     }>(context, "add-cell-of-shape", {
-        shape_name: "rectangle",
-        text: "Parent",
-        x: 320,
-        y: 160,
-        width: 220,
-        height: 140,
-      });
+      shape_name: "rectangle",
+      text: "Parent",
+      x: 320,
+      y: 160,
+      width: 220,
+      height: 140,
+    });
 
     const { payload: childPayload } = await callToolJson<{
       success: boolean;
       result: { id: string };
     }>(context, "add-cell-of-shape", {
-        shape_name: "rectangle",
-        text: "Child",
-        x: 120,
-        y: 80,
-        width: 100,
-        height: 60,
-      });
+      shape_name: "rectangle",
+      text: "Child",
+      x: 120,
+      y: 80,
+      width: 100,
+      height: 60,
+    });
 
     expect(parentPayload.success).toBe(true);
     expect(childPayload.success).toBe(true);
 
     const beforeCells = await getCells(context.page);
-    const childBefore = beforeCells.find((cell) => cell.id === childPayload.result.id);
+    const childBefore = beforeCells.find(
+      (cell) => cell.id === childPayload.result.id,
+    );
     expect(childBefore).toBeDefined();
     expect(childBefore?.parentId).not.toBe(parentPayload.result.id);
 
@@ -65,9 +67,9 @@ describe("real environment/set-cell-parent", () => {
       success: boolean;
       result: { cell_id: string; parent_id: string };
     }>(context, "set-cell-parent", {
-        cell_id: childPayload.result.id,
-        parent_id: parentPayload.result.id,
-      });
+      cell_id: childPayload.result.id,
+      parent_id: parentPayload.result.id,
+    });
 
     expect(payload.success).toBe(true);
     expect(payload.result.cell_id).toBe(childPayload.result.id);
@@ -92,7 +94,9 @@ describe("real environment/set-cell-parent", () => {
       "before-live-state-verification",
       async () => {
         const afterCells = await getCells(context.page);
-        const childAfter = afterCells.find((cell) => cell.id === childPayload.result.id);
+        const childAfter = afterCells.find(
+          (cell) => cell.id === childPayload.result.id,
+        );
         expect(childAfter).toBeDefined();
         expect(childAfter?.parentId).toBe(parentPayload.result.id);
       },

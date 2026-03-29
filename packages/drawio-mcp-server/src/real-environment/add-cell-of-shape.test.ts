@@ -37,27 +37,24 @@ describe("real environment/add-cell-of-shape", () => {
         id: string;
       };
     }>(context, "add-cell-of-shape", {
-        shape_name: "rectangle",
-        text: "MCP rectangle",
-        x: 180,
-        y: 140,
-        width: 160,
-        height: 90,
-        style: "fillColor=#dae8fc;strokeColor=#6c8ebf;",
-      });
+      shape_name: "rectangle",
+      text: "MCP rectangle",
+      x: 180,
+      y: 140,
+      width: 160,
+      height: 90,
+      style: "fillColor=#dae8fc;strokeColor=#6c8ebf;",
+    });
 
     expect(payload.success).toBe(true);
     expect(payload.result.id).toBeTruthy();
 
-    await context.page.waitForFunction(
-      (id: string) => {
-        const ui = (window as any).ui;
-        const graph = ui?.editor?.graph;
-        const cell = graph?.getModel?.().getCell?.(id);
-        return Boolean(cell);
-      },
-      payload.result.id,
-    );
+    await context.page.waitForFunction((id: string) => {
+      const ui = (window as any).ui;
+      const graph = ui?.editor?.graph;
+      const cell = graph?.getModel?.().getCell?.(id);
+      return Boolean(cell);
+    }, payload.result.id);
 
     await withVerificationScreenshot(
       context,
@@ -67,7 +64,9 @@ describe("real environment/add-cell-of-shape", () => {
         const afterCells = await getCells(context.page);
         expect(afterCells).toHaveLength(beforeCells.length + 1);
 
-        const insertedCell = afterCells.find((cell) => cell.id === payload.result.id);
+        const insertedCell = afterCells.find(
+          (cell) => cell.id === payload.result.id,
+        );
         expect(insertedCell).toBeDefined();
         expect(insertedCell?.value).toBe("MCP rectangle");
         expect(insertedCell?.x).toBe(180);

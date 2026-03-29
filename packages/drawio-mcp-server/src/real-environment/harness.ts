@@ -1,4 +1,9 @@
-import { chromium, type Browser, type ConsoleMessage, type Page } from "@playwright/test";
+import {
+  chromium,
+  type Browser,
+  type ConsoleMessage,
+  type Page,
+} from "@playwright/test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 
@@ -35,8 +40,12 @@ export async function createRealEnvironmentContext(): Promise<RealEnvironmentCon
   );
   const httpPort = startedHttp.port;
 
-  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-  const client = new Client({ name: "real-environment-test", version: "1.0.0" });
+  const [clientTransport, serverTransport] =
+    InMemoryTransport.createLinkedPair();
+  const client = new Client({
+    name: "real-environment-test",
+    version: "1.0.0",
+  });
 
   await Promise.all([
     app.server.connect(serverTransport),
@@ -59,11 +68,16 @@ export async function createRealEnvironmentContext(): Promise<RealEnvironmentCon
     };
 
     (window as any).__DRAWIO_MCP_TEST_HOOKS__ = true;
-    window.localStorage.setItem("drawio-mcp-plugin-config", JSON.stringify(store));
+    window.localStorage.setItem(
+      "drawio-mcp-plugin-config",
+      JSON.stringify(store),
+    );
     window.localStorage.setItem("drawio-mcp-config", JSON.stringify(store));
   }, wsPort);
 
-  await page.goto(`http://localhost:${httpPort}/`, { waitUntil: "domcontentloaded" });
+  await page.goto(`http://localhost:${httpPort}/`, {
+    waitUntil: "domcontentloaded",
+  });
   await waitForPluginReady(page);
 
   return {
@@ -118,8 +132,12 @@ export async function getCells(page: Page): Promise<CellSnapshot[]> {
         style: String(cell.style ?? ""),
         x: typeof cell.geometry?.x === "number" ? cell.geometry.x : null,
         y: typeof cell.geometry?.y === "number" ? cell.geometry.y : null,
-        width: typeof cell.geometry?.width === "number" ? cell.geometry.width : null,
-        height: typeof cell.geometry?.height === "number" ? cell.geometry.height : null,
+        width:
+          typeof cell.geometry?.width === "number" ? cell.geometry.width : null,
+        height:
+          typeof cell.geometry?.height === "number"
+            ? cell.geometry.height
+            : null,
         parentId: cell.parent?.id ? String(cell.parent.id) : null,
       }))
       .sort((a, b) => a.id.localeCompare(b.id));
@@ -142,8 +160,10 @@ export async function getCellById(page: Page, cellId: string) {
       style: String(cell.style ?? ""),
       x: typeof cell.geometry?.x === "number" ? cell.geometry.x : null,
       y: typeof cell.geometry?.y === "number" ? cell.geometry.y : null,
-      width: typeof cell.geometry?.width === "number" ? cell.geometry.width : null,
-      height: typeof cell.geometry?.height === "number" ? cell.geometry.height : null,
+      width:
+        typeof cell.geometry?.width === "number" ? cell.geometry.width : null,
+      height:
+        typeof cell.geometry?.height === "number" ? cell.geometry.height : null,
       parentId: cell.parent?.id ? String(cell.parent.id) : null,
       edge: Boolean(cell.edge),
       vertex: Boolean(cell.vertex),

@@ -89,7 +89,10 @@ describe("real environment/shapes", () => {
       "shapes",
       "before-live-state-verification",
       async () => {
-        const rectangleCell = await getCellById(context.page, rectangle.result.id);
+        const rectangleCell = await getCellById(
+          context.page,
+          rectangle.result.id,
+        );
         expect(rectangleCell).not.toBeNull();
         expect(rectangleCell?.style.length).toBeGreaterThan(0);
         expect(rectangleCell?.attributes.status).toBe("verified");
@@ -116,8 +119,12 @@ describe("real environment/shapes", () => {
     );
     const shapeByName = unwrapToolPayload<any>(shapeByNamePayload);
     expect(shapeByName).toBeDefined();
-    expect(String(shapeByName?.style ?? "")).toContain("shape=mxgraph.aws4.resourceIcon");
-    expect(String(shapeByName?.style ?? "")).toContain("resIcon=mxgraph.aws4.lambda");
+    expect(String(shapeByName?.style ?? "")).toContain(
+      "shape=mxgraph.aws4.resourceIcon",
+    );
+    expect(String(shapeByName?.style ?? "")).toContain(
+      "resIcon=mxgraph.aws4.lambda",
+    );
     expect(String(shapeByName?.style ?? "")).toContain("fillColor=#ED7100");
 
     const { payload } = await callToolJson<{
@@ -157,24 +164,32 @@ describe("real environment/shapes", () => {
 
         const lambdaCell = await getCellById(context.page, payload.result.id);
         expect(lambdaCell).not.toBeNull();
-        expect(String(liveCellState.cellStyle ?? "")).toContain("mxgraph.aws4.lambda");
+        expect(String(liveCellState.cellStyle ?? "")).toContain(
+          "mxgraph.aws4.lambda",
+        );
         expect(exportedXml).toContain(`id="${payload.result.id}"`);
         expect(exportedXml).toContain("mxgraph.aws4.lambda");
 
-        const exportedLambda = await callToolJson<any>(context, "list-paged-model", {
-          page: 0,
-          page_size: 20,
-          filter: {
-            ids: [payload.result.id],
+        const exportedLambda = await callToolJson<any>(
+          context,
+          "list-paged-model",
+          {
+            page: 0,
+            page_size: 20,
+            filter: {
+              ids: [payload.result.id],
+            },
           },
-        });
+        );
         const lambdaEntry = unwrapToolPayload<any>(exportedLambda.payload);
         const lambdaCells = Array.isArray(lambdaEntry?.cells)
           ? lambdaEntry.cells
           : Array.isArray(lambdaEntry)
             ? lambdaEntry
             : [];
-        const lambdaCellFromTool = lambdaCells.find((cell: any) => cell.id === payload.result.id);
+        const lambdaCellFromTool = lambdaCells.find(
+          (cell: any) => cell.id === payload.result.id,
+        );
 
         expect(lambdaCellFromTool).toBeDefined();
         expect(exportedXml).toContain("mxgraph.aws4.lambda");

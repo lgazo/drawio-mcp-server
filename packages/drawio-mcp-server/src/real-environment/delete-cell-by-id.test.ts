@@ -33,25 +33,27 @@ describe("real environment/delete-cell-by-id", () => {
       success: boolean;
       result: { id: string };
     }>(context, "add-cell-of-shape", {
-        shape_name: "rectangle",
-        text: "Delete me",
-        x: 260,
-        y: 160,
-        width: 120,
-        height: 70,
-      });
+      shape_name: "rectangle",
+      text: "Delete me",
+      x: 260,
+      y: 160,
+      width: 120,
+      height: 70,
+    });
 
     expect(createdPayload.success).toBe(true);
 
     const beforeDelete = await getCells(context.page);
-    expect(beforeDelete.some((cell) => cell.id === createdPayload.result.id)).toBe(true);
+    expect(
+      beforeDelete.some((cell) => cell.id === createdPayload.result.id),
+    ).toBe(true);
 
     const { payload } = await callToolJson<{
       success: boolean;
       result: unknown;
     }>(context, "delete-cell-by-id", {
-        cell_id: createdPayload.result.id,
-      });
+      cell_id: createdPayload.result.id,
+    });
     expect(payload.success).toBe(true);
 
     await context.page.waitForFunction((id: string) => {
@@ -66,7 +68,9 @@ describe("real environment/delete-cell-by-id", () => {
       "before-live-state-verification",
       async () => {
         const afterDelete = await getCells(context.page);
-        expect(afterDelete.some((cell) => cell.id === createdPayload.result.id)).toBe(false);
+        expect(
+          afterDelete.some((cell) => cell.id === createdPayload.result.id),
+        ).toBe(false);
         expect(afterDelete).toHaveLength(beforeDelete.length - 1);
       },
     );

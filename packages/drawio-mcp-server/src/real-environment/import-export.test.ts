@@ -56,7 +56,9 @@ describe("real environment/import export", () => {
     expect(existsSync(xmlExportPath)).toBe(true);
     expect(readFileSync(xmlExportPath, "utf-8")).toContain("mxGraphModel");
 
-    const xmlTextContent = (xmlExport.content as Array<{ type: string; text?: string }>).find(
+    const xmlTextContent = (
+      xmlExport.content as Array<{ type: string; text?: string }>
+    ).find(
       (item) => item.type === "text" && item.text?.includes("mxGraphModel"),
     );
     expect(xmlTextContent).toBeDefined();
@@ -64,12 +66,16 @@ describe("real environment/import export", () => {
     const importXml =
       '<mxGraphModel dx="0" dy="0" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0"><root><mxCell id="0"/><mxCell id="1" parent="0"/><mxCell id="imported-1" value="Imported cell" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1"><mxGeometry x="80" y="220" width="160" height="80" as="geometry"/></mxCell></root></mxGraphModel>';
 
-    const { payload: importResult } = await callToolJson<any>(context, "import-diagram", {
-      data: importXml,
-      format: "xml",
-      mode: "replace",
-      filename: "imported.drawio",
-    });
+    const { payload: importResult } = await callToolJson<any>(
+      context,
+      "import-diagram",
+      {
+        data: importXml,
+        format: "xml",
+        mode: "replace",
+        filename: "imported.drawio",
+      },
+    );
     expect(importResult?.success).toBe(true);
 
     await context.page.waitForFunction(() => {
@@ -85,7 +91,10 @@ describe("real environment/import export", () => {
       "import-export",
       "before-live-state-verification",
       async () => {
-        const rectangleCell = await getCellById(context.page, rectangle.result.id);
+        const rectangleCell = await getCellById(
+          context.page,
+          rectangle.result.id,
+        );
         expect(rectangleCell).toBeNull();
 
         const importedCell = await context.page.evaluate(() => {
@@ -93,7 +102,9 @@ describe("real environment/import export", () => {
           const graph = maybeWindow.ui?.editor?.graph;
           const model = graph?.getModel?.();
           const cells = Object.values(model?.cells ?? {}) as any[];
-          const cell = cells.find((candidate) => candidate?.value === "Imported cell");
+          const cell = cells.find(
+            (candidate) => candidate?.value === "Imported cell",
+          );
           if (!cell) {
             return null;
           }
@@ -101,7 +112,10 @@ describe("real environment/import export", () => {
           return {
             value: cell.value,
             style: String(cell.style ?? ""),
-            width: typeof cell.geometry?.width === "number" ? cell.geometry.width : null,
+            width:
+              typeof cell.geometry?.width === "number"
+                ? cell.geometry.width
+                : null,
           };
         });
 

@@ -58,7 +58,13 @@ describe("real environment/add-edge", () => {
 
     const { payload } = await callToolJson<{
       success: boolean;
-      result: { id: string; source?: { id?: string }; target?: { id?: string }; value?: string; style?: string };
+      result: {
+        id: string;
+        source?: { id?: string };
+        target?: { id?: string };
+        value?: string;
+        style?: string;
+      };
     }>(context, "add-edge", {
       source_id: source.result.id,
       target_id: target.result.id,
@@ -70,7 +76,15 @@ describe("real environment/add-edge", () => {
     expect(payload.result.id).toBeTruthy();
 
     await context.page.waitForFunction(
-      ({ edgeId, sourceId, targetId }: { edgeId: string; sourceId: string; targetId: string }) => {
+      ({
+        edgeId,
+        sourceId,
+        targetId,
+      }: {
+        edgeId: string;
+        sourceId: string;
+        targetId: string;
+      }) => {
         const ui = (window as any).ui;
         const graph = ui?.editor?.graph;
         const edge = graph?.getModel?.().getCell?.(edgeId);

@@ -148,9 +148,7 @@ function setupCors(app: Hono) {
 }
 
 function registerHealthRoute(app: Hono) {
-  app.get("/health", (c) =>
-    c.json({ status: "ok" }),
-  );
+  app.get("/health", (c) => c.json({ status: "ok" }));
 }
 
 function registerConfigRoute(app: Hono, config: ServerConfig) {
@@ -254,9 +252,7 @@ function registerEditorRoutes(app: Hono, config: ServerConfig, log: AppLogger) {
   log.debug(`Draw.io editor enabled at: http://localhost:${config.httpPort}/`);
 }
 
-function registerMcpRoute(
-  app: Hono,
-): WebStandardStreamableHTTPServerTransport {
+function registerMcpRoute(app: Hono): WebStandardStreamableHTTPServerTransport {
   const transport = new WebStandardStreamableHTTPServerTransport();
   app.all("/mcp", (c) => transport.handleRequest(c.req.raw));
   return transport;
@@ -486,7 +482,13 @@ export function createDrawioMcpApp(overrides?: {
     startWebSocketServer,
     startStdioTransport: () => start_stdio_transport(server, log),
     startHttpServer: async (httpPort, config, features) => {
-      const started = await startHttpServer(server, log, httpPort, config, features);
+      const started = await startHttpServer(
+        server,
+        log,
+        httpPort,
+        config,
+        features,
+      );
       httpServer = started.server;
       return started;
     },
