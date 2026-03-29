@@ -71,7 +71,8 @@ jobs:
         run: pnpm install
 
       - name: Install Playwright browser
-        run: pnpm exec playwright install chromium
+        run: pnpm exec playwright install --with-deps chromium
+        working-directory: packages/drawio-mcp-server
 
       - name: Build plugin
         run: pnpm --filter drawio-mcp-plugin run build
