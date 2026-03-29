@@ -5,10 +5,13 @@ on:
     branches: [main]
     paths:
       - 'packages/drawio-mcp-server/**'
+      - '.github/workflows/server-ci.yml'
   pull_request:
     branches: [main]
     paths:
       - 'packages/drawio-mcp-server/**'
+      - '.github/workflows/server-ci.yml'
+  workflow_dispatch:
 
 jobs:
   test:
