@@ -10,7 +10,13 @@ import EventEmitter from "node:events";
 import { createServer } from "node:net";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { readFileSync, existsSync, statSync, readdirSync, realpathSync } from "node:fs";
+import {
+  readFileSync,
+  existsSync,
+  statSync,
+  readdirSync,
+  realpathSync,
+} from "node:fs";
 import { AddressInfo } from "node:net";
 
 import { WebSocket, WebSocketServer } from "ws";
@@ -536,7 +542,8 @@ async function main() {
 }
 
 const isMainModule = process.argv[1]
-  ? realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1])
+  ? realpathSync(fileURLToPath(import.meta.url)) ===
+    realpathSync(process.argv[1])
   : false;
 
 if (isMainModule) {
