@@ -2,6 +2,22 @@
 
 ## Release preparation
 
+### Update the MCP version
+
+In `/packages/drawio-mcp-server/src/index.ts`.
+
+`const VERSION`.
+
+### Update Key Highlights
+
+In `/README.md`.
+
+Maintain 2 versions of highlight chips - version to be released and one before.
+
+### Overwrite server's README
+
+Overwrite server's README with the one in root of the project. That is displayed in the npm registry.
+
 ### Check the final package works
 
 1. Create tarball (what npm would publish)
@@ -18,3 +34,7 @@ npm install /path/to/drawio-mcp-server-2.0.2.tgz
 ```
 npx drawio-mcp-server --editor
 ```
+
+### Unpack built Extension
+
+Unpack, import and test it loads.
