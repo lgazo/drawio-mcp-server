@@ -69,9 +69,6 @@ importers:
       cachedir:
         specifier: ^2.4.0
         version: 2.4.0
-      drawio-mcp-plugin:
-        specifier: workspace:*
-        version: link:../drawio-mcp-plugin
       hono:
         specifier: 4.11.1
         version: 4.11.1
@@ -106,6 +103,9 @@ importers:
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.1
+      drawio-mcp-plugin:
+        specifier: workspace:*
+        version: link:../drawio-mcp-plugin
       esbuild:
         specifier: ^0.24.0
         version: 0.24.2
