@@ -263,33 +263,46 @@ function registerEditorRoutes(app: Hono, config: ServerConfig, log: AppLogger) {
   log.debug(`Draw.io editor enabled at: http://localhost:${config.httpPort}/`);
 }
 
-function registerMcpRoute(app: Hono): WebStandardStreamableHTTPServerTransport {
-  const transport = new WebStandardStreamableHTTPServerTransport();
-  app.all("/mcp", (c) => transport.handleRequest(c.req.raw));
-  return transport;
+function registerMcpRoute(
+  app: Hono,
+  createServer: () => McpServer,
+  disposeMcpServer: (server: McpServer) => void,
+): void {
+  app.all("/mcp", async (c) => {
+    const transport = new WebStandardStreamableHTTPServerTransport();
+    const server = createServer();
+    await server.connect(transport);
+    // Remove the server from the tracking set immediately so it does not
+    // prevent garbage collection.  We intentionally do *not* call
+    // server.close() here because the response may be a long-lived SSE
+    // stream (e.g. for GET requests).  The transport / server will be
+    // collected once the response is fully consumed.
+    disposeMcpServer(server);
+    return transport.handleRequest(c.req.raw);
+  });
 }
 
 function createHttpApp(
   log: AppLogger,
   config: ServerConfig,
   features: HttpFeatureConfig,
-): {
-  app: Hono;
-  mcpTransport: WebStandardStreamableHTTPServerTransport | undefined;
-} {
+  createServer: () => McpServer,
+  disposeMcpServer: (server: McpServer) => void,
+): { app: Hono } {
   const app = new Hono();
   setupCors(app);
 
   if (features.enableHealth) registerHealthRoute(app);
   if (features.enableConfig) registerConfigRoute(app, config);
-  const mcpTransport = features.enableMcp ? registerMcpRoute(app) : undefined;
+  if (features.enableMcp) registerMcpRoute(app, createServer, disposeMcpServer);
   if (features.enableEditor) registerEditorRoutes(app, config, log);
 
-  return { app, mcpTransport };
+  return { app };
 }
 
 async function startHttpServer(
   createServer: () => McpServer,
+  disposeMcpServer: (server: McpServer) => void,
   log: AppLogger,
   httpPort: number,
   config: ServerConfig,
@@ -297,15 +310,14 @@ async function startHttpServer(
 ): Promise<{
   server: ReturnType<typeof serve>;
   port: number;
-  mcpServer?: McpServer;
 }> {
-  const { app, mcpTransport } = createHttpApp(log, config, features);
-
-  let mcpServer: McpServer | undefined;
-  if (mcpTransport) {
-    mcpServer = createServer();
-    await mcpServer.connect(mcpTransport);
-  }
+  const { app } = createHttpApp(
+    log,
+    config,
+    features,
+    createServer,
+    disposeMcpServer,
+  );
 
   const httpServer = serve({
     fetch: app.fetch,
@@ -328,7 +340,6 @@ async function startHttpServer(
   return {
     server: httpServer,
     port: listeningPort,
-    mcpServer,
   };
 }
 
@@ -398,6 +409,15 @@ export function createDrawioMcpApp(overrides?: {
     registerTools(server, context);
     mcpServers.add(server);
     return server;
+  }
+
+  /**
+   * Remove a previously created McpServer from the tracking set.
+   * Used by the HTTP route handler to prevent unbounded growth of
+   * the set when creating per-request servers in stateless mode.
+   */
+  function disposeMcpServer(server: McpServer): void {
+    mcpServers.delete(server);
   }
 
   const bus_to_ws_forwarder_listener = (event: any) => {
@@ -548,6 +568,7 @@ export function createDrawioMcpApp(overrides?: {
     startHttpServer: async (httpPort, config, features) => {
       const started = await startHttpServer(
         createMcpServer,
+        disposeMcpServer,
         getLog(),
         httpPort,
         config,

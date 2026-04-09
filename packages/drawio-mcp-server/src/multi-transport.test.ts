@@ -1,7 +1,9 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 
 import { createDrawioMcpApp, type DrawioMcpApp } from "./index.js";
+import type { HttpFeatureConfig, ServerConfig } from "./config.js";
 import { MemoryLogger } from "./real-environment/logger.js";
 
 describe("multi-transport support", () => {
@@ -124,5 +126,90 @@ describe("multi-transport support", () => {
     // The SDK constraint hasn't changed — a single Protocol instance
     // still rejects a second connect().
     await expect(server.connect(st2)).rejects.toThrow(/already connected/i);
+  });
+});
+
+describe("HTTP transport (stateless per-request)", () => {
+  let app: DrawioMcpApp;
+  let logger: MemoryLogger;
+  let httpServer: Awaited<ReturnType<DrawioMcpApp["startHttpServer"]>>["server"] | undefined;
+  let port: number;
+
+  const config: ServerConfig = {
+    extensionPort: 0,
+    httpPort: 0,
+    transports: ["http"],
+    editorEnabled: false,
+  };
+
+  const features: HttpFeatureConfig = {
+    enableMcp: true,
+    enableEditor: false,
+    enableHealth: false,
+    enableConfig: false,
+  };
+
+  beforeEach(async () => {
+    logger = new MemoryLogger();
+    app = createDrawioMcpApp({ log: logger });
+    const started = await app.startHttpServer(0, config, features);
+    httpServer = started.server;
+    port = started.port;
+  });
+
+  afterEach(async () => {
+    await app.close();
+  });
+
+  it("handles a single HTTP client request", async () => {
+    const client = new Client({ name: "http-test-1", version: "1.0.0" });
+    const transport = new StreamableHTTPClientTransport(
+      new URL(`http://localhost:${port}/mcp`),
+    );
+    await client.connect(transport);
+
+    const tools = await client.listTools();
+    expect(tools.tools.length).toBeGreaterThan(0);
+
+    await client.close();
+  });
+
+  it("handles multiple sequential HTTP client requests without reuse error", async () => {
+    // First request
+    const client1 = new Client({ name: "http-test-seq-1", version: "1.0.0" });
+    const transport1 = new StreamableHTTPClientTransport(
+      new URL(`http://localhost:${port}/mcp`),
+    );
+    await client1.connect(transport1);
+
+    const tools1 = await client1.listTools();
+    expect(tools1.tools.length).toBeGreaterThan(0);
+    await client1.close();
+
+    // Second request — this was the exact scenario that triggered the
+    // "Stateless transport cannot be reused across requests" error.
+    const client2 = new Client({ name: "http-test-seq-2", version: "1.0.0" });
+    const transport2 = new StreamableHTTPClientTransport(
+      new URL(`http://localhost:${port}/mcp`),
+    );
+    await client2.connect(transport2);
+
+    const tools2 = await client2.listTools();
+    expect(tools2.tools.length).toBeGreaterThan(0);
+    await client2.close();
+  });
+
+  it("close() succeeds after HTTP requests (per-request servers are cleaned up)", async () => {
+    const client = new Client({ name: "http-cleanup", version: "1.0.0" });
+    const transport = new StreamableHTTPClientTransport(
+      new URL(`http://localhost:${port}/mcp`),
+    );
+    await client.connect(transport);
+    await client.listTools();
+    await client.close();
+
+    // close() should not hang or throw — the per-request McpServer
+    // was already disposed and removed from the tracking set.
+    await expect(app.close()).resolves.not.toThrow();
   });
 });
