@@ -16,9 +16,10 @@ import {
   move_cell_to_layer,
   get_active_layer,
   create_layer,
+  export_diagram,
 } from "drawio-mcp-plugin";
 import { on_standard_tool_request_from_server } from "../bus";
-import { DrawioUI } from "../types";
+import type { DrawioUI, DrawIOFunction } from "../types";
 
 export default defineUnlistedScript(() => {
   console.log("Hello from the main world");
@@ -181,6 +182,14 @@ export default defineUnlistedScript(() => {
           ui,
           new Set(["name"]),
           create_layer,
+        );
+
+        const TOOL_export_diagram = "export-diagram";
+        on_standard_tool_request_from_server(
+          TOOL_export_diagram,
+          ui,
+          new Set(["format", "scale", "border", "background", "shadow", "crop", "selection_only", "transparent", "dpi", "embed_xml", "size"]),
+          export_diagram as DrawIOFunction,
         );
       });
     } else {

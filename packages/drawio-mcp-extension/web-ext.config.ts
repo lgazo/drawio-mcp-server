@@ -5,4 +5,5 @@ export default defineWebExtConfig({
   startUrls: ["https://app.diagrams.net"],
   openConsole: true,
   openDevtools: true,
+  chromiumArgs: ["--remote-debugging-port=9226"],
 });

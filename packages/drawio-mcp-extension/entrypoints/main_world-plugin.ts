@@ -54,31 +54,54 @@ const createToolHandler = (
       return acc;
     }, {} as Record<string, unknown>);
 
-    let reply;
+    const buildSuccessReply = (result: unknown) => ({
+      __event: reply_name(toolName, request.__request_id),
+      __request_id: request.__request_id,
+      success: true,
+      result: remove_circular_dependencies(result),
+    });
+
+    const buildErrorReply = (error: unknown) => ({
+      __event: reply_name(toolName, request.__request_id),
+      __request_id: request.__request_id,
+      success: false,
+      error: remove_circular_dependencies(error),
+    });
+
+    const sendReply = (reply: any) => {
+      if (wsManager) {
+        wsManager.send(reply);
+      }
+    };
+
     try {
       const result = executeFunction(ui, options);
-      reply = {
-        __event: reply_name(toolName, request.__request_id),
-        __request_id: request.__request_id,
-        success: true,
-        result: remove_circular_dependencies(result),
-      };
+
+      if (result && typeof result === "object" && typeof (result as any).then === "function") {
+        (result as Promise<unknown>)
+          .then((resolved) => {
+            const reply = buildSuccessReply(resolved);
+            sendReply(reply);
+            return reply;
+          })
+          .catch((error) => {
+            console.error(`[plugin] Async tool ${toolName} failed for request ID ${request.__request_id}:`, error);
+            const reply = buildErrorReply(error);
+            sendReply(reply);
+            return reply;
+          });
+        return; // Reply will be sent asynchronously
+      }
+
+      const reply = buildSuccessReply(result);
+      sendReply(reply);
+      return reply;
     } catch (error) {
       console.error(`[plugin] Tool ${toolName} failed for request ID ${request.__request_id}:`, error);
-      reply = {
-        __event: reply_name(toolName, request.__request_id),
-        __request_id: request.__request_id,
-        success: false,
-        error: remove_circular_dependencies(error),
-      };
+      const reply = buildErrorReply(error);
+      sendReply(reply);
+      return reply;
     }
-
-    // Send reply directly via WebSocket
-    if (wsManager) {
-      wsManager.send(reply);
-    }
-
-    return reply;
   };
 };
 

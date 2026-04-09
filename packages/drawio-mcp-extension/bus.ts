@@ -44,27 +44,42 @@ export const on_standard_tool_request_from_server: OnStandardToolRequestFromServ
         return acc;
       }, {} as Record<string, unknown>) as DrawioCellOptions;
 
-      let reply;
+      const buildSuccessReply = (result: unknown) => ({
+        __event: reply_name(event_name, request.__request_id),
+        __request_id: request.__request_id,
+        success: true,
+        result: remove_circular_dependencies(result),
+      });
+
+      const buildErrorReply = (e: unknown) => ({
+        __event: reply_name(event_name, request.__request_id),
+        __request_id: request.__request_id,
+        success: false,
+        error: remove_circular_dependencies(e),
+      });
+
       try {
         const result = drawio_function(ui, options);
-        reply = {
-          __event: reply_name(event_name, request.__request_id),
-          __request_id: request.__request_id,
-          success: true,
-          result: remove_circular_dependencies(result),
-        };
+
+        if (result && typeof result === "object" && typeof (result as any).then === "function") {
+          (result as Promise<unknown>)
+            .then((resolved) => send_reply_to_server(buildSuccessReply(resolved)))
+            .catch((e) => {
+              console.error(
+                `[bus] async tool ${event_name} failed for request ID = ${request.__request_id}. Returning success=false to the server.`,
+                e,
+              );
+              send_reply_to_server(buildErrorReply(e));
+            });
+        } else {
+          send_reply_to_server(buildSuccessReply(result));
+        }
       } catch (e) {
         console.error(
           `[bus] failed executing standard tool ${event_name} with request ID = ${request.__request_id}. Returning success=false to the server.`,
           e,
         );
-        reply = {
-          __event: reply_name(event_name, request.__request_id),
-          __request_id: request.__request_id,
-          success: false,
-          error: remove_circular_dependencies(e),
-        };
+        send_reply_to_server(buildErrorReply(e));
       }
-      send_reply_to_server(reply);
     });
   };

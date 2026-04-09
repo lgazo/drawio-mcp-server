@@ -2,6 +2,25 @@
   "$schema": "https://opencode.ai/config.json",
   "plugin": ["opencode-anthropic-oauth"],
   "mcp": {
+    "chrome-devtools": {
+      "enabled": true,
+      "type": "local",
+      "command": [
+        "npx",
+        "chrome-devtools-mcp@latest",
+        "--browser-url=http://127.0.0.1:9226",
+      ],
+    },
+    "playwright": {
+      "enabled": true,
+      "type": "local",
+      "command": [
+        "npx",
+        "@playwright/mcp@latest",
+        "--cdp-endpoint",
+        "http://127.0.0.1:9226",
+      ],
+    },
     "drawio": {
       "type": "remote",
       "url": "http://localhost:3000/mcp",

@@ -16,7 +16,7 @@
       "picomatch": ">=4.0.4",
       "minimatch@>=9 <9.0.7": ">=9.0.7",
       "minimatch@>=10 <10.2.3": ">=10.2.3",
-      "minimatch@<3.1.4": ">=3.1.4",
+      "minimatch@>=3 <3.1.4": ">=3.1.4 <4",
       "brace-expansion@<1.1.13": ">=1.1.13",
       "@isaacs/brace-expansion": ">=5.0.1",
       "braces": ">=3.0.3",
