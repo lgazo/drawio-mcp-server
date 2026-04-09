@@ -47,8 +47,9 @@ export async function createRealEnvironmentContext(): Promise<RealEnvironmentCon
     version: "1.0.0",
   });
 
+  const testServer = app.createMcpServer();
   await Promise.all([
-    app.server.connect(serverTransport),
+    testServer.connect(serverTransport),
     client.connect(clientTransport),
   ]);
 

@@ -59,7 +59,7 @@ export type AppLogger = {
 };
 
 export type DrawioMcpApp = {
-  server: McpServer;
+  createMcpServer: () => McpServer;
   log: AppLogger;
   context: Context;
   emitter: EventEmitter;
@@ -130,10 +130,15 @@ if (logger_type === "mcp_server") {
   };
 }
 
-async function start_stdio_transport(server: McpServer, log: AppLogger) {
+async function start_stdio_transport(
+  createServer: () => McpServer,
+  log: AppLogger,
+): Promise<McpServer> {
+  const server = createServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);
   log.debug(`Draw.io MCP Server STDIO transport active`);
+  return server;
 }
 
 function setupCors(app: Hono) {
@@ -284,16 +289,22 @@ function createHttpApp(
 }
 
 async function startHttpServer(
-  server: McpServer,
+  createServer: () => McpServer,
   log: AppLogger,
   httpPort: number,
   config: ServerConfig,
   features: HttpFeatureConfig,
-) {
+): Promise<{
+  server: ReturnType<typeof serve>;
+  port: number;
+  mcpServer?: McpServer;
+}> {
   const { app, mcpTransport } = createHttpApp(log, config, features);
 
+  let mcpServer: McpServer | undefined;
   if (mcpTransport) {
-    await server.connect(mcpTransport);
+    mcpServer = createServer();
+    await mcpServer.connect(mcpTransport);
   }
 
   const httpServer = serve({
@@ -317,42 +328,80 @@ async function startHttpServer(
   return {
     server: httpServer,
     port: listeningPort,
+    mcpServer,
   };
 }
 
 export function createDrawioMcpApp(overrides?: {
   log?: AppLogger;
 }): DrawioMcpApp {
-  const server = new McpServer(
-    {
-      name: "drawio-mcp-server",
-      version: VERSION,
-    },
-    {
-      capabilities,
-    },
-  );
-
-  const log =
-    overrides?.log ??
-    (logger_type === "mcp_server"
-      ? create_server_logger(server)
-      : create_console_logger());
   const emitter = new EventEmitter();
   const conns = new Set<WebSocket>();
-  const bus = create_bus(log)(emitter);
+  const mcpServers = new Set<McpServer>();
+
+  // Lazily resolved log — uses console logger until a server logger is
+  // explicitly requested via LOGGER_TYPE=mcp_server, in which case the
+  // first McpServer created will be used for the logger binding.
+  let _log: AppLogger | undefined = overrides?.log;
+  let _serverLoggerBound = false;
+
+  function getLog(): AppLogger {
+    if (_log) return _log;
+    _log = create_console_logger();
+    return _log;
+  }
+
+  // Proxy logger that lazily resolves to the real logger, allowing the
+  // mcp_server_logger to be bound after the first McpServer is created.
+  const lazyLog: AppLogger = {
+    log: (level, message, ...data) => getLog().log(level, message, ...data),
+    debug: (message, ...data) => getLog().debug(message, ...data),
+  };
+
+  const bus = create_bus(lazyLog)(emitter);
   const id_generator = nanoid_id_generator();
 
   const context: Context = {
     bus,
     id_generator,
-    log,
+    get log() {
+      return getLog();
+    },
   };
 
-  registerTools(server, context);
+  /**
+   * Factory: creates a new McpServer instance with all tools registered.
+   * Each transport must use its own McpServer since the MCP SDK only
+   * allows a single transport connection per Protocol instance.
+   */
+  function createMcpServer(): McpServer {
+    const server = new McpServer(
+      {
+        name: "drawio-mcp-server",
+        version: VERSION,
+      },
+      {
+        capabilities,
+      },
+    );
+
+    // Bind the mcp_server logger to the first server created (if requested)
+    if (
+      logger_type === "mcp_server" &&
+      !_serverLoggerBound &&
+      !overrides?.log
+    ) {
+      _log = create_server_logger(server);
+      _serverLoggerBound = true;
+    }
+
+    registerTools(server, context);
+    mcpServers.add(server);
+    return server;
+  }
 
   const bus_to_ws_forwarder_listener = (event: any) => {
-    log.debug(
+    getLog().debug(
       `[bridge] received; forwarding message to #${conns.size} clients`,
       event,
     );
@@ -365,7 +414,7 @@ export function createDrawioMcpApp(overrides?: {
       try {
         ws.send(JSON.stringify(event));
       } catch (e) {
-        log.debug("[bridge] error forwarding request", e);
+        getLog().debug("[bridge] error forwarding request", e);
         conns.delete(ws);
       }
     }
@@ -376,7 +425,7 @@ export function createDrawioMcpApp(overrides?: {
   let httpServer: ReturnType<typeof serve> | undefined;
 
   async function startWebSocketServer(extensionPort = 3333) {
-    log.debug(
+    getLog().debug(
       `Draw.io MCP Server (${VERSION}) starting (WebSocket extension port: ${extensionPort})`,
     );
 
@@ -392,7 +441,7 @@ export function createDrawioMcpApp(overrides?: {
     wsServer = new WebSocketServer({ port: extensionPort });
 
     wsServer.on("connection", (ws) => {
-      log.debug(
+      getLog().debug(
         `[ws_handler] A WebSocket client #${conns.size} connected, presumably MCP Extension!`,
       );
       conns.add(ws);
@@ -401,20 +450,22 @@ export function createDrawioMcpApp(overrides?: {
         const str = typeof data === "string" ? data : data.toString();
         try {
           const json = JSON.parse(str);
-          log.debug(`[ws] received from Extension`, json);
+          getLog().debug(`[ws] received from Extension`, json);
           emitter.emit(bus_reply_stream, json);
         } catch (error) {
-          log.debug(`[ws] failed to parse message`, error);
+          getLog().debug(`[ws] failed to parse message`, error);
         }
       });
 
       ws.on("close", (code) => {
         conns.delete(ws);
-        log.debug(`[ws_handler] WebSocket client closed with code ${code}`);
+        getLog().debug(
+          `[ws_handler] WebSocket client closed with code ${code}`,
+        );
       });
 
       ws.on("error", (error) => {
-        log.debug(`[ws_handler] WebSocket client error`, error);
+        getLog().debug(`[ws_handler] WebSocket client error`, error);
         conns.delete(ws);
       });
     });
@@ -423,7 +474,7 @@ export function createDrawioMcpApp(overrides?: {
       const onListening = () => {
         wsServer?.off("error", onError);
         const address = wsServer?.address() as AddressInfo | null;
-        log.debug(
+        getLog().debug(
           `[start_websocket_server] Listening to port ${address?.port ?? extensionPort}`,
         );
         resolve();
@@ -450,7 +501,10 @@ export function createDrawioMcpApp(overrides?: {
     }
     conns.clear();
 
-    await server.close();
+    for (const s of mcpServers) {
+      await s.close();
+    }
+    mcpServers.clear();
 
     if (wsServer) {
       await new Promise<void>((resolve, reject) => {
@@ -480,17 +534,21 @@ export function createDrawioMcpApp(overrides?: {
   }
 
   return {
-    server,
-    log,
+    createMcpServer,
+    get log() {
+      return getLog();
+    },
     context,
     emitter,
     close,
     startWebSocketServer,
-    startStdioTransport: () => start_stdio_transport(server, log),
+    startStdioTransport: async () => {
+      await start_stdio_transport(createMcpServer, getLog());
+    },
     startHttpServer: async (httpPort, config, features) => {
       const started = await startHttpServer(
-        server,
-        log,
+        createMcpServer,
+        getLog(),
         httpPort,
         config,
         features,
