@@ -1,5 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
+  "plugin": ["opencode-anthropic-oauth"],
   "mcp": {
     "drawio": {
       "type": "remote",

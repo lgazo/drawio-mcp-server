@@ -29,7 +29,7 @@ export async function createRealEnvironmentContext(): Promise<RealEnvironmentCon
   const config: ServerConfig = {
     extensionPort: wsPort,
     httpPort: 0,
-    transports: ["http"],
+    transports: [],
     editorEnabled: true,
   };
 

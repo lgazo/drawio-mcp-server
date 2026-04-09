@@ -1,6 +1,6 @@
 {
   "name": "drawio-mcp-plugin",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Draw.io MCP Plugin - Browser plugin that runs inside Draw.io",
   "type": "module",
   "main": "./dist/index.js",
@@ -22,7 +22,7 @@
   "author": "Ladislav Gazo",
   "license": "MIT",
   "devDependencies": {
-    "esbuild": "^0.24.0",
+    "esbuild": "0.25.12",
     "rimraf": "6.1.3",
     "typescript": "catalog:"
   }

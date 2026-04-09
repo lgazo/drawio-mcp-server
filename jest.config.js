@@ -4,7 +4,7 @@ export default {
   rootDir: ".",
   coverageProvider: "babel",
   transform: {
-    "^.+\\.[jt]sx?$": "esbuild-jest",
+    "^.+\\.[jt]sx?$": ["ts-jest", { useESM: true }],
   },
   transformIgnorePatterns: ["/node_modules/(?!nanoid|\\.pnpm)"],
   testMatch: ["**/build/**/*.test.js"],

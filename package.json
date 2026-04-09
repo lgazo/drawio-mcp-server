@@ -1,6 +1,6 @@
 {
   "name": "drawio-mcp",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Draw.io MCP - A monorepo containing the MCP server and browser plugin",
   "private": true,
   "type": "module",
@@ -9,7 +9,22 @@
     "onlyBuiltDependencies": [
       "esbuild",
       "unrs-resolver"
-    ]
+    ],
+    "overrides": {
+      "node-forge": ">=1.4.0",
+      "defu": ">=6.1.5",
+      "picomatch": ">=4.0.4",
+      "minimatch@>=9 <9.0.7": ">=9.0.7",
+      "minimatch@>=10 <10.2.3": ">=10.2.3",
+      "minimatch@<3.1.4": ">=3.1.4",
+      "brace-expansion@<1.1.13": ">=1.1.13",
+      "@isaacs/brace-expansion": ">=5.0.1",
+      "braces": ">=3.0.3",
+      "vite@>=7 <7.3.2": ">=7.3.2",
+      "path-to-regexp@>=8 <8.4.0": ">=8.4.0",
+      "qs": ">=6.14.2",
+      "ajv": ">=8.18.0"
+    }
   },
   "scripts": {
     "build": "pnpm -r build",
@@ -25,6 +40,6 @@
   "author": "Ladislav Gazo",
   "license": "MIT",
   "devDependencies": {
-    "esbuild-jest": "^0.5.0"
+    "ts-jest": "29.4.9"
   }
 }
