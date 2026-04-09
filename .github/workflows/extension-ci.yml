@@ -33,6 +33,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Audit dependencies
+        run: pnpm audit --audit-level=moderate
+
       - name: Build Plugin
         run: pnpm run build
         working-directory: packages/drawio-mcp-plugin
