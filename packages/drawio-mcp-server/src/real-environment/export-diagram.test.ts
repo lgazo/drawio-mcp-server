@@ -233,11 +233,7 @@ describe("real environment/export-diagram", () => {
         expect(dims.width).toBeGreaterThan(0);
         expect(dims.height).toBeGreaterThan(0);
 
-        await saveArtifact(
-          context.artifactRunDir,
-          "export-png.png",
-          pngBuffer,
-        );
+        await saveArtifact(context.artifactRunDir, "export-png.png", pngBuffer);
       },
     );
 
@@ -544,11 +540,7 @@ describe("real environment/export-diagram", () => {
     );
 
     await expectNoBrowserErrors(context, "export-svg-embed-xml");
-    await expectNoServerErrors(
-      context,
-      "export-svg-embed-xml",
-      logCountBefore,
-    );
+    await expectNoServerErrors(context, "export-svg-embed-xml", logCountBefore);
   }, 180000);
 
   it("exports only the selected cell in SVG and excludes unselected cells", async () => {
@@ -747,11 +739,7 @@ describe("real environment/export-diagram", () => {
         expect(metaContent).toBeDefined();
         expect(metaContent!.text).toContain("application/xml");
 
-        await saveArtifact(
-          context.artifactRunDir,
-          "export-empty.xml",
-          xml,
-        );
+        await saveArtifact(context.artifactRunDir, "export-empty.xml", xml);
       },
     );
 

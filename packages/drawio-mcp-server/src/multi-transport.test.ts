@@ -132,7 +132,9 @@ describe("multi-transport support", () => {
 describe("HTTP transport (stateless per-request)", () => {
   let app: DrawioMcpApp;
   let logger: MemoryLogger;
-  let httpServer: Awaited<ReturnType<DrawioMcpApp["startHttpServer"]>>["server"] | undefined;
+  let httpServer:
+    | Awaited<ReturnType<DrawioMcpApp["startHttpServer"]>>["server"]
+    | undefined;
   let port: number;
 
   const config: ServerConfig = {
