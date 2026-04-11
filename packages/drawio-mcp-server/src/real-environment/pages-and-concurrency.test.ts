@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 
 import {
@@ -12,6 +13,7 @@ import {
   expectNoServerErrors,
 } from "./assertions.js";
 import {
+  callClientToolRaw,
   callClientToolJson,
   callToolJson,
   callToolRaw,
@@ -35,6 +37,22 @@ function extractPrimaryText(result: Awaited<ReturnType<typeof callToolRaw>>) {
       (item) => item.type === "text" && item.text?.includes("mxGraphModel"),
     )?.text ?? ""
   );
+}
+
+async function createHttpClient(
+  context: RealEnvironmentContext,
+  name: string,
+): Promise<Client> {
+  const client = new Client({
+    name,
+    version: "1.0.0",
+  });
+  const transport = new StreamableHTTPClientTransport(
+    new URL(`http://localhost:${context.httpPort}/mcp`),
+  );
+
+  await client.connect(transport);
+  return client;
 }
 
 describe("real environment/pages and concurrency", () => {
@@ -233,6 +251,167 @@ describe("real environment/pages and concurrency", () => {
     await expectNoServerErrors(
       context,
       "pages-and-concurrency",
+      logCountBefore,
+    );
+  }, 180000);
+});
+
+describe("real environment/pages and concurrency over HTTP", () => {
+  let context: RealEnvironmentContext;
+
+  beforeAll(async () => {
+    context = await createRealEnvironmentContext();
+  }, 180000);
+
+  afterAll(async () => {
+    await disposeRealEnvironmentContext(context);
+  });
+
+  it("serializes concurrent writes from three HTTP clients across three pages", async () => {
+    await resetDiagram(context);
+    context.browserMessages.length = 0;
+    const logCountBefore = context.logger.entries.length;
+
+    const { payload: renamedFirstPayload } = await callToolJson<{
+      success: boolean;
+      result: PageInfo;
+    }>(context, "rename-page", {
+      page: { index: 0 },
+      name: "HTTP Page One",
+    });
+    expectToolSuccess(renamedFirstPayload);
+    const pageOne = unwrapToolPayload<PageInfo>(renamedFirstPayload);
+
+    const { payload: createdSecondPayload } = await callToolJson<{
+      success: boolean;
+      result: PageInfo;
+    }>(context, "create-page", {
+      name: "HTTP Page Two",
+    });
+    expectToolSuccess(createdSecondPayload);
+    const pageTwo = unwrapToolPayload<PageInfo>(createdSecondPayload);
+
+    const { payload: createdThirdPayload } = await callToolJson<{
+      success: boolean;
+      result: PageInfo;
+    }>(context, "create-page", {
+      name: "HTTP Page Three",
+    });
+    expectToolSuccess(createdThirdPayload);
+    const pageThree = unwrapToolPayload<PageInfo>(createdThirdPayload);
+
+    const clients = [
+      await createHttpClient(context, "http-page-client-1"),
+      await createHttpClient(context, "http-page-client-2"),
+      await createHttpClient(context, "http-page-client-3"),
+    ];
+
+    try {
+      const [clientOne, clientTwo, clientThree] = clients;
+
+      const [pageOneRectPayload, pageTwoRectPayload, pageThreeRectPayload] =
+        await Promise.all([
+          callClientToolJson<{
+            success: boolean;
+            result: { id: string };
+          }>(clientOne, "add-rectangle", {
+            target_page: { id: pageOne.id },
+            x: 60,
+            y: 80,
+            width: 210,
+            height: 90,
+            text: "HTTP One Seed",
+          }),
+          callClientToolJson<{
+            success: boolean;
+            result: { id: string };
+          }>(clientTwo, "add-rectangle", {
+            target_page: { id: pageTwo.id },
+            x: 100,
+            y: 120,
+            width: 210,
+            height: 90,
+            text: "HTTP Two Seed",
+          }),
+          callClientToolJson<{
+            success: boolean;
+            result: { id: string };
+          }>(clientThree, "add-rectangle", {
+            target_page: { id: pageThree.id },
+            x: 140,
+            y: 160,
+            width: 210,
+            height: 90,
+            text: "HTTP Three Seed",
+          }),
+        ]);
+
+      const pageOneRect = unwrapToolPayload<{ id: string }>(pageOneRectPayload.payload);
+      const pageTwoRect = unwrapToolPayload<{ id: string }>(pageTwoRectPayload.payload);
+      const pageThreeRect = unwrapToolPayload<{ id: string }>(
+        pageThreeRectPayload.payload,
+      );
+
+      await Promise.all([
+        callClientToolJson(clientOne, "edit-cell", {
+          target_page: { id: pageOne.id },
+          cell_id: pageOneRect.id,
+          text: "HTTP One Final",
+        }),
+        callClientToolJson(clientTwo, "edit-cell", {
+          target_page: { id: pageTwo.id },
+          cell_id: pageTwoRect.id,
+          text: "HTTP Two Final",
+        }),
+        callClientToolJson(clientThree, "edit-cell", {
+          target_page: { id: pageThree.id },
+          cell_id: pageThreeRect.id,
+          text: "HTTP Three Final",
+        }),
+      ]);
+
+      const [pageOneExport, pageTwoExport, pageThreeExport] =
+        await Promise.all([
+          callClientToolRaw(clientOne, "export-diagram", {
+            target_page: { id: pageOne.id },
+            format: "xml",
+            size: "page",
+          }),
+          callClientToolRaw(clientTwo, "export-diagram", {
+            target_page: { id: pageTwo.id },
+            format: "xml",
+            size: "page",
+          }),
+          callClientToolRaw(clientThree, "export-diagram", {
+            target_page: { id: pageThree.id },
+            format: "xml",
+            size: "page",
+          }),
+        ]);
+
+      const pageOneXml = extractPrimaryText(pageOneExport);
+      const pageTwoXml = extractPrimaryText(pageTwoExport);
+      const pageThreeXml = extractPrimaryText(pageThreeExport);
+
+      expect(pageOneXml).toContain("HTTP One Final");
+      expect(pageOneXml).not.toContain("HTTP Two Final");
+      expect(pageOneXml).not.toContain("HTTP Three Final");
+
+      expect(pageTwoXml).toContain("HTTP Two Final");
+      expect(pageTwoXml).not.toContain("HTTP One Final");
+      expect(pageTwoXml).not.toContain("HTTP Three Final");
+
+      expect(pageThreeXml).toContain("HTTP Three Final");
+      expect(pageThreeXml).not.toContain("HTTP One Final");
+      expect(pageThreeXml).not.toContain("HTTP Two Final");
+    } finally {
+      await Promise.all(clients.map((client) => client.close()));
+    }
+
+    await expectNoBrowserErrors(context, "pages-and-concurrency-http");
+    await expectNoServerErrors(
+      context,
+      "pages-and-concurrency-http",
       logCountBefore,
     );
   }, 180000);
