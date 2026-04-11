@@ -390,15 +390,33 @@ export const toolDefinitions: ToolDefinition[] = [
     handler: with_target_page(export_diagram, {
       pageExecution: {
         mode: "hybrid-page",
-        allow_background: (options) =>
-          options.selection_only !== true && options.size !== "selection",
+        allow_background: (options) => {
+          const format = options.format ?? "xml";
+          const hasEmbeddedPng =
+            options.embed_xml === true && format === "png";
+
+          return (
+            options.selection_only !== true &&
+            options.size !== "selection" &&
+            !hasEmbeddedPng
+          );
+        },
         sync_live_current_page_state: true,
       },
     }),
     pageExecution: {
       mode: "hybrid-page",
-      allow_background: (options) =>
-        options.selection_only !== true && options.size !== "selection",
+      allow_background: (options) => {
+        const format = options.format ?? "xml";
+        const hasEmbeddedPng =
+          options.embed_xml === true && format === "png";
+
+        return (
+          options.selection_only !== true &&
+          options.size !== "selection" &&
+          !hasEmbeddedPng
+        );
+      },
       sync_live_current_page_state: true,
     },
   },

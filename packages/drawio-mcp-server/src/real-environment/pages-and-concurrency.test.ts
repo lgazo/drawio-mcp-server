@@ -314,15 +314,15 @@ describe("real environment/pages and concurrency", () => {
     expect(betaSvg).toContain("Beta Updated");
     expect(betaSvg).not.toContain("Alpha Updated");
 
-    const { payload: currentAfterBackgroundExportPayload } = await callToolJson<{
+    const { payload: currentAfterEmbeddedExportPayload } = await callToolJson<{
       success: boolean;
       result: PageInfo;
     }>(context, "get-current-page", {});
-    expectToolSuccess(currentAfterBackgroundExportPayload);
-    const currentAfterBackgroundExport = unwrapToolPayload<PageInfo>(
-      currentAfterBackgroundExportPayload,
+    expectToolSuccess(currentAfterEmbeddedExportPayload);
+    const currentAfterEmbeddedExport = unwrapToolPayload<PageInfo>(
+      currentAfterEmbeddedExportPayload,
     );
-    expect(currentAfterBackgroundExport.id).toBe(pageAlpha.id);
+    expect(currentAfterEmbeddedExport.id).toBe(pageAlpha.id);
 
     await expectNoBrowserErrors(context, "pages-and-concurrency");
     await expectNoServerErrors(

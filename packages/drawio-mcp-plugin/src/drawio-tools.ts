@@ -582,6 +582,114 @@ function create_background_page_ui(
   };
 }
 
+function create_page_export_graph(
+  ui: any,
+  sourceGraph: any,
+  page: any,
+): { graph: any; cleanup: () => void } | null {
+  const runtimeDocument = (globalThis as { document?: any }).document;
+
+  if (
+    !page ||
+    typeof ui?.createTemporaryGraph !== "function" ||
+    typeof ui?.updatePageRoot !== "function" ||
+    typeof sourceGraph?.getStylesheet !== "function"
+  ) {
+    return null;
+  }
+
+  const resolvedPage = ui.updatePageRoot(page);
+  const tempGraph = ui.createTemporaryGraph(sourceGraph.getStylesheet());
+  const tempModel = tempGraph?.getModel?.();
+
+  if (!tempGraph || !tempModel || typeof tempModel?.setRoot !== "function") {
+    return null;
+  }
+
+  const pageIndex = Array.isArray(ui?.pages)
+    ? ui.pages.findIndex((candidate: any) => {
+        try {
+          return get_page_id(candidate) === get_page_id(resolvedPage);
+        } catch {
+          return false;
+        }
+      })
+    : -1;
+  const fallbackGetGlobalVariable =
+    typeof sourceGraph?.getGlobalVariable === "function"
+      ? sourceGraph.getGlobalVariable
+      : null;
+
+  if (fallbackGetGlobalVariable) {
+    tempGraph.getGlobalVariable = function (name: string) {
+      if (name === "pagenumber" && pageIndex >= 0) {
+        return pageIndex + 1;
+      }
+
+      if (name === "page") {
+        return get_page_name(resolvedPage, Math.max(pageIndex, 0));
+      }
+
+      return fallbackGetGlobalVariable.apply(this, arguments);
+    };
+  }
+
+  if (typeof tempGraph?.setAdaptiveColors === "function") {
+    tempGraph.setAdaptiveColors(resolvedPage.viewState?.adaptiveColors ?? null);
+  }
+
+  if (typeof tempGraph?.setBackgroundImage === "function") {
+    tempGraph.setBackgroundImage(resolvedPage.viewState?.backgroundImage ?? null);
+  }
+
+  if (resolvedPage.viewState?.background !== undefined) {
+    tempGraph.background = resolvedPage.viewState.background;
+  }
+
+  let containerAttached = false;
+  try {
+    if (
+      runtimeDocument?.body &&
+      tempGraph.container &&
+      tempGraph.container.parentNode == null
+    ) {
+      runtimeDocument.body.appendChild(tempGraph.container);
+      containerAttached = true;
+    }
+  } catch (error) {
+    console.warn(
+      "Could not attach temporary draw.io export graph container:",
+      error,
+    );
+  }
+
+  tempModel.setRoot(resolvedPage.root);
+
+  return {
+    graph: tempGraph,
+    cleanup: () => {
+      if (typeof tempGraph?.destroy === "function") {
+        try {
+          tempGraph.destroy();
+        } catch (error) {
+          console.warn("Could not destroy temporary draw.io export graph:", error);
+        }
+      }
+
+      if (containerAttached && tempGraph.container?.parentNode) {
+        try {
+          tempGraph.container.parentNode.removeChild(tempGraph.container);
+        } catch (error) {
+          console.warn(
+            "Could not detach temporary draw.io export graph container:",
+            error,
+          );
+        }
+      }
+    },
+  };
+}
+
 export function prepare_target_page_execution(
   ui: any,
   target_page: TargetPageSelector | undefined,
@@ -1726,25 +1834,74 @@ function export_svg(ui: any, params: SvgExportParams): ExportResult {
 
   if (embedXml) {
     const currentPage = size === "page" || size === "selection";
-    const svgString = ui.getFileData(
-      false,
+    const xml = ui.getFileData(
       true,
+      null,
       null,
       null,
       ignoreSelection,
       currentPage,
     );
-    const bounds = graph.getGraphBounds();
-    const w = Math.ceil(bounds.width * scale + bounds.x * scale + 2 * border);
-    const h = Math.ceil(bounds.height * scale + bounds.y * scale + 2 * border);
+    const exportGraphSession = create_page_export_graph(ui, graph, ui.currentPage);
+    const renderGraph = exportGraphSession?.graph ?? graph;
 
-    return {
-      format: "svg",
-      mimeType: "image/svg+xml",
-      data: svgString,
-      width: w,
-      height: h,
-    };
+    try {
+      const svgString =
+        typeof ui.getEmbeddedSvg === "function"
+          ? ui.getEmbeddedSvg(
+              xml,
+              renderGraph,
+              null,
+              false,
+              null,
+              ignoreSelection,
+              null,
+              undefined,
+              bg,
+              scale,
+              border,
+              includeShadow,
+            )
+          : (() => {
+              const svgRoot = renderGraph.getSvg(
+                bg,
+                scale,
+                border,
+                !params.cropToDiagram,
+                null,
+                ignoreSelection,
+              );
+
+              if (renderGraph.shadowVisible || includeShadow) {
+                renderGraph.addSvgShadow(svgRoot, null, null, border === 0);
+              }
+
+              svgRoot.setAttribute("content", xml);
+
+              return (
+                (Graph.xmlDeclaration || '<?xml version="1.0" encoding="UTF-8"?>') +
+                "\n" +
+                (Graph.svgFileComment || "") +
+                "\n" +
+                (Graph.svgDoctype || "") +
+                "\n" +
+                mxUtils.getXml(svgRoot)
+              );
+            })();
+      const bounds = renderGraph.getGraphBounds();
+      const w = Math.ceil(bounds.width * scale + bounds.x * scale + 2 * border);
+      const h = Math.ceil(bounds.height * scale + bounds.y * scale + 2 * border);
+
+      return {
+        format: "svg",
+        mimeType: "image/svg+xml",
+        data: svgString,
+        width: w,
+        height: h,
+      };
+    } finally {
+      exportGraphSession?.cleanup();
+    }
   }
 
   const svgRoot = graph.getSvg(

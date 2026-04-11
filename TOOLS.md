@@ -17,7 +17,7 @@ Notes:
 - Page IDs are stable within the current document and are recommended for agent workflows.
 - All page-scoped tool calls are serialized on the server in FIFO order, so concurrent agents do not interleave page switches and writes.
 - Most page model tools mutate or inspect off-page content without switching the visible browser page.
-- UI-bound tools such as `get-selected-cell`, `set-active-layer`, `get-active-layer`, `import-diagram`, and selection-only `export-diagram` still operate through the visible page and may switch it.
+- UI-bound tools such as `get-selected-cell`, `set-active-layer`, `get-active-layer`, `import-diagram`, selection-only `export-diagram`, and PNG `export-diagram` with `embed_xml=true` still operate through the visible page and may switch it.
 - Shape library tools (`get-shape-categories`, `get-shapes-in-category`, `get-shape-by-name`) remain global and do not require `target_page`.
 
 ## Diagram Inspection Tools
@@ -258,6 +258,7 @@ Export the target page or current diagram as SVG, PNG, or XML. Returns the diagr
 Notes:
 - Page and diagram exports for off-page targets run without switching the visible browser page.
 - Selection-only exports still use the visible page because selection is a UI-bound concept in Draw.io.
+- PNG exports with `embed_xml=true` also use the visible page because Draw.io's embedded PNG export path is still UI-bound.
 
 *Parameters*:
 - `target_page`: Page selector for the page context used by the export

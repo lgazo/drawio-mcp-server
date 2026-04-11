@@ -73,6 +73,24 @@ describe("shared tool registry", () => {
     expect(
       registry
         .get("export-diagram")
+        ?.pageExecution?.allow_background?.({
+          format: "svg",
+          size: "page",
+          embed_xml: true,
+        }),
+    ).toBe(true);
+    expect(
+      registry
+        .get("export-diagram")
+        ?.pageExecution?.allow_background?.({
+          format: "png",
+          size: "page",
+          embed_xml: true,
+        }),
+    ).toBe(false);
+    expect(
+      registry
+        .get("export-diagram")
         ?.pageExecution?.allow_background?.({ selection_only: true }),
     ).toBe(false);
   });
