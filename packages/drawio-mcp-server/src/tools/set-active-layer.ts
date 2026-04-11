@@ -9,7 +9,7 @@ export const TOOL_set_active_layer = "set-active-layer";
 export const registerSetActiveLayerTool: ToolRegistrar = (server, context) => {
   server.tool(
     TOOL_set_active_layer,
-    "Sets the active layer for creating new elements. All subsequent element creation will happen in this layer.",
+    "Sets the active layer for creating new elements. All subsequent element creation will happen in this layer. If the target page is not currently visible, Draw.io may switch the visible page first because active-layer state is UI-bound.",
     {
       target_page: target_page_field(),
       layer_id: z.string().describe("ID of the layer to set as active"),

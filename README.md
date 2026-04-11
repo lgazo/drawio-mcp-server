@@ -31,6 +31,8 @@ The Draw.io MCP server brings Draw.io diagramming capabilities to AI agents. It 
 
 For multi-agent usage inside a single Draw.io document, page-scoped tools now require a `target_page` selector (`{ index }` or `{ id }`). The server serializes page-scoped requests in FIFO order so concurrent agents can safely work on different pages without interleaving page switches and writes.
 
+Most page model tools now execute against off-page models without switching the visible browser page. UI-bound tools such as selection, active-layer inspection/changes, and selection-only exports may still switch the visible page to preserve Draw.io semantics.
+
 Two ways to use:
 1. **Built-in editor** - Server hosts Draw.io directly, accessible in your browser
 2. **Browser extension** - Connect to Draw.io running in your browser via extension

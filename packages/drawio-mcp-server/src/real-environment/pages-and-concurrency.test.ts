@@ -34,7 +34,9 @@ type PageInfo = {
 function extractPrimaryText(result: Awaited<ReturnType<typeof callToolRaw>>) {
   return (
     (result.content as Array<{ type: string; text?: string }>).find(
-      (item) => item.type === "text" && item.text?.includes("mxGraphModel"),
+      (item) =>
+        item.type === "text" &&
+        (item.text?.includes("mxGraphModel") || item.text?.includes("<svg")),
     )?.text ?? ""
   );
 }
@@ -203,6 +205,46 @@ describe("real environment/pages and concurrency", () => {
           text: "Beta Updated",
         }),
       ]);
+
+      const { payload: betaLayerPayload } = await callClientToolJson<{
+        success: boolean;
+        result: { id: string; name: string };
+      }>(secondClient, "create-layer", {
+        target_page: { id: pageBeta.id },
+        name: "Beta Background Layer",
+      });
+      expectToolSuccess(betaLayerPayload);
+      const betaLayer = unwrapToolPayload<{ id: string; name: string }>(
+        betaLayerPayload,
+      );
+
+      await callClientToolJson(secondClient, "move-cell-to-layer", {
+        target_page: { id: pageBeta.id },
+        cell_id: betaRect.id,
+        target_layer_id: betaLayer.id,
+      });
+
+      const { payload: betaModelPayload } = await callClientToolJson<any>(
+        secondClient,
+        "list-paged-model",
+        {
+          target_page: { id: pageBeta.id },
+          filter: {
+            ids: [betaRect.id],
+          },
+          page: 0,
+          page_size: 10,
+        },
+      );
+      expectToolSuccess(betaModelPayload);
+      const betaModel = unwrapToolPayload<any>(betaModelPayload);
+      const betaCells = Array.isArray(betaModel?.cells)
+        ? betaModel.cells
+        : Array.isArray(betaModel)
+          ? betaModel
+          : [];
+      expect(betaCells).toHaveLength(1);
+      expect(betaCells[0]?.layer?.id).toBe(betaLayer.id);
     } finally {
       await secondClient.close();
     }
@@ -213,7 +255,7 @@ describe("real environment/pages and concurrency", () => {
     }>(context, "get-current-page", {});
     expectToolSuccess(currentPagePayload);
     const currentPage = unwrapToolPayload<PageInfo>(currentPagePayload);
-    expect(currentPage.id).toBe(pageBeta.id);
+    expect(currentPage.id).toBe(pages[2].id);
 
     const alphaExport = await callToolRaw(context, "export-diagram", {
       target_page: { id: pageAlpha.id },
@@ -246,6 +288,41 @@ describe("real environment/pages and concurrency", () => {
     expect(gammaXml).toContain("Gamma Seed");
     expect(gammaXml).not.toContain("Alpha Updated");
     expect(gammaXml).not.toContain("Beta Updated");
+
+    await callToolJson(context, "get-selected-cell", {
+      target_page: { id: pageAlpha.id },
+    });
+
+    const { payload: currentAfterVisibleToolPayload } = await callToolJson<{
+      success: boolean;
+      result: PageInfo;
+    }>(context, "get-current-page", {});
+    expectToolSuccess(currentAfterVisibleToolPayload);
+    const currentAfterVisibleTool = unwrapToolPayload<PageInfo>(
+      currentAfterVisibleToolPayload,
+    );
+    expect(currentAfterVisibleTool.id).toBe(pageAlpha.id);
+
+    const betaSvgExport = await callToolRaw(context, "export-diagram", {
+      target_page: { id: pageBeta.id },
+      format: "svg",
+      size: "page",
+      embed_xml: true,
+    });
+    const betaSvg = extractPrimaryText(betaSvgExport);
+    expect(betaSvg).toContain("<svg");
+    expect(betaSvg).toContain("Beta Updated");
+    expect(betaSvg).not.toContain("Alpha Updated");
+
+    const { payload: currentAfterBackgroundExportPayload } = await callToolJson<{
+      success: boolean;
+      result: PageInfo;
+    }>(context, "get-current-page", {});
+    expectToolSuccess(currentAfterBackgroundExportPayload);
+    const currentAfterBackgroundExport = unwrapToolPayload<PageInfo>(
+      currentAfterBackgroundExportPayload,
+    );
+    expect(currentAfterBackgroundExport.id).toBe(pageAlpha.id);
 
     await expectNoBrowserErrors(context, "pages-and-concurrency");
     await expectNoServerErrors(
@@ -370,6 +447,14 @@ describe("real environment/pages and concurrency over HTTP", () => {
         }),
       ]);
 
+      const { payload: currentPagePayload } = await callToolJson<{
+        success: boolean;
+        result: PageInfo;
+      }>(context, "get-current-page", {});
+      expectToolSuccess(currentPagePayload);
+      const currentPage = unwrapToolPayload<PageInfo>(currentPagePayload);
+      expect(currentPage.id).toBe(pageThree.id);
+
       const [pageOneExport, pageTwoExport, pageThreeExport] =
         await Promise.all([
           callClientToolRaw(clientOne, "export-diagram", {
@@ -404,6 +489,15 @@ describe("real environment/pages and concurrency over HTTP", () => {
       expect(pageThreeXml).toContain("HTTP Three Final");
       expect(pageThreeXml).not.toContain("HTTP One Final");
       expect(pageThreeXml).not.toContain("HTTP Two Final");
+
+      const { payload: currentAfterExportsPayload } = await callToolJson<{
+        success: boolean;
+        result: PageInfo;
+      }>(context, "get-current-page", {});
+      expectToolSuccess(currentAfterExportsPayload);
+      const currentAfterExports =
+        unwrapToolPayload<PageInfo>(currentAfterExportsPayload);
+      expect(currentAfterExports.id).toBe(pageThree.id);
     } finally {
       await Promise.all(clients.map((client) => client.close()));
     }

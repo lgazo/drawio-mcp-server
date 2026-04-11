@@ -9,7 +9,7 @@ export const TOOL_get_selected_cell = "get-selected-cell";
 export const registerGetSelectedCellTool: ToolRegistrar = (server, context) => {
   server.tool(
     TOOL_get_selected_cell,
-    "This tool retrieves the selected cell on the target page of the current Draw.io document.",
+    "This tool retrieves the selected cell on the target page of the current Draw.io document. If the target page is not currently visible, Draw.io may switch the visible page first because selection is UI-bound.",
     {
       target_page: target_page_field(),
     },

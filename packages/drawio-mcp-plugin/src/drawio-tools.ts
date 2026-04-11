@@ -24,6 +24,27 @@ export type PageInfo = {
   is_current: boolean;
 };
 
+export type PageExecutionMode =
+  | "visible-page"
+  | "background-page"
+  | "hybrid-page";
+
+export type PageExecutionPolicy = {
+  mode: PageExecutionMode;
+  mutates?: boolean;
+  allow_background?: (options: DrawioCellOptions) => boolean;
+  sync_live_current_page_state?: boolean;
+};
+
+export type PreparedPageExecution = {
+  ui: any;
+  page: any;
+  index: number;
+  is_background: boolean;
+  did_change: () => boolean;
+  cleanup: () => void;
+};
+
 export interface DrawioCellOptions {
   cell_id?: CellId;
   source_id?: CellId;
@@ -43,9 +64,20 @@ export interface DrawioCellOptions {
   target_layer_id?: string;
   name?: string;
   mode?: string;
+  format?: "svg" | "png" | "xml";
   page?: number | TargetPageSelector;
   page_size?: number;
   filter?: any;
+  scale?: number;
+  border?: number;
+  background?: string | null;
+  shadow?: boolean;
+  crop?: boolean;
+  selection_only?: boolean;
+  transparent?: boolean;
+  dpi?: number;
+  embed_xml?: boolean;
+  size?: "selection" | "page" | "diagram";
   points?: Array<{ x: number; y: number }>;
   target_page?: TargetPageSelector;
 }
@@ -399,6 +431,214 @@ export function switch_to_target_page(ui: any, page: any) {
   }
 
   ui.selectPage(page);
+}
+
+function create_noop_execution(
+  ui: any,
+  page: any,
+  index: number,
+): PreparedPageExecution {
+  return {
+    ui,
+    page,
+    index,
+    is_background: false,
+    did_change: () => false,
+    cleanup: () => {},
+  };
+}
+
+function sync_live_current_page_state(ui: any) {
+  if (!ui?.currentPage || !ui?.editor?.graph) {
+    return;
+  }
+
+  const liveGraph = ui.editor.graph;
+  const model = typeof liveGraph?.getModel === "function" ? liveGraph.getModel() : null;
+
+  if (!model?.root) {
+    return;
+  }
+
+  ui.currentPage.root = model.root;
+  ui.currentPage.graphModelNode = null;
+
+  if (typeof liveGraph?.getViewState === "function") {
+    ui.currentPage.viewState = liveGraph.getViewState();
+  }
+
+  ui.currentPage.needsUpdate = true;
+}
+
+function create_background_page_ui(
+  ui: any,
+  page: any,
+): PreparedPageExecution | null {
+  const runtimeWindow = (globalThis as { window?: any }).window;
+  const runtimeDocument = (globalThis as { document?: any }).document;
+  const liveGraph = ui?.editor?.graph;
+  if (
+    !liveGraph ||
+    typeof liveGraph?.getStylesheet !== "function" ||
+    typeof ui?.createTemporaryGraph !== "function" ||
+    typeof ui?.updatePageRoot !== "function"
+  ) {
+    return null;
+  }
+
+  const resolvedPage = ui.updatePageRoot(page);
+  const tempGraph = ui.createTemporaryGraph(liveGraph.getStylesheet());
+  if (!tempGraph || typeof tempGraph?.getModel !== "function") {
+    return null;
+  }
+
+  const tempModel = tempGraph.getModel();
+  if (!tempModel || typeof tempModel?.setRoot !== "function") {
+    return null;
+  }
+
+  let didChange = false;
+  const mxEvent = runtimeWindow?.mxEvent;
+  const changeEventName = mxEvent?.CHANGE ?? "change";
+  const changeListener = () => {
+    didChange = true;
+  };
+
+  if (typeof tempModel?.addListener === "function") {
+    tempModel.addListener(changeEventName, changeListener);
+  }
+
+  let containerAttached = false;
+  const cleanup = () => {
+    if (typeof tempModel?.removeListener === "function") {
+      tempModel.removeListener(changeListener);
+    }
+
+    if (typeof tempGraph?.destroy === "function") {
+      try {
+        tempGraph.destroy();
+      } catch (error) {
+        console.warn("Could not destroy temporary draw.io graph:", error);
+      }
+    }
+
+    if (containerAttached && tempGraph.container?.parentNode) {
+      try {
+        tempGraph.container.parentNode.removeChild(tempGraph.container);
+      } catch (error) {
+        console.warn("Could not detach temporary draw.io graph container:", error);
+      }
+    }
+  };
+
+  try {
+    if (
+      runtimeDocument?.body &&
+      tempGraph.container &&
+      tempGraph.container.parentNode == null
+    ) {
+      runtimeDocument.body.appendChild(tempGraph.container);
+      containerAttached = true;
+    }
+    tempModel.setRoot(resolvedPage.root);
+
+    if (typeof tempGraph?.setViewState === "function" && resolvedPage.viewState) {
+      tempGraph.setViewState(resolvedPage.viewState);
+    } else if (
+      resolvedPage.viewState?.defaultParent &&
+      typeof tempGraph?.setDefaultParent === "function"
+    ) {
+      tempGraph.setDefaultParent(resolvedPage.viewState.defaultParent);
+    }
+
+    if (typeof tempGraph?.setAdaptiveColors === "function") {
+      tempGraph.setAdaptiveColors(resolvedPage.viewState?.adaptiveColors ?? null);
+    }
+
+    if (typeof tempGraph?.setBackgroundImage === "function") {
+      tempGraph.setBackgroundImage(resolvedPage.viewState?.backgroundImage ?? null);
+    }
+
+    if (resolvedPage.viewState?.background !== undefined) {
+      tempGraph.background = resolvedPage.viewState.background;
+    }
+  } catch (error) {
+    cleanup();
+    throw error;
+  }
+
+  const scopedUi = Object.create(ui);
+  scopedUi.editor = Object.create(ui.editor);
+  scopedUi.editor.graph = tempGraph;
+  scopedUi.currentPage = resolvedPage;
+
+  return {
+    ui: scopedUi,
+    page: resolvedPage,
+    index: -1,
+    is_background: true,
+    did_change: () => didChange,
+    cleanup,
+  };
+}
+
+export function prepare_target_page_execution(
+  ui: any,
+  target_page: TargetPageSelector | undefined,
+  options: {
+    prefer_background?: boolean;
+    sync_live_current_page_state?: boolean;
+  } = {},
+): PreparedPageExecution {
+  const resolved = resolve_target_page(ui, target_page);
+  const currentId =
+    ui?.currentPage !== undefined && ui?.currentPage !== null
+      ? get_page_id(ui.currentPage)
+      : null;
+  const targetId = get_page_id(resolved.page);
+
+  if (options.prefer_background && currentId !== null && currentId !== targetId) {
+    const backgroundExecution = create_background_page_ui(ui, resolved.page);
+    if (backgroundExecution) {
+      if (options.sync_live_current_page_state) {
+        sync_live_current_page_state(ui);
+      }
+
+      return {
+        ...backgroundExecution,
+        index: resolved.index,
+      };
+    }
+  }
+
+  if (currentId !== targetId) {
+    switch_to_target_page(ui, resolved.page);
+  }
+
+  return create_noop_execution(ui, resolved.page, resolved.index);
+}
+
+export function mark_page_execution_modified(
+  ui: any,
+  execution: PreparedPageExecution,
+) {
+  if (!execution.is_background || !execution.did_change()) {
+    return;
+  }
+
+  const page = execution.page;
+  page.needsUpdate = true;
+  page.graphModelNode = null;
+
+  if (typeof page?.setDiagramModified === "function") {
+    page.setDiagramModified(true);
+  }
+
+  try {
+    ui.getCurrentFile?.()?.fileChanged?.();
+  } catch (error) {
+    console.warn("Could not notify draw.io file change after background mutation:", error);
+  }
 }
 
 export function get_selected_cell(ui: any) {

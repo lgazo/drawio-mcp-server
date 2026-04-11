@@ -9,7 +9,7 @@ export const TOOL_get_active_layer = "get-active-layer";
 export const registerGetActiveLayerTool: ToolRegistrar = (server, context) => {
   server.tool(
     TOOL_get_active_layer,
-    "Gets the currently active layer information for the target page.",
+    "Gets the currently active layer information for the target page. If the target page is not currently visible, Draw.io may switch the visible page first because active-layer state is UI-bound.",
     {
       target_page: target_page_field(),
     },

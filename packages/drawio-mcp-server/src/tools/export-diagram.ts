@@ -73,7 +73,7 @@ export const registerExportDiagramTool: ToolRegistrar = (server, context) => {
         .optional()
         .default("diagram")
         .describe(
-          "What to export: 'selection' for selected cells only, 'page' for current page, 'diagram' for entire model",
+          "What to export: 'selection' for selected cells only, 'page' for the target page, 'diagram' for the entire model",
         ),
       output_path: z
         .string()

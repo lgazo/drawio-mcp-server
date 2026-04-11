@@ -19,14 +19,15 @@ import {
   list_layers,
   list_pages,
   list_paged_model,
+  mark_page_execution_modified,
   move_cell_to_layer,
+  prepare_target_page_execution,
+  type PageExecutionPolicy,
   rename_page,
-  resolve_target_page,
   set_active_layer,
   set_cell_data,
   set_cell_parent,
   set_cell_shape,
-  switch_to_target_page,
   type DrawioCellOptions,
 } from "./drawio-tools.js";
 
@@ -34,20 +35,60 @@ export type ToolDefinition = {
   name: string;
   params: Set<string>;
   handler: DrawIOFunction;
+  pageExecution?: PageExecutionPolicy;
 };
 
 function with_target_page(
   handler: DrawIOFunction,
   options?: {
     skip?: (options: DrawioCellOptions) => boolean;
+    pageExecution?: PageExecutionPolicy;
   },
 ): DrawIOFunction {
   return (ui, rawOptions) => {
     const drawioOptions = rawOptions as DrawioCellOptions;
 
     if (!options?.skip?.(drawioOptions)) {
-      const resolved = resolve_target_page(ui, drawioOptions.target_page);
-      switch_to_target_page(ui, resolved.page);
+      const pageExecution = options?.pageExecution;
+      const preferBackground =
+        pageExecution?.mode === "background-page" ||
+        (pageExecution?.mode === "hybrid-page" &&
+          pageExecution.allow_background?.(drawioOptions) === true);
+      const execution = prepare_target_page_execution(ui, drawioOptions.target_page, {
+        prefer_background: preferBackground,
+        sync_live_current_page_state:
+          pageExecution?.sync_live_current_page_state === true,
+      });
+
+      try {
+        const result = handler(execution.ui, drawioOptions);
+
+        if (
+          result &&
+          typeof result === "object" &&
+          typeof (result as Promise<unknown>).finally === "function"
+        ) {
+          return (result as Promise<unknown>).finally(() => {
+            if (pageExecution?.mutates) {
+              mark_page_execution_modified(ui, execution);
+            }
+            execution.cleanup();
+          });
+        }
+
+        if (pageExecution?.mutates) {
+          mark_page_execution_modified(ui, execution);
+        }
+
+        execution.cleanup();
+        return result;
+      } catch (error) {
+        if (pageExecution?.mutates) {
+          mark_page_execution_modified(ui, execution);
+        }
+        execution.cleanup();
+        throw error;
+      }
     }
 
     return handler(ui, drawioOptions);
@@ -58,7 +99,14 @@ export const toolDefinitions: ToolDefinition[] = [
   {
     name: "get-selected-cell",
     params: new Set(["target_page"]),
-    handler: with_target_page(get_selected_cell),
+    handler: with_target_page(get_selected_cell, {
+      pageExecution: {
+        mode: "visible-page",
+      },
+    }),
+    pageExecution: {
+      mode: "visible-page",
+    },
   },
   {
     name: "add-rectangle",
@@ -72,7 +120,16 @@ export const toolDefinitions: ToolDefinition[] = [
       "parent_id",
       "target_page",
     ]),
-    handler: with_target_page(add_new_rectangle),
+    handler: with_target_page(add_new_rectangle, {
+      pageExecution: {
+        mode: "background-page",
+        mutates: true,
+      },
+    }),
+    pageExecution: {
+      mode: "background-page",
+      mutates: true,
+    },
   },
   {
     name: "add-edge",
@@ -85,12 +142,30 @@ export const toolDefinitions: ToolDefinition[] = [
       "points",
       "target_page",
     ]),
-    handler: with_target_page(add_edge),
+    handler: with_target_page(add_edge, {
+      pageExecution: {
+        mode: "background-page",
+        mutates: true,
+      },
+    }),
+    pageExecution: {
+      mode: "background-page",
+      mutates: true,
+    },
   },
   {
     name: "delete-cell-by-id",
     params: new Set(["cell_id", "target_page"]),
-    handler: with_target_page(delete_cell_by_id),
+    handler: with_target_page(delete_cell_by_id, {
+      pageExecution: {
+        mode: "background-page",
+        mutates: true,
+      },
+    }),
+    pageExecution: {
+      mode: "background-page",
+      mutates: true,
+    },
   },
   {
     name: "get-shape-categories",
@@ -120,22 +195,56 @@ export const toolDefinitions: ToolDefinition[] = [
       "parent_id",
       "target_page",
     ]),
-    handler: with_target_page(add_cell_of_shape),
+    handler: with_target_page(add_cell_of_shape, {
+      pageExecution: {
+        mode: "background-page",
+        mutates: true,
+      },
+    }),
+    pageExecution: {
+      mode: "background-page",
+      mutates: true,
+    },
   },
   {
     name: "set-cell-shape",
     params: new Set(["cell_id", "shape_name", "target_page"]),
-    handler: with_target_page(set_cell_shape),
+    handler: with_target_page(set_cell_shape, {
+      pageExecution: {
+        mode: "background-page",
+        mutates: true,
+      },
+    }),
+    pageExecution: {
+      mode: "background-page",
+      mutates: true,
+    },
   },
   {
     name: "set-cell-data",
     params: new Set(["cell_id", "key", "value", "target_page"]),
-    handler: with_target_page(set_cell_data),
+    handler: with_target_page(set_cell_data, {
+      pageExecution: {
+        mode: "background-page",
+        mutates: true,
+      },
+    }),
+    pageExecution: {
+      mode: "background-page",
+      mutates: true,
+    },
   },
   {
     name: "list-paged-model",
     params: new Set(["page", "page_size", "filter", "target_page"]),
-    handler: with_target_page(list_paged_model),
+    handler: with_target_page(list_paged_model, {
+      pageExecution: {
+        mode: "background-page",
+      },
+    }),
+    pageExecution: {
+      mode: "background-page",
+    },
   },
   {
     name: "edit-cell",
@@ -149,7 +258,16 @@ export const toolDefinitions: ToolDefinition[] = [
       "style",
       "target_page",
     ]),
-    handler: with_target_page(edit_cell),
+    handler: with_target_page(edit_cell, {
+      pageExecution: {
+        mode: "background-page",
+        mutates: true,
+      },
+    }),
+    pageExecution: {
+      mode: "background-page",
+      mutates: true,
+    },
   },
   {
     name: "edit-edge",
@@ -162,37 +280,96 @@ export const toolDefinitions: ToolDefinition[] = [
       "points",
       "target_page",
     ]),
-    handler: with_target_page(edit_edge),
+    handler: with_target_page(edit_edge, {
+      pageExecution: {
+        mode: "background-page",
+        mutates: true,
+      },
+    }),
+    pageExecution: {
+      mode: "background-page",
+      mutates: true,
+    },
   },
   {
     name: "list-layers",
     params: new Set(["target_page"]),
-    handler: with_target_page(list_layers),
+    handler: with_target_page(list_layers, {
+      pageExecution: {
+        mode: "background-page",
+      },
+    }),
+    pageExecution: {
+      mode: "background-page",
+    },
   },
   {
     name: "set-active-layer",
     params: new Set(["layer_id", "target_page"]),
-    handler: with_target_page(set_active_layer),
+    handler: with_target_page(set_active_layer, {
+      pageExecution: {
+        mode: "visible-page",
+        mutates: true,
+      },
+    }),
+    pageExecution: {
+      mode: "visible-page",
+      mutates: true,
+    },
   },
   {
     name: "move-cell-to-layer",
     params: new Set(["cell_id", "target_layer_id", "target_page"]),
-    handler: with_target_page(move_cell_to_layer),
+    handler: with_target_page(move_cell_to_layer, {
+      pageExecution: {
+        mode: "background-page",
+        mutates: true,
+      },
+    }),
+    pageExecution: {
+      mode: "background-page",
+      mutates: true,
+    },
   },
   {
     name: "set-cell-parent",
     params: new Set(["cell_id", "parent_id", "target_page"]),
-    handler: with_target_page(set_cell_parent),
+    handler: with_target_page(set_cell_parent, {
+      pageExecution: {
+        mode: "background-page",
+        mutates: true,
+      },
+    }),
+    pageExecution: {
+      mode: "background-page",
+      mutates: true,
+    },
   },
   {
     name: "get-active-layer",
     params: new Set(["target_page"]),
-    handler: with_target_page(get_active_layer),
+    handler: with_target_page(get_active_layer, {
+      pageExecution: {
+        mode: "visible-page",
+      },
+    }),
+    pageExecution: {
+      mode: "visible-page",
+    },
   },
   {
     name: "create-layer",
     params: new Set(["name", "target_page"]),
-    handler: with_target_page(create_layer),
+    handler: with_target_page(create_layer, {
+      pageExecution: {
+        mode: "background-page",
+        mutates: true,
+      },
+    }),
+    pageExecution: {
+      mode: "background-page",
+      mutates: true,
+    },
   },
   {
     name: "export-diagram",
@@ -210,14 +387,35 @@ export const toolDefinitions: ToolDefinition[] = [
       "size",
       "target_page",
     ]),
-    handler: with_target_page(export_diagram),
+    handler: with_target_page(export_diagram, {
+      pageExecution: {
+        mode: "hybrid-page",
+        allow_background: (options) =>
+          options.selection_only !== true && options.size !== "selection",
+        sync_live_current_page_state: true,
+      },
+    }),
+    pageExecution: {
+      mode: "hybrid-page",
+      allow_background: (options) =>
+        options.selection_only !== true && options.size !== "selection",
+      sync_live_current_page_state: true,
+    },
   },
   {
     name: "import-diagram",
     params: new Set(["data", "format", "mode", "filename", "target_page"]),
     handler: with_target_page(import_diagram, {
       skip: (options) => options.mode === "new-page",
+      pageExecution: {
+        mode: "visible-page",
+        mutates: true,
+      },
     }),
+    pageExecution: {
+      mode: "visible-page",
+      mutates: true,
+    },
   },
   {
     name: "list-pages",
