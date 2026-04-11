@@ -14,7 +14,19 @@ export type ToolFn<S> = (
 ) => Promise<CallToolResult>;
 export type ToolExecutionOptions = {
   queue?: boolean;
+  reply_timeout_ms?: number;
 };
+
+const DEFAULT_REPLY_TIMEOUT_MS = (() => {
+  const raw = process.env.DRAWIO_MCP_REPLY_TIMEOUT_MS;
+  const parsed = Number(raw);
+
+  if (Number.isFinite(parsed) && parsed > 0) {
+    return parsed;
+  }
+
+  return 60_000;
+})();
 
 export function build_channel<S>(
   { bus, id_generator, request_queue, log }: Context,
@@ -26,6 +38,10 @@ export function build_channel<S>(
     _args: S,
     _extra: RequestHandlerExtra<ServerRequest, ServerNotification>,
   ) => {
+    const reply_timeout_ms =
+      options.reply_timeout_ms && options.reply_timeout_ms > 0
+        ? options.reply_timeout_ms
+        : DEFAULT_REPLY_TIMEOUT_MS;
     const request_id = id_generator.generate();
     // const event_name = `get-selected-cell`;
     const reply_name = `${event_name}.${request_id}`;
@@ -36,17 +52,54 @@ export function build_channel<S>(
     });
     log.debug(`[${event_name}] emitted, waiting for reply @${reply_name}`);
 
-    const p: Promise<CallToolResult> = new Promise((resolve, _reject) => {
+    const p: Promise<CallToolResult> = new Promise((resolve, reject) => {
       log.debug(`[${event_name}] waiting for response @${reply_name}`);
 
-      bus.on_reply_from_extension(reply_name, (reply: Record<string, any>) => {
-        // bus.on(reply_name, (args) => {
-        log.debug(`[${reply_name}] received response`, reply);
-        const data = strip_internal_fields(reply);
+      let settled = false;
+      let timeout_handle: ReturnType<typeof setTimeout> | undefined;
+      let cleanup: (() => void) | undefined;
 
-        const response = handler(data);
-        resolve(response);
+      const finish = (finalize: () => void) => {
+        if (settled) {
+          return;
+        }
+
+        settled = true;
+        if (timeout_handle) {
+          clearTimeout(timeout_handle);
+        }
+        cleanup?.();
+        finalize();
+      };
+
+      timeout_handle = setTimeout(() => {
+        finish(() => {
+          const error = new Error(
+            `Timed out waiting for reply to \`${event_name}\` after ${reply_timeout_ms}ms`,
+          );
+          log.log("warn", `[${reply_name}] ${error.message}`);
+          reject(error);
+        });
+      }, reply_timeout_ms);
+
+      cleanup = bus.on_reply_from_extension(reply_name, (reply: Record<string, any>) => {
+        // bus.on(reply_name, (args) => {
+        finish(() => {
+          log.debug(`[${reply_name}] received response`, reply);
+          const data = strip_internal_fields(reply);
+
+          try {
+            const response = handler(data);
+            resolve(response);
+          } catch (error) {
+            reject(error);
+          }
+        });
       });
+
+      if (settled) {
+        cleanup?.();
+      }
     });
 
     return p;

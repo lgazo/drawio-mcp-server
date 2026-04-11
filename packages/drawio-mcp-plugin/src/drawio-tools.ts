@@ -263,6 +263,50 @@ function get_page_name(page: any, index: number): string {
   return `Page-${index + 1}`;
 }
 
+function get_page_rename_probe(ui: any, explicit_page?: any) {
+  if (explicit_page) {
+    return explicit_page;
+  }
+
+  if (ui?.currentPage) {
+    return ui.currentPage;
+  }
+
+  if (Array.isArray(ui?.pages) && ui.pages.length > 0) {
+    return ui.pages[0];
+  }
+
+  return null;
+}
+
+function assert_page_rename_supported(
+  ui: any,
+  action: string,
+  explicit_page?: any,
+) {
+  const page = get_page_rename_probe(ui, explicit_page);
+
+  if (typeof page?.setName !== "function") {
+    throw new Error(
+      `Draw.io page renaming is not supported in this version; cannot ${action}`,
+    );
+  }
+
+  return page;
+}
+
+function rollback_created_page(ui: any, page: any) {
+  if (!page || typeof ui?.removePage !== "function") {
+    return;
+  }
+
+  try {
+    ui.removePage(page);
+  } catch (error) {
+    console.warn("Could not roll back created page:", error);
+  }
+}
+
 export function serialize_page_info(
   ui: any,
   page: any,
@@ -391,13 +435,23 @@ export function create_page(ui: any, options: DrawioCellOptions): PageInfo {
     throw new Error("Draw.io page creation is not supported in this version");
   }
 
+  if (options.name) {
+    assert_page_rename_supported(ui, "create a named page");
+  }
+
   const newPage = ui.insertPage(null, ui.pages?.length);
   if (!newPage) {
     throw new Error("Failed to create a new page");
   }
 
-  if (options.name && typeof newPage.setName === "function") {
-    newPage.setName(options.name);
+  if (options.name) {
+    try {
+      assert_page_rename_supported(ui, "create a named page", newPage);
+      newPage.setName(options.name);
+    } catch (error) {
+      rollback_created_page(ui, newPage);
+      throw error;
+    }
   }
 
   switch_to_target_page(ui, newPage);
@@ -423,9 +477,7 @@ export function rename_page(ui: any, options: DrawioCellOptions): PageInfo {
     throw new Error("`name` is required");
   }
 
-  if (typeof resolved.page?.setName !== "function") {
-    throw new Error("Draw.io page renaming is not supported in this version");
-  }
+  assert_page_rename_supported(ui, "rename a page", resolved.page);
 
   resolved.page.setName(options.name);
 
@@ -1995,10 +2047,47 @@ export function import_diagram(
           };
         }
 
+        const importedPageName = filename
+          ? filename.replace(/\.[^/.]+$/, "")
+          : null;
+
+        if (importedPageName) {
+          try {
+            assert_page_rename_supported(
+              ui,
+              "create a named imported page",
+            );
+          } catch (error) {
+            return {
+              success: false,
+              message:
+                error instanceof Error ? error.message : "Page renaming is not supported",
+            };
+          }
+        }
+
         // Create new page
         const newPage = ui.insertPage();
         if (!newPage) {
           return { success: false, message: "Failed to create new page" };
+        }
+
+        if (importedPageName) {
+          try {
+            assert_page_rename_supported(
+              ui,
+              "create a named imported page",
+              newPage,
+            );
+            newPage.setName(importedPageName);
+          } catch (error) {
+            rollback_created_page(ui, newPage);
+            return {
+              success: false,
+              message:
+                error instanceof Error ? error.message : "Page renaming is not supported",
+            };
+          }
         }
 
         // Switch to new page
@@ -2033,12 +2122,6 @@ export function import_diagram(
           }
         } finally {
           model.endUpdate();
-        }
-
-        // Set page name if filename provided
-        if (filename && newPage.setName) {
-          const pageName = filename.replace(/\.[^/.]+$/, ""); // Remove extension
-          newPage.setName(pageName);
         }
 
         return {

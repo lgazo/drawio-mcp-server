@@ -8,6 +8,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol.js";
 import { create_logger } from "./standard_console_logger.js";
+import { create_request_queue } from "./request_queue.js";
 
 describe("build_channel", () => {
   let mockBus: jest.Mocked<Bus>;
@@ -20,7 +21,7 @@ describe("build_channel", () => {
   beforeEach(() => {
     mockBus = {
       send_to_extension: jest.fn(),
-      on_reply_from_extension: jest.fn(),
+      on_reply_from_extension: jest.fn(() => jest.fn()),
     } as unknown as jest.Mocked<Bus>;
 
     mockIdGenerator = {
@@ -41,9 +42,16 @@ describe("build_channel", () => {
     mockHandler.mockReset();
   });
 
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it("should create a function that sends a message via bus", async () => {
     const eventName = "test-event";
     const toolFn = build_channel(context, eventName, mockHandler);
+    mockHandler.mockReturnValue({
+      content: [{ type: "text", text: "ok" }],
+    });
 
     const args = { key: "value" };
     const extra = {} as RequestHandlerExtra<ServerRequest, ServerNotification>;
@@ -54,6 +62,12 @@ describe("build_channel", () => {
       __event: eventName,
       __request_id: "123",
       key: "value",
+    });
+
+    const replyCallback = mockBus.on_reply_from_extension.mock.calls[0][1];
+    replyCallback({ ok: true });
+    await expect(promise).resolves.toEqual({
+      content: [{ type: "text", text: "ok" }],
     });
   });
 
@@ -89,13 +103,25 @@ describe("build_channel", () => {
     mockIdGenerator.generate.mockReturnValue("456");
     const eventName = "another-event";
     const toolFn = build_channel(context, eventName, mockHandler);
+    mockHandler.mockReturnValue({
+      content: [{ type: "text", text: "ok" }],
+    });
 
-    toolFn({}, {} as RequestHandlerExtra<ServerRequest, ServerNotification>);
+    const promise = toolFn(
+      {},
+      {} as RequestHandlerExtra<ServerRequest, ServerNotification>,
+    );
 
     expect(mockBus.on_reply_from_extension).toHaveBeenCalledWith(
       "another-event.456",
       expect.any(Function),
     );
+
+    const replyCallback = mockBus.on_reply_from_extension.mock.calls[0][1];
+    replyCallback({ ok: true });
+    await expect(promise).resolves.toEqual({
+      content: [{ type: "text", text: "ok" }],
+    });
   });
 
   it("should enqueue queued tools through the shared request queue", async () => {
@@ -119,6 +145,94 @@ describe("build_channel", () => {
 
     expect(mockRequestQueue.enqueue).toHaveBeenCalledTimes(1);
   });
+
+  it("should time out pending requests and unsubscribe the reply listener", async () => {
+    jest.useFakeTimers();
+    const eventName = "timeout-event";
+    const unsubscribe = jest.fn();
+    mockBus.on_reply_from_extension.mockReturnValue(unsubscribe);
+    const toolFn = build_channel(context, eventName, mockHandler, {
+      reply_timeout_ms: 25,
+    });
+
+    const promise = toolFn(
+      {},
+      {} as RequestHandlerExtra<ServerRequest, ServerNotification>,
+    );
+    const failure = expect(promise).rejects.toThrow(
+      "Timed out waiting for reply to `timeout-event` after 25ms",
+    );
+
+    await jest.advanceTimersByTimeAsync(25);
+
+    await failure;
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
+  });
+
+  it("should continue queued processing after a timed out request", async () => {
+    jest.useFakeTimers();
+    const listeners = new Map<string, BusListener<Record<string, unknown>>>();
+    const toolFn = build_channel(
+      {
+        ...context,
+        request_queue: create_request_queue(log),
+      },
+      "queued-timeout-event",
+      (reply) => ({
+        content: [{ type: "text", text: JSON.stringify(reply) }],
+      }),
+      {
+        queue: true,
+        reply_timeout_ms: 25,
+      },
+    );
+
+    mockIdGenerator.generate
+      .mockReturnValueOnce("first")
+      .mockReturnValueOnce("second");
+    mockBus.on_reply_from_extension.mockImplementation(
+      (event_name, listener) => {
+        listeners.set(
+          event_name,
+          listener as BusListener<Record<string, unknown>>,
+        );
+        return () => {
+          listeners.delete(event_name);
+        };
+      },
+    );
+
+    const first = toolFn(
+      {},
+      {} as RequestHandlerExtra<ServerRequest, ServerNotification>,
+    );
+    const second = toolFn(
+      {},
+      {} as RequestHandlerExtra<ServerRequest, ServerNotification>,
+    );
+
+    await Promise.resolve();
+    expect(listeners.has("queued-timeout-event.first")).toBe(true);
+    expect(listeners.has("queued-timeout-event.second")).toBe(false);
+
+    const firstFailure = expect(first).rejects.toThrow(
+      "Timed out waiting for reply to `queued-timeout-event` after 25ms",
+    );
+    await jest.advanceTimersByTimeAsync(25);
+    await firstFailure;
+
+    await Promise.resolve();
+    expect(listeners.has("queued-timeout-event.second")).toBe(true);
+
+    listeners.get("queued-timeout-event.second")?.({
+      __event: "queued-timeout-event.second",
+      data: "ok",
+    });
+
+    await expect(second).resolves.toEqual({
+      content: [{ type: "text", text: JSON.stringify({ data: "ok" }) }],
+    });
+  });
 });
 
 describe("default_tool", () => {
@@ -133,6 +247,7 @@ describe("default_tool", () => {
       send_to_extension: jest.fn(),
       on_reply_from_extension: jest.fn((_, callback: BusListener<unknown>) => {
         callback({ test: "data" });
+        return jest.fn();
       }),
     } as unknown as jest.Mocked<Bus>;
 

@@ -17,6 +17,9 @@ export function create_bus(log: Logger) {
           }
         };
         emitter.on(bus_reply_stream, listener);
+        return () => {
+          emitter.off(bus_reply_stream, listener);
+        };
       },
     };
     return bus;
