@@ -13,6 +13,16 @@ import type { MxGraphIsLayer } from "./types.js";
 
 export type CellId = string;
 export type CellStyle = string;
+export type TargetPageSelector = {
+  index?: number;
+  id?: string;
+};
+export type PageInfo = {
+  index: number;
+  id: string;
+  name: string;
+  is_current: boolean;
+};
 
 export interface DrawioCellOptions {
   cell_id?: CellId;
@@ -32,10 +42,12 @@ export interface DrawioCellOptions {
   layer_id?: string;
   target_layer_id?: string;
   name?: string;
-  page?: number;
+  mode?: string;
+  page?: number | TargetPageSelector;
   page_size?: number;
   filter?: any;
   points?: Array<{ x: number; y: number }>;
+  target_page?: TargetPageSelector;
 }
 
 export interface TransformedCell {
@@ -212,6 +224,212 @@ export function remove_circular_dependencies<T>(
   }
 
   return result as T;
+}
+
+function ensure_pages_api(ui: any, selector_name: string) {
+  if (!Array.isArray(ui?.pages) || ui.pages.length === 0) {
+    throw new Error(
+      `Draw.io pages are unavailable; cannot resolve \`${selector_name}\``,
+    );
+  }
+}
+
+function get_page_id(page: any): string {
+  if (typeof page?.getId === "function") {
+    return String(page.getId());
+  }
+
+  const id = page?.id ?? page?.node?.getAttribute?.("id");
+  if (id === undefined || id === null || id === "") {
+    throw new Error("Target page does not expose a stable ID");
+  }
+
+  return String(id);
+}
+
+function get_page_name(page: any, index: number): string {
+  if (typeof page?.getName === "function") {
+    const name = page.getName();
+    if (name !== undefined && name !== null && name !== "") {
+      return String(name);
+    }
+  }
+
+  const fallback = page?.name ?? page?.node?.getAttribute?.("name");
+  if (fallback !== undefined && fallback !== null && fallback !== "") {
+    return String(fallback);
+  }
+
+  return `Page-${index + 1}`;
+}
+
+export function serialize_page_info(
+  ui: any,
+  page: any,
+  index: number,
+  isCurrent: boolean = (() => {
+    if (ui?.currentPage === undefined || ui?.currentPage === null) {
+      return false;
+    }
+
+    try {
+      return get_page_id(page) === get_page_id(ui.currentPage);
+    } catch {
+      return false;
+    }
+  })(),
+): PageInfo {
+  return {
+    index,
+    id: get_page_id(page),
+    name: get_page_name(page, index),
+    is_current: isCurrent,
+  };
+}
+
+export function resolve_target_page(
+  ui: any,
+  target_page?: TargetPageSelector,
+  selector_name: string = "target_page",
+) {
+  ensure_pages_api(ui, selector_name);
+
+  if (!target_page || typeof target_page !== "object") {
+    throw new Error(`\`${selector_name}\` is required`);
+  }
+
+  const hasIndex = Number.isInteger(target_page.index);
+  const hasId = typeof target_page.id === "string" && target_page.id.length > 0;
+
+  if (hasIndex === hasId) {
+    throw new Error(
+      `\`${selector_name}\` must include exactly one of \`index\` or \`id\``,
+    );
+  }
+
+  if (hasIndex) {
+    const index = Number(target_page.index);
+    if (index < 0 || index >= ui.pages.length) {
+      throw new Error(
+        `\`${selector_name}.index\` ${index} is out of range for ${ui.pages.length} pages`,
+      );
+    }
+
+    return {
+      page: ui.pages[index],
+      index,
+    };
+  }
+
+  const index = ui.pages.findIndex((page: any) => {
+    try {
+      return get_page_id(page) === target_page.id;
+    } catch {
+      return false;
+    }
+  });
+
+  if (index === -1) {
+    throw new Error(`Page with ID ${target_page.id} was not found`);
+  }
+
+  return {
+    page: ui.pages[index],
+    index,
+  };
+}
+
+export function switch_to_target_page(ui: any, page: any) {
+  const currentId =
+    ui?.currentPage !== undefined && ui?.currentPage !== null
+      ? get_page_id(ui.currentPage)
+      : null;
+  const targetId = get_page_id(page);
+
+  if (currentId !== null && currentId === targetId) {
+    return;
+  }
+
+  if (typeof ui?.selectPage !== "function") {
+    throw new Error("Draw.io page switching is not supported in this version");
+  }
+
+  ui.selectPage(page);
+}
+
+export function get_selected_cell(ui: any) {
+  return ui.editor.graph.getSelectionCell() || "no cell selected";
+}
+
+export function list_pages(ui: any): PageInfo[] {
+  ensure_pages_api(ui, "pages");
+
+  return ui.pages.map((page: any, index: number) =>
+    serialize_page_info(ui, page, index),
+  );
+}
+
+export function get_current_page(ui: any): PageInfo {
+  ensure_pages_api(ui, "current page");
+
+  const currentId =
+    ui?.currentPage !== undefined && ui?.currentPage !== null
+      ? get_page_id(ui.currentPage)
+      : null;
+  const currentIndex = ui.pages.findIndex(
+    (page: any) => currentId !== null && get_page_id(page) === currentId,
+  );
+  if (currentIndex === -1 || !ui.currentPage) {
+    throw new Error("Current page is not available");
+  }
+
+  return serialize_page_info(ui, ui.currentPage, currentIndex, true);
+}
+
+export function create_page(ui: any, options: DrawioCellOptions): PageInfo {
+  if (typeof ui?.insertPage !== "function") {
+    throw new Error("Draw.io page creation is not supported in this version");
+  }
+
+  const newPage = ui.insertPage(null, ui.pages?.length);
+  if (!newPage) {
+    throw new Error("Failed to create a new page");
+  }
+
+  if (options.name && typeof newPage.setName === "function") {
+    newPage.setName(options.name);
+  }
+
+  switch_to_target_page(ui, newPage);
+
+  const newPageId = get_page_id(newPage);
+  const index = Array.isArray(ui.pages)
+    ? ui.pages.findIndex((page: any) => get_page_id(page) === newPageId)
+    : -1;
+  if (index === -1) {
+    throw new Error("Created page is not present in the page list");
+  }
+
+  return serialize_page_info(ui, newPage, index, true);
+}
+
+export function rename_page(ui: any, options: DrawioCellOptions): PageInfo {
+  const page_selector =
+    typeof options.page === "number" ? { index: options.page } : options.page;
+  const resolved = resolve_target_page(ui, page_selector, "page");
+  switch_to_target_page(ui, resolved.page);
+
+  if (!options.name) {
+    throw new Error("`name` is required");
+  }
+
+  if (typeof resolved.page?.setName !== "function") {
+    throw new Error("Draw.io page renaming is not supported in this version");
+  }
+
+  resolved.page.setName(options.name);
+
+  return serialize_page_info(ui, resolved.page, resolved.index, true);
 }
 
 /**

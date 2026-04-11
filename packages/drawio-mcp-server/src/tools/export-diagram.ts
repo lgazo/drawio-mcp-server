@@ -3,6 +3,7 @@ import { writeFileSync, existsSync } from "node:fs";
 import { z } from "zod";
 
 import { export_tool_handler } from "../tool.js";
+import { target_page_field } from "./shared.js";
 import { ToolRegistrar } from "./types.js";
 
 export const TOOL_export_diagram = "export-diagram";
@@ -10,8 +11,9 @@ export const TOOL_export_diagram = "export-diagram";
 export const registerExportDiagramTool: ToolRegistrar = (server, context) => {
   server.tool(
     TOOL_export_diagram,
-    "Export the current diagram as SVG, PNG, or XML. Returns the diagram data as base64 (PNG) or text (SVG/XML). Optionally saves to a file.",
+    "Export the target page or current diagram as SVG, PNG, or XML. Returns the diagram data as base64 (PNG) or text (SVG/XML). Optionally saves to a file.",
     {
+      target_page: target_page_field(),
       format: z
         .enum(["svg", "png", "xml"])
         .describe(
@@ -81,7 +83,9 @@ export const registerExportDiagramTool: ToolRegistrar = (server, context) => {
         ),
     },
     async (args, _extra) => {
-      const exportHandler = export_tool_handler(TOOL_export_diagram, context);
+      const exportHandler = export_tool_handler(TOOL_export_diagram, context, {
+        queue: true,
+      });
       const result = await exportHandler(args, _extra);
 
       if (args.output_path) {

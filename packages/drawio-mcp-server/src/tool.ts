@@ -12,13 +12,17 @@ export type ToolFn<S> = (
   args: S,
   extra: RequestHandlerExtra<ServerRequest, ServerNotification>,
 ) => Promise<CallToolResult>;
+export type ToolExecutionOptions = {
+  queue?: boolean;
+};
 
 export function build_channel<S>(
-  { bus, id_generator, log }: Context,
+  { bus, id_generator, request_queue, log }: Context,
   event_name: string,
   handler: Handler,
+  options: ToolExecutionOptions = {},
 ) {
-  const fn: ToolFn<S> = async (
+  const invoke = async (
     _args: S,
     _extra: RequestHandlerExtra<ServerRequest, ServerNotification>,
   ) => {
@@ -48,10 +52,25 @@ export function build_channel<S>(
     return p;
   };
 
+  const fn: ToolFn<S> = async (
+    _args: S,
+    _extra: RequestHandlerExtra<ServerRequest, ServerNotification>,
+  ) => {
+    if (options.queue) {
+      return request_queue.enqueue(() => invoke(_args, _extra));
+    }
+
+    return invoke(_args, _extra);
+  };
+
   return fn;
 }
 
-export function default_tool(name: string, context: Context) {
+export function default_tool(
+  name: string,
+  context: Context,
+  options: ToolExecutionOptions = {},
+) {
   const fn = build_channel(context, name, (reply) => {
     const response: CallToolResult = {
       content: [
@@ -62,12 +81,16 @@ export function default_tool(name: string, context: Context) {
       ],
     };
     return response;
-  });
+  }, options);
 
   return fn;
 }
 
-export function export_tool_handler(name: string, context: Context) {
+export function export_tool_handler(
+  name: string,
+  context: Context,
+  options: ToolExecutionOptions = {},
+) {
   const fn = build_channel(context, name, (reply) => {
     const { success, result, error } = reply;
 
@@ -116,7 +139,7 @@ export function export_tool_handler(name: string, context: Context) {
       content,
     };
     return response;
-  });
+  }, options);
 
   return fn;
 }

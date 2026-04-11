@@ -3,11 +3,13 @@ import { registerAddCellOfShapeTool } from "./add-cell-of-shape.js";
 import { registerAddEdgeTool } from "./add-edge.js";
 import { registerAddRectangleTool } from "./add-rectangle.js";
 import { registerCreateLayerTool } from "./create-layer.js";
+import { registerCreatePageTool } from "./create-page.js";
 import { registerDeleteCellByIdTool } from "./delete-cell-by-id.js";
 import { registerEditCellTool } from "./edit-cell.js";
 import { registerEditEdgeTool } from "./edit-edge.js";
 import { registerExportDiagramTool } from "./export-diagram.js";
 import { registerGetActiveLayerTool } from "./get-active-layer.js";
+import { registerGetCurrentPageTool } from "./get-current-page.js";
 import { registerGetSelectedCellTool } from "./get-selected-cell.js";
 import { registerGetShapeByNameTool } from "./get-shape-by-name.js";
 import { registerGetShapeCategoriesTool } from "./get-shape-categories.js";
@@ -15,8 +17,10 @@ import { registerGetShapesInCategoryTool } from "./get-shapes-in-category.js";
 import { registerImportDiagramTool } from "./import-diagram.js";
 import { registerImportMermaidTool } from "./import-mermaid.js";
 import { registerListLayersTool } from "./list-layers.js";
+import { registerListPagesTool } from "./list-pages.js";
 import { registerListPagedModelTool } from "./list-paged-model.js";
 import { registerMoveCellToLayerTool } from "./move-cell-to-layer.js";
+import { registerRenamePageTool } from "./rename-page.js";
 import { registerSetActiveLayerTool } from "./set-active-layer.js";
 import { registerSetCellDataTool } from "./set-cell-data.js";
 import { registerSetCellParentTool } from "./set-cell-parent.js";
@@ -45,6 +49,10 @@ const registrars: ToolRegistrar[] = [
   registerExportDiagramTool,
   registerImportDiagramTool,
   registerImportMermaidTool,
+  registerListPagesTool,
+  registerGetCurrentPageTool,
+  registerCreatePageTool,
+  registerRenamePageTool,
 ];
 
 export function registerTools(...args: Parameters<ToolRegistrar>) {

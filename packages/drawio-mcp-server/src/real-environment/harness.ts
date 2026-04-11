@@ -297,6 +297,7 @@ export async function resetDiagram(context: RealEnvironmentContext) {
   await context.client.callTool({
     name: "import-diagram",
     arguments: {
+      target_page: { index: 0 },
       data: emptyDiagram,
       format: "xml",
       mode: "replace",

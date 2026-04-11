@@ -12,6 +12,7 @@ import { create_logger } from "./standard_console_logger.js";
 describe("build_channel", () => {
   let mockBus: jest.Mocked<Bus>;
   let mockIdGenerator: { generate: jest.Mock<() => string> };
+  let mockRequestQueue: { enqueue: jest.Mock<any> };
   let context: Context;
   const mockHandler = jest.fn<Handler>();
   const log = create_logger();
@@ -26,9 +27,14 @@ describe("build_channel", () => {
       generate: jest.fn<() => string>().mockReturnValue("123"),
     };
 
+    mockRequestQueue = {
+      enqueue: jest.fn((task: () => Promise<CallToolResult>) => task()),
+    };
+
     context = {
       bus: mockBus,
       id_generator: mockIdGenerator,
+      request_queue: mockRequestQueue,
       log,
     };
 
@@ -91,11 +97,34 @@ describe("build_channel", () => {
       expect.any(Function),
     );
   });
+
+  it("should enqueue queued tools through the shared request queue", async () => {
+    const eventName = "queued-event";
+    const toolFn = build_channel(context, eventName, mockHandler, {
+      queue: true,
+    });
+
+    mockHandler.mockReturnValue({
+      content: [{ type: "text", text: "queued" }],
+    });
+
+    const promise = toolFn(
+      {},
+      {} as RequestHandlerExtra<ServerRequest, ServerNotification>,
+    );
+    const replyCallback = mockBus.on_reply_from_extension.mock.calls[0][1];
+    replyCallback({ data: "queued" });
+
+    await promise;
+
+    expect(mockRequestQueue.enqueue).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("default_tool", () => {
   let mockBus: jest.Mocked<Bus>;
   let mockIdGenerator: { generate: jest.Mock<() => string> };
+  let mockRequestQueue: { enqueue: jest.Mock<any> };
   const log = create_logger();
   let context: Context;
 
@@ -111,9 +140,14 @@ describe("default_tool", () => {
       generate: jest.fn<() => string>().mockReturnValue("789"),
     };
 
+    mockRequestQueue = {
+      enqueue: jest.fn((task: () => Promise<CallToolResult>) => task()),
+    };
+
     context = {
       bus: mockBus,
       id_generator: mockIdGenerator,
+      request_queue: mockRequestQueue,
       log,
     };
   });

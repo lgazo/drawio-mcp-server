@@ -10,8 +10,21 @@ export type { DrawioCellOptions, TransformedCell };
 
 export type DrawIOFunction = (
   ui: DrawioUI,
-  options: DrawioCellOptions,
+  options: any,
 ) => unknown;
+
+export interface DrawioPage {
+  node?: any;
+  graphModelNode?: any;
+  viewState?: any;
+  root?: any;
+  diagramModified?: boolean;
+  getId?: () => string;
+  getName?: () => string;
+  setName?: (name: string) => void;
+  setDiagramModified?: (modified: boolean) => void;
+  isDiagramModified?: () => boolean;
+}
 
 /**
  * Draw.io API type definitions
@@ -49,6 +62,7 @@ export interface DrawioGraph {
 export interface DrawioEditor {
   graph: DrawioGraph;
   getGraphXml: (ignoreSelection?: boolean, resolveReferences?: boolean) => any;
+  setGraphXml?: (node: any) => void;
 }
 
 // UI interface for the loadPlugin callback parameter
@@ -56,9 +70,15 @@ export interface DrawioUI {
   editor: DrawioEditor;
   menus?: any;
   actions?: any;
-  pages?: any[];
-  currentPage?: any;
+  pages?: DrawioPage[];
+  currentPage?: DrawioPage;
   sidebar?: any;
+  insertPage?: (page?: DrawioPage | null, index?: number, noSelect?: boolean) => DrawioPage | null;
+  selectPage?: (page: DrawioPage, force?: boolean, noSelect?: boolean) => void;
+  removePage?: (page: DrawioPage) => void;
+  renamePage?: (page: DrawioPage) => void;
+  movePage?: (page: DrawioPage, index: number) => void;
+  duplicatePage?: (page: DrawioPage, newName?: string) => DrawioPage | null;
   getXmlFileData(ignoreSelection?: boolean, currentPage?: boolean, uncompressed?: boolean, resolveReferences?: boolean): any;
   getFileData(
     forceXml?: boolean,

@@ -12,6 +12,9 @@ Let's do some Vibe Diagramming with the most wide-spread diagramming tool called
 - Import, embed or expand [Mermaid](https://mermaid.js.org/) diagram ![v2.1.0](https://img.shields.io/badge/v2.1.0-blue)
 - Enable Draw.io MCP in IFrames ![v2.1.0](https://img.shields.io/badge/v2.1.0-blue)
 - AWS, GCP, Azure, Cisco19, and CiscoSafe stencils auto-discovered at runtime from drawio's sidebar ![v2.1.0](https://img.shields.io/badge/v2.1.0-blue)
+- Multi-page targeting with required `target_page` selectors for page-scoped tools
+- Server-side FIFO serialization for live page operations, so multiple agents can work on different pages safely
+- Page management tools: `list-pages`, `get-current-page`, `create-page`, `rename-page`
 - Import and export diagrams from/to XML, SVG (with embedded XML), or PNG (with embedded XML) ![v2.0.0](https://img.shields.io/badge/v2.0.0-blue)
 - Edge geometry control with waypoints and automatic self-connector routing ![v2.0.0](https://img.shields.io/badge/v2.0.0-blue)
 - Parent-child relationships for nested shapes and grouping ![v2.0.0](https://img.shields.io/badge/v2.0.0-blue)
@@ -25,6 +28,8 @@ Let's do some Vibe Diagramming with the most wide-spread diagramming tool called
 ## Introduction
 
 The Draw.io MCP server brings Draw.io diagramming capabilities to AI agents. It provides MCP tools that can create, read, update, and delete diagram elements - letting AI assistants build architectural diagrams, flowcharts, and visual documentation automatically.
+
+For multi-agent usage inside a single Draw.io document, page-scoped tools now require a `target_page` selector (`{ index }` or `{ id }`). The server serializes page-scoped requests in FIFO order so concurrent agents can safely work on different pages without interleaving page switches and writes.
 
 Two ways to use:
 1. **Built-in editor** - Server hosts Draw.io directly, accessible in your browser
@@ -147,8 +152,9 @@ Your AI assistant can now control the diagram using MCP tools.
 
 The server provides MCP tools for:
 
-- **Diagram inspection** - read shapes, layers, and cell properties
-- **Diagram modification** - add/edit/delete shapes, edges, and labels
+- **Diagram inspection** - read shapes, pages, layers, and cell properties
+- **Diagram modification** - add/edit/delete shapes, edges, and labels on a target page
+- **Page management** - list pages, inspect the current page, create pages, and rename pages
 - **Layer management** - create, switch, and organize layers
 - **Vendor shape coverage** - AWS, GCP, Azure, Cisco19, and CiscoSafe stencils auto-discovered at runtime from drawio's sidebar, so agents can place icons like `mxgraph.gcp2.cloud_run` or `mxgraph.cisco19.router` without hand-curated catalogs
 

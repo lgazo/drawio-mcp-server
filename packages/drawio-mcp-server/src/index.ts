@@ -38,6 +38,7 @@ import {
 } from "./types.js";
 import { create_bus } from "./emitter_bus.js";
 import { nanoid_id_generator } from "./nanoid_id_generator.js";
+import { create_request_queue } from "./request_queue.js";
 import { create_logger as create_console_logger } from "./mcp_console_logger.js";
 import {
   create_logger as create_server_logger,
@@ -391,10 +392,12 @@ export function createDrawioMcpApp(options?: {
 
   const bus = create_bus(lazyLog)(emitter);
   const id_generator = nanoid_id_generator();
+  const request_queue = create_request_queue(lazyLog);
 
   const context: Context = {
     bus,
     id_generator,
+    request_queue,
     get log() {
       return getLog();
     },

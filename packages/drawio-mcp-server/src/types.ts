@@ -13,6 +13,10 @@ export type IdGenerator = {
   generate: () => string;
 };
 
+export type RequestQueue = {
+  enqueue: <T>(task: () => Promise<T>) => Promise<T>;
+};
+
 export type Logger = {
   log: (level: string, message?: any, ...data: any[]) => void;
   debug: (message?: any, ...data: any[]) => void;
@@ -21,5 +25,6 @@ export type Logger = {
 export type Context = {
   bus: Bus;
   id_generator: IdGenerator;
+  request_queue: RequestQueue;
   log: Logger;
 };

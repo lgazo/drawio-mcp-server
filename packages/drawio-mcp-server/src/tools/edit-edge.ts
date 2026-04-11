@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { default_tool } from "../tool.js";
+import { target_page_field } from "./shared.js";
 import { ToolRegistrar } from "./types.js";
 
 export const TOOL_edit_edge = "edit-edge";
@@ -10,6 +11,7 @@ export const registerEditEdgeTool: ToolRegistrar = (server, context) => {
     TOOL_edit_edge,
     "Update properties of an existing edge by its ID. Only provided fields are modified; unspecified properties remain unchanged. Supports setting waypoints for edge geometry control.",
     {
+      target_page: target_page_field(),
       cell_id: z
         .string()
         .describe(
@@ -46,6 +48,6 @@ export const registerEditEdgeTool: ToolRegistrar = (server, context) => {
           "Array of {x, y} waypoints to set as edge geometry control points. Replaces existing waypoints. Use an empty array to clear waypoints.",
         ),
     },
-    default_tool(TOOL_edit_edge, context),
+    default_tool(TOOL_edit_edge, context, { queue: true }),
   );
 };

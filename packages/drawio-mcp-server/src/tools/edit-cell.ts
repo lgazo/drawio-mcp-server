@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { default_tool } from "../tool.js";
+import { target_page_field } from "./shared.js";
 import { ToolRegistrar } from "./types.js";
 
 export const TOOL_edit_cell = "edit-cell";
@@ -10,6 +11,7 @@ export const registerEditCellTool: ToolRegistrar = (server, context) => {
     TOOL_edit_cell,
     "Update properties of an existing vertex/shape cell by its ID. Only provided fields are modified; unspecified properties remain unchanged.",
     {
+      target_page: target_page_field(),
       cell_id: z
         .string()
         .describe(
@@ -36,6 +38,6 @@ export const registerEditCellTool: ToolRegistrar = (server, context) => {
           "Replace the cell's style string (semi-colon separated `key=value` pairs).",
         ),
     },
-    default_tool(TOOL_edit_cell, context),
+    default_tool(TOOL_edit_cell, context, { queue: true }),
   );
 };
