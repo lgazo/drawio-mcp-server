@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@jest/globals";
 
-import { target_page_field } from "./shared.js";
+import { target_document_field, target_page_field } from "./shared.js";
 
 describe("target_page schema", () => {
   const schema = target_page_field();
@@ -20,6 +20,19 @@ describe("target_page schema", () => {
 
   it("rejects providing both index and id", () => {
     const result = schema.safeParse({ index: 1, id: "page-123" });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("target_document schema", () => {
+  const schema = target_document_field();
+
+  it("accepts a document id selector", () => {
+    expect(schema.safeParse({ id: "doc-123" }).success).toBe(true);
+  });
+
+  it("rejects an empty document id", () => {
+    const result = schema.safeParse({ id: "" });
     expect(result.success).toBe(false);
   });
 });

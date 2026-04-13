@@ -34,8 +34,21 @@ const BaseTargetPageSchema = z
     }
   });
 
+const BaseTargetDocumentSchema = z.object({
+  id: z
+    .string()
+    .min(1)
+    .describe("Stable Draw.io document instance identifier from `list-documents`."),
+});
+
 export function target_page_field() {
   return BaseTargetPageSchema.describe(
     "Target page selector. Provide exactly one of `{ index }` or `{ id }` from `list-pages`.",
+  );
+}
+
+export function target_document_field() {
+  return BaseTargetDocumentSchema.describe(
+    "Target document selector. Provide `{ id }` from `list-documents`.",
   );
 }

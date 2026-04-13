@@ -12,8 +12,9 @@ Let's do some Vibe Diagramming with the most wide-spread diagramming tool called
 - Import, embed or expand [Mermaid](https://mermaid.js.org/) diagram ![v2.1.0](https://img.shields.io/badge/v2.1.0-blue)
 - Enable Draw.io MCP in IFrames ![v2.1.0](https://img.shields.io/badge/v2.1.0-blue)
 - AWS, GCP, Azure, Cisco19, and CiscoSafe stencils auto-discovered at runtime from drawio's sidebar ![v2.1.0](https://img.shields.io/badge/v2.1.0-blue)
+- Multi-document targeting with `list-documents` and `target_document` selectors for multi-tab workflows
 - Multi-page targeting with required `target_page` selectors for page-scoped tools
-- Server-side FIFO serialization for live page operations, so multiple agents can work on different pages safely
+- Per-document FIFO serialization for live operations, so multiple agents can work on different files safely
 - Page management tools: `list-pages`, `get-current-page`, `create-page`, `rename-page`
 - Import and export diagrams from/to XML, SVG (with embedded XML), or PNG (with embedded XML) ![v2.0.0](https://img.shields.io/badge/v2.0.0-blue)
 - Edge geometry control with waypoints and automatic self-connector routing ![v2.0.0](https://img.shields.io/badge/v2.0.0-blue)
@@ -29,9 +30,11 @@ Let's do some Vibe Diagramming with the most wide-spread diagramming tool called
 
 The Draw.io MCP server brings Draw.io diagramming capabilities to AI agents. It provides MCP tools that can create, read, update, and delete diagram elements - letting AI assistants build architectural diagrams, flowcharts, and visual documentation automatically.
 
-For multi-agent usage inside a single Draw.io document, page-scoped tools now require a `target_page` selector (`{ index }` or `{ id }`). The server serializes page-scoped requests in FIFO order so concurrent agents can safely work on different pages without interleaving page switches and writes.
+For multi-agent usage inside a single Draw.io document, page-scoped tools now require a `target_page` selector (`{ index }` or `{ id }`). The server serializes live operations in FIFO order per connected document, so concurrent agents can safely work on different pages and different files without interleaving page switches and writes inside the same tab.
 
 Most page model tools now execute against off-page models without switching the visible browser page. UI-bound tools such as selection, active-layer inspection/changes, selection-only exports, and embedded-XML PNG exports may still switch the visible page to preserve Draw.io semantics.
+
+For multi-tab usage across different Draw.io files, call `list-documents` first. If the server sees exactly one connected document, live tools auto-target it. If it sees multiple connected documents, every live tool must receive `target_document: { id }` from `list-documents`. The server only talks to already-open Draw.io tabs; it does not open files, open browser tabs, or switch tabs on your behalf.
 
 Two ways to use:
 1. **Built-in editor** - Server hosts Draw.io directly, accessible in your browser
@@ -154,6 +157,7 @@ Your AI assistant can now control the diagram using MCP tools.
 
 The server provides MCP tools for:
 
+- **Document discovery** - list connected Draw.io document instances and route later calls to a specific tab/file instance
 - **Diagram inspection** - read shapes, pages, layers, and cell properties
 - **Diagram modification** - add/edit/delete shapes, edges, and labels on a target page
 - **Page management** - list pages, inspect the current page, create pages, and rename pages without forcing a visible page switch on supported runtimes

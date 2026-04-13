@@ -13,6 +13,13 @@ export type DrawIOFunction = (
   options: any,
 ) => unknown;
 
+export type DrawioEventListener = (...args: any[]) => void;
+
+export interface DrawioEventSource {
+  addListener?: (eventName: string, listener: DrawioEventListener) => void;
+  removeListener?: (eventName: string, listener: DrawioEventListener) => void;
+}
+
 export interface DrawioPage {
   node?: any;
   graphModelNode?: any;
@@ -65,9 +72,16 @@ export interface DrawioEditor {
   setGraphXml?: (node: any) => void;
 }
 
+export interface DrawioFile extends DrawioEventSource {
+  getTitle?: () => string;
+  getMode?: () => string | null;
+  getHash?: () => string;
+  getFileUrl?: () => string | null;
+}
+
 // UI interface for the loadPlugin callback parameter
 export interface DrawioUI {
-  editor: DrawioEditor;
+  editor: DrawioEditor & DrawioEventSource;
   menus?: any;
   actions?: any;
   pages?: DrawioPage[];
@@ -130,7 +144,7 @@ export interface DrawioUI {
     exportType?: string,
   ): void;
   createImageDataUri(canvas: HTMLCanvasElement, xml: string | null, format: string, dpi?: number): string;
-  getCurrentFile(): any;
+  getCurrentFile(): DrawioFile | null;
   embedFonts(svgRoot: any, callback: (svgRoot: any) => void): void;
 }
 

@@ -3,6 +3,7 @@ import {
   add_cell_of_shape,
   add_edge,
   add_new_rectangle,
+  assert_target_document_active,
   create_layer,
   create_page,
   delete_cell_by_id,
@@ -95,7 +96,15 @@ function with_target_page(
   };
 }
 
-export const toolDefinitions: ToolDefinition[] = [
+function with_target_document(handler: DrawIOFunction): DrawIOFunction {
+  return (ui, rawOptions) => {
+    const drawioOptions = rawOptions as DrawioCellOptions;
+    assert_target_document_active(drawioOptions.target_document);
+    return handler(ui, rawOptions);
+  };
+}
+
+const rawToolDefinitions: ToolDefinition[] = [
   {
     name: "get-selected-cell",
     params: new Set(["target_page"]),
@@ -456,3 +465,11 @@ export const toolDefinitions: ToolDefinition[] = [
     handler: rename_page,
   },
 ];
+
+export const toolDefinitions: ToolDefinition[] = rawToolDefinitions.map(
+  (definition) => ({
+    ...definition,
+    params: new Set(["target_document", ...definition.params]),
+    handler: with_target_document(definition.handler),
+  }),
+);

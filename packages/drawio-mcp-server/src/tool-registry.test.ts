@@ -20,6 +20,11 @@ describe("shared tool registry", () => {
     return import("drawio-mcp-plugin/dist/drawio-tools.js");
   }
 
+  async function activateDocument(documentId = "doc-1") {
+    const { set_active_document_id } = await loadDrawioTools();
+    set_active_document_id(documentId);
+  }
+
   it("contains the new page management tools", async () => {
     const toolDefinitions = await loadToolDefinitions();
     const names = toolDefinitions.map((definition) => definition.name);
@@ -34,6 +39,14 @@ describe("shared tool registry", () => {
     );
   });
 
+  it("marks every live plugin tool with target_document", async () => {
+    const toolDefinitions = await loadToolDefinitions();
+
+    for (const definition of toolDefinitions) {
+      expect(definition.params.has("target_document")).toBe(true);
+    }
+  });
+
   it("marks page-scoped tools with target_page while preserving global tools", async () => {
     const toolDefinitions = await loadToolDefinitions();
     const registry = new Map(
@@ -41,12 +54,24 @@ describe("shared tool registry", () => {
     );
 
     expect(registry.get("add-rectangle")?.params.has("target_page")).toBe(true);
+    expect(registry.get("add-rectangle")?.params.has("target_document")).toBe(
+      true,
+    );
     expect(registry.get("list-paged-model")?.params.has("target_page")).toBe(
       true,
     );
+    expect(registry.get("list-paged-model")?.params.has("target_document")).toBe(
+      true,
+    );
     expect(registry.get("rename-page")?.params.has("page")).toBe(true);
+    expect(registry.get("rename-page")?.params.has("target_document")).toBe(
+      true,
+    );
     expect(registry.get("get-shape-by-name")?.params.has("target_page")).toBe(
       false,
+    );
+    expect(registry.get("get-shape-by-name")?.params.has("target_document")).toBe(
+      true,
     );
   });
 
@@ -401,6 +426,7 @@ describe("shared tool registry", () => {
   });
 
   it("runs background-safe tools on off-page models without selecting the page", async () => {
+    await activateDocument();
     const toolDefinitions = await loadToolDefinitions();
     const registry = new Map(
       toolDefinitions.map((definition) => [definition.name, definition] as const),
@@ -502,6 +528,7 @@ describe("shared tool registry", () => {
 
     try {
       const result = handler?.(ui, {
+        target_document: { id: "doc-1" },
         target_page: { id: "page-2" },
         text: "Background rectangle",
       }) as { id: string };
@@ -533,6 +560,7 @@ describe("shared tool registry", () => {
   });
 
   it("falls back to visible-page execution when background graph support is unavailable", async () => {
+    await activateDocument();
     const toolDefinitions = await loadToolDefinitions();
     const registry = new Map(
       toolDefinitions.map((definition) => [definition.name, definition] as const),
@@ -568,6 +596,7 @@ describe("shared tool registry", () => {
     };
 
     const result = handler?.(ui, {
+      target_document: { id: "doc-1" },
       target_page: { id: "page-2" },
       text: "Visible fallback",
     }) as { id: string };
@@ -577,6 +606,7 @@ describe("shared tool registry", () => {
   });
 
   it("cleans up temporary graph resources when background setup fails", async () => {
+    await activateDocument();
     const toolDefinitions = await loadToolDefinitions();
     const registry = new Map(
       toolDefinitions.map((definition) => [definition.name, definition] as const),
@@ -645,6 +675,7 @@ describe("shared tool registry", () => {
     try {
       expect(() =>
         handler?.(ui, {
+          target_document: { id: "doc-1" },
           target_page: { id: "page-2" },
           text: "Broken background setup",
         }),
@@ -668,6 +699,7 @@ describe("shared tool registry", () => {
   });
 
   it("keeps UI-bound tools on the visible-page execution path", async () => {
+    await activateDocument();
     const toolDefinitions = await loadToolDefinitions();
     const registry = new Map(
       toolDefinitions.map((definition) => [definition.name, definition] as const),
@@ -697,6 +729,7 @@ describe("shared tool registry", () => {
 
     expect(
       handler?.(ui, {
+        target_document: { id: "doc-1" },
         target_page: { id: "page-2" },
       }),
     ).toBe(selection);

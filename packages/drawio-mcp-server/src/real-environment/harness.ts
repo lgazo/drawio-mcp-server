@@ -1,4 +1,10 @@
-import { chromium, type ConsoleMessage, type Page } from "@playwright/test";
+import {
+  chromium,
+  type Browser,
+  type BrowserContext,
+  type ConsoleMessage,
+  type Page,
+} from "@playwright/test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { spawnCaddy, type CaddyHandle } from "drawio-mcp-dev-proxy";
@@ -118,14 +124,65 @@ export async function createRealEnvironmentContext(): Promise<RealEnvironmentCon
   const browserContext = await browser.newContext({
     ignoreHTTPSErrors: useHttps,
   });
-  const page = await browserContext.newPage();
-
-  page.on("console", (message: ConsoleMessage) => {
-    browserMessages.push({
-      type: message.type(),
-      text: message.text(),
-    });
+  const page = await openConnectedDrawioPage({
+    browserContext,
+    baseUrl,
+    webSocketUrl,
+    httpPort,
+    wsPort,
+    browserMessages,
   });
+
+  const proxy: ProxyHandle | null = caddy
+    ? { stop: () => caddy!.stop(), proxyPort: caddy.proxyPort }
+    : null;
+
+  return {
+    browser,
+    browserContext,
+    page,
+    client,
+    app,
+    logger,
+    browserMessages,
+    artifactRunDir,
+    httpPort,
+    wsPort,
+    baseUrl,
+    proxy,
+  };
+}
+
+export async function openConnectedDrawioPage({
+  browser,
+  browserContext,
+  baseUrl,
+  webSocketUrl,
+  httpPort,
+  wsPort,
+  browserMessages,
+}: {
+  browser?: Browser;
+  browserContext?: BrowserContext;
+  baseUrl?: string;
+  webSocketUrl?: string;
+  httpPort: number;
+  wsPort: number;
+  browserMessages?: { type: string; text: string }[];
+}) {
+  const page = browserContext
+    ? await browserContext.newPage()
+    : await browser!.newPage();
+  const editorUrl = baseUrl ?? `http://localhost:${httpPort}/`;
+
+  if (browserMessages) {
+    page.on("console", (message: ConsoleMessage) => {
+      browserMessages.push({
+        type: message.type(),
+        text: message.text(),
+      });
+    });
+  }
 
   await page.addInitScript(
     (args: { port: number; websocketUrl: string | undefined }) => {
@@ -146,29 +203,10 @@ export async function createRealEnvironmentContext(): Promise<RealEnvironmentCon
     { port: wsPort, websocketUrl: webSocketUrl },
   );
 
-  await page.goto(baseUrl, {
-    waitUntil: "domcontentloaded",
-  });
+  await page.goto(editorUrl, { waitUntil: "domcontentloaded" });
   await waitForPluginReady(page);
 
-  const proxy: ProxyHandle | null = caddy
-    ? { stop: () => caddy!.stop(), proxyPort: caddy.proxyPort }
-    : null;
-
-  return {
-    browser,
-    browserContext,
-    page,
-    client,
-    app,
-    logger,
-    browserMessages,
-    artifactRunDir,
-    httpPort,
-    wsPort,
-    baseUrl,
-    proxy,
-  };
+  return page;
 }
 
 export async function disposeRealEnvironmentContext(

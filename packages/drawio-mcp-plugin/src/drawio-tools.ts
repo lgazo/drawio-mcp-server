@@ -13,6 +13,9 @@ import type { MxGraphIsLayer } from "./types.js";
 
 export type CellId = string;
 export type CellStyle = string;
+export type TargetDocumentSelector = {
+  id?: string;
+};
 export type TargetPageSelector = {
   index?: number;
   id?: string;
@@ -22,6 +25,15 @@ export type PageInfo = {
   id: string;
   name: string;
   is_current: boolean;
+};
+export type DocumentInfo = {
+  id: string;
+  title: string | null;
+  mode: string | null;
+  hash: string | null;
+  file_url: string | null;
+  page_count: number;
+  current_page: PageInfo | null;
 };
 
 export type PageExecutionMode =
@@ -79,7 +91,45 @@ export interface DrawioCellOptions {
   embed_xml?: boolean;
   size?: "selection" | "page" | "diagram";
   points?: Array<{ x: number; y: number }>;
+  target_document?: TargetDocumentSelector;
   target_page?: TargetPageSelector;
+}
+
+let active_document_id: string | null = null;
+
+function normalize_optional_string(value: unknown): string | null {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+
+  return String(value);
+}
+
+export function set_active_document_id(document_id: string | null) {
+  active_document_id = document_id;
+}
+
+export function assert_target_document_active(
+  target_document?: TargetDocumentSelector,
+) {
+  const targetDocumentId =
+    typeof target_document?.id === "string" && target_document.id.length > 0
+      ? target_document.id
+      : null;
+
+  if (!targetDocumentId) {
+    throw new Error("`target_document.id` is required");
+  }
+
+  if (!active_document_id) {
+    throw new Error("No active Draw.io document is registered in this tab");
+  }
+
+  if (targetDocumentId !== active_document_id) {
+    throw new Error(
+      `Target document ${targetDocumentId} is no longer active in this Draw.io tab; call list-documents and retry`,
+    );
+  }
 }
 
 export interface TransformedCell {
@@ -415,6 +465,34 @@ export function serialize_page_info(
     id: get_page_id(page),
     name: get_page_name(page, index),
     is_current: isCurrent,
+  };
+}
+
+export function serialize_document_info(
+  ui: any,
+  document_id: string,
+): DocumentInfo {
+  const file = ui?.getCurrentFile?.();
+  const pages = Array.isArray(ui?.pages) ? ui.pages : [];
+  const currentId =
+    ui?.currentPage !== undefined && ui?.currentPage !== null
+      ? get_page_id(ui.currentPage)
+      : null;
+  const currentIndex = pages.findIndex(
+    (page: any) => currentId !== null && get_page_id(page) === currentId,
+  );
+
+  return {
+    id: document_id,
+    title: normalize_optional_string(file?.getTitle?.()),
+    mode: normalize_optional_string(file?.getMode?.()),
+    hash: normalize_optional_string(file?.getHash?.()),
+    file_url: normalize_optional_string(file?.getFileUrl?.()),
+    page_count: pages.length,
+    current_page:
+      currentIndex >= 0 && ui?.currentPage
+        ? serialize_page_info(ui, ui.currentPage, currentIndex, true)
+        : null,
   };
 }
 

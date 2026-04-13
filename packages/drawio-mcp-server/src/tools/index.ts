@@ -17,6 +17,7 @@ import { registerGetShapesInCategoryTool } from "./get-shapes-in-category.js";
 import { registerImportDiagramTool } from "./import-diagram.js";
 import { registerImportMermaidTool } from "./import-mermaid.js";
 import { registerListLayersTool } from "./list-layers.js";
+import { registerListDocumentsTool } from "./list-documents.js";
 import { registerListPagesTool } from "./list-pages.js";
 import { registerListPagedModelTool } from "./list-paged-model.js";
 import { registerMoveCellToLayerTool } from "./move-cell-to-layer.js";
@@ -49,6 +50,7 @@ const registrars: ToolRegistrar[] = [
   registerExportDiagramTool,
   registerImportDiagramTool,
   registerImportMermaidTool,
+  registerListDocumentsTool,
   registerListPagesTool,
   registerGetCurrentPageTool,
   registerCreatePageTool,

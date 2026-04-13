@@ -2,9 +2,32 @@
 
 The Draw.io MCP server provides the following MCP tools for programmatic diagram interaction.
 
+## Document Targeting
+
+All live Draw.io tools operate on a connected Draw.io browser tab. Use `list-documents` to inspect the currently connected document instances.
+
+Each document instance exposes:
+
+- `id`
+- `title`
+- `mode`
+- `hash`
+- `file_url`
+- `page_count`
+- `current_page`
+
+Routing rules:
+
+- If no Draw.io documents are connected, live tools fail with `No connected Draw.io documents`.
+- If exactly one Draw.io document is connected, `target_document` is optional and the server auto-targets it.
+- If multiple Draw.io documents are connected, every live tool must include `target_document: { "id": "..." }` from `list-documents`.
+- Document IDs are instance IDs for the currently connected browser tabs, not filesystem paths.
+- Opening the same underlying `.drawio` file in two tabs yields two different document instances.
+- The server only signals existing Draw.io tabs. It does not open files, open tabs, or switch tabs for you.
+
 ## Page Targeting
 
-Most live-diagram tools now require a `target_page` selector so multiple agents can safely work on different pages in the same Draw.io document.
+Page-scoped tools additionally require a `target_page` selector so multiple agents can safely work on different pages inside the selected Draw.io document.
 
 Use exactly one of:
 
@@ -14,11 +37,19 @@ Use exactly one of:
 Notes:
 
 - Page indices are zero-based and come from `list-pages`.
-- Page IDs are stable within the current document and are recommended for agent workflows.
-- All page-scoped tool calls are serialized on the server in FIFO order, so concurrent agents do not interleave page switches and writes.
+- Page IDs are stable within the selected document and are recommended for agent workflows.
+- Live tool calls are serialized per connected document in FIFO order, so concurrent agents do not interleave page switches and writes inside the same browser tab.
 - Most page model tools mutate or inspect off-page content without switching the visible browser page.
 - UI-bound tools such as `get-selected-cell`, `set-active-layer`, `get-active-layer`, `import-diagram`, selection-only `export-diagram`, and PNG `export-diagram` with `embed_xml=true` still operate through the visible page and may switch it.
-- Shape library tools (`get-shape-categories`, `get-shapes-in-category`, `get-shape-by-name`) remain global and do not require `target_page`.
+- Shape library tools (`get-shape-categories`, `get-shapes-in-category`, `get-shape-by-name`) do not require `target_page`, but they still resolve against a single connected document and therefore use `target_document` when multiple documents are connected.
+
+## Document Tools
+
+### `list-documents`
+
+Lists all currently connected Draw.io document instances.
+
+*Returns*: Array of document objects with `id`, `title`, `mode`, `hash`, `file_url`, `page_count`, and `current_page`
 
 ## Diagram Inspection Tools
 
@@ -167,19 +198,19 @@ Sets the parent of a cell, making it a child of the specified parent cell. This 
 
 ### `list-pages`
 
-Lists all pages in the current Draw.io document.
+Lists all pages in the target/current Draw.io document.
 
 *Returns*: Array of page objects with `index`, `id`, `name`, and `is_current`
 
 ### `get-current-page`
 
-Returns metadata for the currently visible page in the browser.
+Returns metadata for the currently visible page in the target/current Draw.io document.
 
 *Returns*: Page object with `index`, `id`, `name`, and `is_current`
 
 ### `create-page`
 
-Creates a new blank page and appends it to the current document. On supported draw.io runtimes, this does not switch the visible page.
+Creates a new blank page and appends it to the target/current document. On supported draw.io runtimes, this does not switch the visible page.
 
 *Parameters*:
 - `name`: Name for the new page
@@ -188,7 +219,7 @@ Creates a new blank page and appends it to the current document. On supported dr
 
 ### `rename-page`
 
-Renames a page without switching the visible page.
+Renames a page in the target/current document without switching the visible page.
 
 *Parameters*:
 - `page`: Page selector for the page to rename. Use exactly one of `{ index }` or `{ id }`

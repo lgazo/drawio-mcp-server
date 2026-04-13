@@ -26,9 +26,17 @@ import {
   type SettingsDialogState,
   type SettingsDialogActions,
 } from "./settingsDialog";
-import { remove_circular_dependencies } from "./drawio-tools";
+import {
+  remove_circular_dependencies,
+  serialize_document_info,
+  set_active_document_id,
+} from "./drawio-tools";
 import { toolDefinitions } from "./tool-registry";
-import { type DrawioUI } from "./types";
+import {
+  type DrawioEventListener,
+  type DrawioFile,
+  type DrawioUI,
+} from "./types";
 
 function reply_name(event_name: string, request_id: string) {
   return `${event_name}.${request_id}`;
@@ -62,6 +70,9 @@ const createToolHandler = (
       };
       if (wsManager) {
         wsManager.send(reply);
+      }
+      if (success) {
+        syncDocumentState();
       }
       return reply;
     };
@@ -98,11 +109,114 @@ let settingsDialog: {
   element: HTMLElement;
   update: (state: SettingsDialogState) => void;
 } | null = null;
+let currentDocumentId: string | null = null;
+let currentFileRef: DrawioFile | null = null;
+let currentFileListenerCleanup: (() => void) | null = null;
 
 const toolHandlers = new Map<string, (request: any) => any>();
 
+function generateDocumentId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  return `document-${Date.now().toString(36)}-${Math.random()
+    .toString(36)
+    .slice(2, 10)}`;
+}
+
+function detachCurrentFileListener() {
+  if (currentFileListenerCleanup) {
+    currentFileListenerCleanup();
+    currentFileListenerCleanup = null;
+  }
+
+  currentFileRef = null;
+}
+
+function syncDocumentState() {
+  if (!wsManager || !ui?.getCurrentFile?.() || !currentDocumentId) {
+    return;
+  }
+
+  wsManager.send({
+    __control: "document-state",
+    document: serialize_document_info(ui, currentDocumentId),
+  });
+}
+
+function bindCurrentFileListener(file: DrawioFile | null) {
+  detachCurrentFileListener();
+  currentFileRef = file;
+
+  if (!file?.addListener || !file?.removeListener) {
+    return;
+  }
+
+  const onDescriptorChanged: DrawioEventListener = () => {
+    syncDocumentState();
+  };
+
+  file.addListener("descriptorChanged", onDescriptorChanged);
+  currentFileListenerCleanup = () => {
+    try {
+      file.removeListener?.("descriptorChanged", onDescriptorChanged);
+    } catch (error) {
+      console.warn("[plugin] Failed to remove file descriptor listener:", error);
+    }
+  };
+}
+
+function refreshActiveDocument(forceNewId: boolean) {
+  const file = ui?.getCurrentFile?.() ?? null;
+
+  if (!file) {
+    currentDocumentId = null;
+    set_active_document_id(null);
+    detachCurrentFileListener();
+    return;
+  }
+
+  if (forceNewId || !currentDocumentId || file !== currentFileRef) {
+    currentDocumentId = generateDocumentId();
+    set_active_document_id(currentDocumentId);
+    bindCurrentFileListener(file);
+    return;
+  }
+
+  if (file !== currentFileRef) {
+    bindCurrentFileListener(file);
+  }
+}
+
+function handleDocumentStateChange(forceNewId: boolean) {
+  refreshActiveDocument(forceNewId);
+  syncDocumentState();
+}
+
+function registerDocumentStateListeners() {
+  const listen = (eventName: string, forceNewId: boolean) => {
+    ui.editor?.addListener?.(eventName, () => {
+      handleDocumentStateChange(forceNewId);
+    });
+  };
+
+  listen("fileLoaded", true);
+  listen("pageSelected", false);
+  listen("pageRenamed", false);
+  listen("pageMoved", false);
+  listen("pagesPatched", false);
+
+  refreshActiveDocument(false);
+}
+
 const handleWebSocketMessage = (message: any): void => {
   console.debug("[plugin] Received WebSocket message:", message);
+
+  if (message.__control === "sync-document-state") {
+    handleDocumentStateChange(false);
+    return;
+  }
 
   if (message.__event && toolHandlers.has(message.__event)) {
     const handler = toolHandlers.get(message.__event);
@@ -305,6 +419,7 @@ function initPlugin() {
           toolHandlers.set(def.name, handler);
         });
 
+        registerDocumentStateListeners();
         initializeWebSocket();
 
         initializeSettingsDialog();

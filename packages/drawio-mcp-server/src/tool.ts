@@ -15,6 +15,7 @@ export type ToolFn<S> = (
 export type ToolExecutionOptions = {
   queue?: boolean;
   reply_timeout_ms?: number;
+  routing?: "document" | "none";
 };
 
 const DEFAULT_REPLY_TIMEOUT_MS = (() => {
@@ -29,28 +30,31 @@ const DEFAULT_REPLY_TIMEOUT_MS = (() => {
 })();
 
 export function build_channel<S>(
-  { bus, id_generator, request_queue, log }: Context,
+  { bus, id_generator, request_queue, document_routing, log }: Context,
   event_name: string,
   handler: Handler,
   options: ToolExecutionOptions = {},
 ) {
+  const routing = options.routing ?? "document";
+
   const invoke = async (
-    _args: S,
-    _extra: RequestHandlerExtra<ServerRequest, ServerNotification>,
+    request_payload: Record<string, unknown>,
+    queue_key: string,
   ) => {
     const reply_timeout_ms =
       options.reply_timeout_ms && options.reply_timeout_ms > 0
         ? options.reply_timeout_ms
         : DEFAULT_REPLY_TIMEOUT_MS;
     const request_id = id_generator.generate();
-    // const event_name = `get-selected-cell`;
     const reply_name = `${event_name}.${request_id}`;
     bus.send_to_extension({
       __event: event_name,
       __request_id: request_id,
-      ..._args,
+      ...request_payload,
     });
-    log.debug(`[${event_name}] emitted, waiting for reply @${reply_name}`);
+    log.debug(
+      `[${event_name}] emitted on ${queue_key}, waiting for reply @${reply_name}`,
+    );
 
     const p: Promise<CallToolResult> = new Promise((resolve, reject) => {
       log.debug(`[${event_name}] waiting for response @${reply_name}`);
@@ -109,11 +113,28 @@ export function build_channel<S>(
     _args: S,
     _extra: RequestHandlerExtra<ServerRequest, ServerNotification>,
   ) => {
-    if (options.queue) {
-      return request_queue.enqueue(() => invoke(_args, _extra));
+    let request_payload = { ...(_args as Record<string, unknown>) };
+    let queue_key = "global";
+
+    if (routing === "document") {
+      const resolved = await document_routing.resolve_target_document(
+        request_payload,
+      );
+      queue_key = resolved.connection_id;
+      request_payload = {
+        ...request_payload,
+        target_document: resolved.target_document,
+        __target_connection_id: resolved.connection_id,
+      };
     }
 
-    return invoke(_args, _extra);
+    if (options.queue) {
+      return request_queue.enqueue(queue_key, () =>
+        invoke(request_payload, queue_key),
+      );
+    }
+
+    return invoke(request_payload, queue_key);
   };
 
   return fn;
