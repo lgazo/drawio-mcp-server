@@ -8,7 +8,7 @@ export const TOOL_create_page = "create-page";
 export const registerCreatePageTool: ToolRegistrar = (server, context) => {
   server.tool(
     TOOL_create_page,
-    "Appends a new blank page to the current Draw.io document and switches the active page to it.",
+    "Appends a new blank page to the current Draw.io document without changing the visible page when the runtime supports background page insertion.",
     {
       name: z.string().describe("Name for the new page"),
     },

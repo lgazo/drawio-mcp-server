@@ -9,7 +9,7 @@ export const TOOL_rename_page = "rename-page";
 export const registerRenamePageTool: ToolRegistrar = (server, context) => {
   server.tool(
     TOOL_rename_page,
-    "Renames the selected page and leaves the active page on the renamed page.",
+    "Renames the selected page without changing the visible page.",
     {
       page: target_page_field().describe(
         "Page selector for the page to rename. Provide exactly one of `{ index }` or `{ id }`.",

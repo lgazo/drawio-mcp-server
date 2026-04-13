@@ -156,7 +156,7 @@ The server provides MCP tools for:
 
 - **Diagram inspection** - read shapes, pages, layers, and cell properties
 - **Diagram modification** - add/edit/delete shapes, edges, and labels on a target page
-- **Page management** - list pages, inspect the current page, create pages, and rename pages
+- **Page management** - list pages, inspect the current page, create pages, and rename pages without forcing a visible page switch on supported runtimes
 - **Layer management** - create, switch, and organize layers
 - **Vendor shape coverage** - AWS, GCP, Azure, Cisco19, and CiscoSafe stencils auto-discovered at runtime from drawio's sidebar, so agents can place icons like `mxgraph.gcp2.cloud_run` or `mxgraph.cisco19.router` without hand-curated catalogs
 

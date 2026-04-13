@@ -82,15 +82,52 @@ describe("real environment/pages and concurrency", () => {
     });
     expectToolSuccess(renamedFirstPayload);
     const pageAlpha = unwrapToolPayload<PageInfo>(renamedFirstPayload);
+    expect(pageAlpha.is_current).toBe(true);
 
     const { payload: createdPayload } = await callToolJson<{
       success: boolean;
       result: PageInfo;
     }>(context, "create-page", {
-      name: "Page Beta",
+      name: "Page Beta Draft",
     });
     expectToolSuccess(createdPayload);
     const pageBeta = unwrapToolPayload<PageInfo>(createdPayload);
+    expect(pageBeta.is_current).toBe(false);
+
+    const { payload: currentAfterCreatePayload } = await callToolJson<{
+      success: boolean;
+      result: PageInfo;
+    }>(context, "get-current-page", {});
+    expectToolSuccess(currentAfterCreatePayload);
+    const currentAfterCreate = unwrapToolPayload<PageInfo>(
+      currentAfterCreatePayload,
+    );
+    expect(currentAfterCreate.id).toBe(pageAlpha.id);
+
+    const { payload: renamedBetaPayload } = await callToolJson<{
+      success: boolean;
+      result: PageInfo;
+    }>(context, "rename-page", {
+      page: { id: pageBeta.id },
+      name: "Page Beta",
+    });
+    expectToolSuccess(renamedBetaPayload);
+    const renamedBeta = unwrapToolPayload<PageInfo>(renamedBetaPayload);
+    expect(renamedBeta).toMatchObject({
+      id: pageBeta.id,
+      name: "Page Beta",
+      is_current: false,
+    });
+
+    const { payload: currentAfterRenamePayload } = await callToolJson<{
+      success: boolean;
+      result: PageInfo;
+    }>(context, "get-current-page", {});
+    expectToolSuccess(currentAfterRenamePayload);
+    const currentAfterRename = unwrapToolPayload<PageInfo>(
+      currentAfterRenamePayload,
+    );
+    expect(currentAfterRename.id).toBe(pageAlpha.id);
 
     const importXml =
       '<mxGraphModel dx="0" dy="0" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0"><root><mxCell id="0"/><mxCell id="1" parent="0"/><mxCell id="gamma-seed" value="Gamma Seed" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1"><mxGeometry x="80" y="120" width="180" height="80" as="geometry"/></mxCell></root></mxGraphModel>';
@@ -358,6 +395,7 @@ describe("real environment/pages and concurrency over HTTP", () => {
     });
     expectToolSuccess(renamedFirstPayload);
     const pageOne = unwrapToolPayload<PageInfo>(renamedFirstPayload);
+    expect(pageOne.is_current).toBe(true);
 
     const { payload: createdSecondPayload } = await callToolJson<{
       success: boolean;
@@ -367,6 +405,7 @@ describe("real environment/pages and concurrency over HTTP", () => {
     });
     expectToolSuccess(createdSecondPayload);
     const pageTwo = unwrapToolPayload<PageInfo>(createdSecondPayload);
+    expect(pageTwo.is_current).toBe(false);
 
     const { payload: createdThirdPayload } = await callToolJson<{
       success: boolean;
@@ -376,6 +415,17 @@ describe("real environment/pages and concurrency over HTTP", () => {
     });
     expectToolSuccess(createdThirdPayload);
     const pageThree = unwrapToolPayload<PageInfo>(createdThirdPayload);
+    expect(pageThree.is_current).toBe(false);
+
+    const { payload: currentAfterCreatePayload } = await callToolJson<{
+      success: boolean;
+      result: PageInfo;
+    }>(context, "get-current-page", {});
+    expectToolSuccess(currentAfterCreatePayload);
+    const currentAfterCreate = unwrapToolPayload<PageInfo>(
+      currentAfterCreatePayload,
+    );
+    expect(currentAfterCreate.id).toBe(pageOne.id);
 
     const clients = [
       await createHttpClient(context, "http-page-client-1"),
@@ -453,7 +503,7 @@ describe("real environment/pages and concurrency over HTTP", () => {
       }>(context, "get-current-page", {});
       expectToolSuccess(currentPagePayload);
       const currentPage = unwrapToolPayload<PageInfo>(currentPagePayload);
-      expect(currentPage.id).toBe(pageThree.id);
+      expect(currentPage.id).toBe(pageOne.id);
 
       const [pageOneExport, pageTwoExport, pageThreeExport] =
         await Promise.all([
@@ -497,7 +547,7 @@ describe("real environment/pages and concurrency over HTTP", () => {
       expectToolSuccess(currentAfterExportsPayload);
       const currentAfterExports =
         unwrapToolPayload<PageInfo>(currentAfterExportsPayload);
-      expect(currentAfterExports.id).toBe(pageThree.id);
+      expect(currentAfterExports.id).toBe(pageOne.id);
     } finally {
       await Promise.all(clients.map((client) => client.close()));
     }

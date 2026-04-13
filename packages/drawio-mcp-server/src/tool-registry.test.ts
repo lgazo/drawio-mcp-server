@@ -111,6 +111,162 @@ describe("shared tool registry", () => {
     expect(serialize_page_info(ui, page, 1).is_current).toBe(true);
   });
 
+  it("creates pages without switching the visible page when low-level page commands are available", async () => {
+    const { create_page } = await loadDrawioTools();
+    const originalChangePage = (globalThis as { ChangePage?: unknown }).ChangePage;
+
+    (globalThis as { ChangePage?: unknown }).ChangePage = function FakeChangePage(
+      this: {
+        ui: any;
+        page: any;
+        index: number;
+        noSelect: boolean;
+        execute: () => void;
+      },
+      ui: any,
+      page: any,
+      _selectedPage: any,
+      index: number,
+      noSelect: boolean,
+    ) {
+      this.ui = ui;
+      this.page = page;
+      this.index = index;
+      this.noSelect = noSelect;
+      this.execute = () => {
+        this.ui.pages.splice(this.index, 0, this.page);
+      };
+    } as unknown as typeof originalChangePage;
+
+    try {
+      let createdName = "Second Page";
+      const currentPage = {
+        getId: () => "page-1",
+        getName: () => "First Page",
+        setName: jest.fn(),
+      };
+      const execute = jest.fn((command: { execute: () => void }) => {
+        command.execute();
+      });
+      const ui = {
+        currentPage,
+        pages: [currentPage],
+        selectPage: jest.fn(),
+        createPageId: jest.fn(() => "page-2"),
+        createPage: jest.fn((name: string | null, id: string) => ({
+          getId: () => id,
+          getName: () => createdName,
+          setName: jest.fn((nextName: string) => {
+            createdName = nextName;
+          }),
+        })),
+        insertPage: jest.fn(),
+        editor: {
+          graph: {
+            model: {
+              execute,
+            },
+          },
+        },
+      };
+
+      const result = create_page(ui, { name: "Second Page" });
+
+      expect(ui.createPage).toHaveBeenCalledWith("Second Page", "page-2");
+      expect(ui.insertPage).not.toHaveBeenCalled();
+      expect(execute).toHaveBeenCalledTimes(1);
+      expect(ui.selectPage).not.toHaveBeenCalled();
+      expect(ui.currentPage).toBe(currentPage);
+      expect(ui.pages).toHaveLength(2);
+      expect(result).toEqual({
+        index: 1,
+        id: "page-2",
+        name: "Second Page",
+        is_current: false,
+      });
+    } finally {
+      if (originalChangePage === undefined) {
+        delete (globalThis as { ChangePage?: unknown }).ChangePage;
+      } else {
+        (globalThis as { ChangePage?: unknown }).ChangePage = originalChangePage;
+      }
+    }
+  });
+
+  it("renames off-page targets without switching the visible page", async () => {
+    const { rename_page } = await loadDrawioTools();
+    const originalRenamePage = (globalThis as { RenamePage?: unknown }).RenamePage;
+
+    (globalThis as { RenamePage?: unknown }).RenamePage = function FakeRenamePage(
+      this: {
+        page: any;
+        previous: string;
+        execute: () => void;
+      },
+      _ui: any,
+      page: any,
+      nextName: string,
+    ) {
+      this.page = page;
+      this.previous = nextName;
+      this.execute = () => {
+        this.page.setName(this.previous);
+      };
+    } as unknown as typeof originalRenamePage;
+
+    try {
+      const currentPage = {
+        getId: () => "page-1",
+        getName: () => "Visible Page",
+      };
+      let targetName = "Target Page";
+      const targetPage = {
+        getId: () => "page-2",
+        getName: () => targetName,
+        setName: jest.fn((nextName: string) => {
+          targetName = nextName;
+        }),
+      };
+      const execute = jest.fn((command: { execute: () => void }) => {
+        command.execute();
+      });
+      const ui = {
+        currentPage,
+        pages: [currentPage, targetPage],
+        selectPage: jest.fn(),
+        editor: {
+          graph: {
+            model: {
+              execute,
+            },
+          },
+        },
+      };
+
+      const result = rename_page(ui, {
+        page: { id: "page-2" },
+        name: "Renamed Target",
+      });
+
+      expect(execute).toHaveBeenCalledTimes(1);
+      expect(targetPage.setName).toHaveBeenCalledWith("Renamed Target");
+      expect(ui.selectPage).not.toHaveBeenCalled();
+      expect(ui.currentPage).toBe(currentPage);
+      expect(result).toEqual({
+        index: 1,
+        id: "page-2",
+        name: "Renamed Target",
+        is_current: false,
+      });
+    } finally {
+      if (originalRenamePage === undefined) {
+        delete (globalThis as { RenamePage?: unknown }).RenamePage;
+      } else {
+        (globalThis as { RenamePage?: unknown }).RenamePage = originalRenamePage;
+      }
+    }
+  });
+
   it("runs background-safe tools on off-page models without selecting the page", async () => {
     const toolDefinitions = await loadToolDefinitions();
     const registry = new Map(

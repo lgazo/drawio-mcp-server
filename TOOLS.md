@@ -179,7 +179,7 @@ Returns metadata for the currently visible page in the browser.
 
 ### `create-page`
 
-Creates a new blank page, appends it to the current document, and switches the active page to it.
+Creates a new blank page and appends it to the current document. On supported draw.io runtimes, this does not switch the visible page.
 
 *Parameters*:
 - `name`: Name for the new page
@@ -188,7 +188,7 @@ Creates a new blank page, appends it to the current document, and switches the a
 
 ### `rename-page`
 
-Renames a page and leaves the active page on the renamed page.
+Renames a page without switching the visible page.
 
 *Parameters*:
 - `page`: Page selector for the page to rename. Use exactly one of `{ index }` or `{ id }`

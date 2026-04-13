@@ -339,6 +339,47 @@ function rollback_created_page(ui: any, page: any) {
   }
 }
 
+function get_drawio_runtime_ctor(name: string) {
+  const maybeWindow =
+    typeof window === "undefined"
+      ? undefined
+      : ((window as unknown) as Record<string, unknown> | undefined);
+  const globalCtor =
+    (globalThis as Record<string, unknown> | undefined)?.[name] ??
+    maybeWindow?.[name];
+
+  return typeof globalCtor === "function" ? (globalCtor as any) : null;
+}
+
+function insert_page_without_switch(ui: any, page: any, index: number) {
+  const ChangePage = get_drawio_runtime_ctor("ChangePage");
+  const execute = ui?.editor?.graph?.model?.execute;
+
+  if (typeof ChangePage !== "function" || typeof execute !== "function") {
+    return false;
+  }
+
+  execute.call(ui.editor.graph.model, new ChangePage(ui, page, page, index, true));
+  return true;
+}
+
+function rename_page_without_switch(ui: any, page: any, name: string) {
+  const RenamePage = get_drawio_runtime_ctor("RenamePage");
+  const execute = ui?.editor?.graph?.model?.execute;
+
+  if (typeof RenamePage === "function" && typeof execute === "function") {
+    execute.call(ui.editor.graph.model, new RenamePage(ui, page, name));
+    return true;
+  }
+
+  if (typeof page?.setName !== "function") {
+    return false;
+  }
+
+  page.setName(name);
+  return true;
+}
+
 export function serialize_page_info(
   ui: any,
   page: any,
@@ -787,22 +828,36 @@ export function create_page(ui: any, options: DrawioCellOptions): PageInfo {
     assert_page_rename_supported(ui, "create a named page");
   }
 
-  const newPage = ui.insertPage(null, ui.pages?.length);
-  if (!newPage) {
-    throw new Error("Failed to create a new page");
-  }
+  const pageIndex = Array.isArray(ui.pages) ? ui.pages.length : 0;
+  let newPage: any = null;
 
-  if (options.name) {
-    try {
-      assert_page_rename_supported(ui, "create a named page", newPage);
-      newPage.setName(options.name);
-    } catch (error) {
-      rollback_created_page(ui, newPage);
-      throw error;
+  if (
+    typeof ui?.createPage === "function" &&
+    typeof ui?.createPageId === "function"
+  ) {
+    newPage = ui.createPage(options.name ?? null, ui.createPageId());
+
+    if (!insert_page_without_switch(ui, newPage, pageIndex)) {
+      newPage = null;
     }
   }
 
-  switch_to_target_page(ui, newPage);
+  if (!newPage) {
+    newPage = ui.insertPage(null, pageIndex);
+    if (!newPage) {
+      throw new Error("Failed to create a new page");
+    }
+
+    if (options.name) {
+      try {
+        assert_page_rename_supported(ui, "create a named page", newPage);
+        newPage.setName(options.name);
+      } catch (error) {
+        rollback_created_page(ui, newPage);
+        throw error;
+      }
+    }
+  }
 
   const newPageId = get_page_id(newPage);
   const index = Array.isArray(ui.pages)
@@ -812,14 +867,13 @@ export function create_page(ui: any, options: DrawioCellOptions): PageInfo {
     throw new Error("Created page is not present in the page list");
   }
 
-  return serialize_page_info(ui, newPage, index, true);
+  return serialize_page_info(ui, newPage, index);
 }
 
 export function rename_page(ui: any, options: DrawioCellOptions): PageInfo {
   const page_selector =
     typeof options.page === "number" ? { index: options.page } : options.page;
   const resolved = resolve_target_page(ui, page_selector, "page");
-  switch_to_target_page(ui, resolved.page);
 
   if (!options.name) {
     throw new Error("`name` is required");
@@ -827,9 +881,11 @@ export function rename_page(ui: any, options: DrawioCellOptions): PageInfo {
 
   assert_page_rename_supported(ui, "rename a page", resolved.page);
 
-  resolved.page.setName(options.name);
+  if (!rename_page_without_switch(ui, resolved.page, options.name)) {
+    throw new Error("Failed to rename the target page");
+  }
 
-  return serialize_page_info(ui, resolved.page, resolved.index, true);
+  return serialize_page_info(ui, resolved.page, resolved.index);
 }
 
 /**
