@@ -380,6 +380,20 @@ function rename_page_without_switch(ui: any, page: any, name: string) {
   return true;
 }
 
+function can_insert_page_without_switch(ui: any) {
+  const graph = ui?.editor?.graph;
+
+  if (!graph || typeof graph.isEnabled !== "function" || graph.isEnabled() !== true) {
+    return false;
+  }
+
+  if (typeof graph.isEditing === "function" && graph.isEditing() === true) {
+    graph.stopEditing?.(false);
+  }
+
+  return true;
+}
+
 export function serialize_page_info(
   ui: any,
   page: any,
@@ -833,7 +847,8 @@ export function create_page(ui: any, options: DrawioCellOptions): PageInfo {
 
   if (
     typeof ui?.createPage === "function" &&
-    typeof ui?.createPageId === "function"
+    typeof ui?.createPageId === "function" &&
+    can_insert_page_without_switch(ui)
   ) {
     newPage = ui.createPage(options.name ?? null, ui.createPageId());
 

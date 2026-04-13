@@ -163,6 +163,9 @@ describe("shared tool registry", () => {
         insertPage: jest.fn(),
         editor: {
           graph: {
+            isEnabled: jest.fn(() => true),
+            isEditing: jest.fn(() => false),
+            stopEditing: jest.fn(),
             model: {
               execute,
             },
@@ -180,6 +183,136 @@ describe("shared tool registry", () => {
       expect(ui.pages).toHaveLength(2);
       expect(result).toEqual({
         index: 1,
+        id: "page-2",
+        name: "Second Page",
+        is_current: false,
+      });
+    } finally {
+      if (originalChangePage === undefined) {
+        delete (globalThis as { ChangePage?: unknown }).ChangePage;
+      } else {
+        (globalThis as { ChangePage?: unknown }).ChangePage = originalChangePage;
+      }
+    }
+  });
+
+  it("does not use the create-page fast path when the graph is disabled", async () => {
+    const { create_page } = await loadDrawioTools();
+    const originalChangePage = (globalThis as { ChangePage?: unknown }).ChangePage;
+
+    (globalThis as { ChangePage?: unknown }).ChangePage = function FakeChangePage(
+      this: { execute: () => void },
+    ) {
+      this.execute = () => undefined;
+    } as unknown as typeof originalChangePage;
+
+    try {
+      const currentPage = {
+        getId: () => "page-1",
+        getName: () => "First Page",
+        setName: jest.fn(),
+      };
+      const execute = jest.fn();
+      const ui = {
+        currentPage,
+        pages: [currentPage],
+        createPageId: jest.fn(() => "page-2"),
+        createPage: jest.fn(),
+        insertPage: jest.fn((_page: any, _index: number) => null),
+        editor: {
+          graph: {
+            isEnabled: jest.fn(() => false),
+            isEditing: jest.fn(() => false),
+            stopEditing: jest.fn(),
+            model: {
+              execute,
+            },
+          },
+        },
+      };
+
+      expect(() => create_page(ui, { name: "Second Page" })).toThrow(
+        "Failed to create a new page",
+      );
+      expect(ui.createPageId).not.toHaveBeenCalled();
+      expect(ui.createPage).not.toHaveBeenCalled();
+      expect(execute).not.toHaveBeenCalled();
+      expect(ui.editor.graph.stopEditing).not.toHaveBeenCalled();
+      expect(ui.insertPage).toHaveBeenCalledWith(null, 1);
+    } finally {
+      if (originalChangePage === undefined) {
+        delete (globalThis as { ChangePage?: unknown }).ChangePage;
+      } else {
+        (globalThis as { ChangePage?: unknown }).ChangePage = originalChangePage;
+      }
+    }
+  });
+
+  it("stops active text editing before using the create-page fast path", async () => {
+    const { create_page } = await loadDrawioTools();
+    const originalChangePage = (globalThis as { ChangePage?: unknown }).ChangePage;
+
+    (globalThis as { ChangePage?: unknown }).ChangePage = function FakeChangePage(
+      this: {
+        ui: any;
+        page: any;
+        index: number;
+        execute: () => void;
+      },
+      ui: any,
+      page: any,
+      _selectedPage: any,
+      index: number,
+    ) {
+      this.ui = ui;
+      this.page = page;
+      this.index = index;
+      this.execute = () => {
+        this.ui.pages.splice(this.index, 0, this.page);
+      };
+    } as unknown as typeof originalChangePage;
+
+    try {
+      const currentPage = {
+        getId: () => "page-1",
+        getName: () => "First Page",
+        setName: jest.fn(),
+      };
+      const stopEditing = jest.fn();
+      const execute = jest.fn((command: { execute: () => void }) => {
+        command.execute();
+      });
+      const ui = {
+        currentPage,
+        pages: [currentPage],
+        createPageId: jest.fn(() => "page-2"),
+        createPage: jest.fn((name: string | null, id: string) => ({
+          getId: () => id,
+          getName: () => name ?? "Page 2",
+          setName: jest.fn(),
+        })),
+        insertPage: jest.fn(),
+        editor: {
+          graph: {
+            isEnabled: jest.fn(() => true),
+            isEditing: jest.fn(() => true),
+            stopEditing,
+            model: {
+              execute,
+            },
+          },
+        },
+      };
+
+      const result = create_page(ui, { name: "Second Page" });
+
+      expect(stopEditing).toHaveBeenCalledWith(false);
+      expect(ui.createPage).toHaveBeenCalledWith("Second Page", "page-2");
+      expect(execute).toHaveBeenCalledTimes(1);
+      expect((stopEditing as jest.Mock).mock.invocationCallOrder[0]).toBeLessThan(
+        (execute as jest.Mock).mock.invocationCallOrder[0],
+      );
+      expect(result).toMatchObject({
         id: "page-2",
         name: "Second Page",
         is_current: false,
