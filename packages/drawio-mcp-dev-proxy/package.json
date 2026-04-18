@@ -1,0 +1,34 @@
+{
+  "name": "drawio-mcp-dev-proxy",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Local HTTPS reverse proxy for verifying wss:// behaviour against drawio-mcp-server",
+  "type": "module",
+  "main": "./build/index.js",
+  "types": "./build/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./build/index.d.ts",
+      "import": "./build/index.js"
+    }
+  },
+  "scripts": {
+    "postinstall": "node scripts/install-caddy.mjs",
+    "setup": "node scripts/install-caddy.mjs",
+    "build": "tsc",
+    "trust": "sudo ./bin/caddy trust",
+    "start": "./bin/caddy run --config ./Caddyfile --adapter caddyfile"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "files": [
+    "build",
+    "Caddyfile",
+    "scripts"
+  ],
+  "devDependencies": {
+    "@types/node": "25.0.3",
+    "typescript": "catalog:"
+  }
+}

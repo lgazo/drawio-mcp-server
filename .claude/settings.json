@@ -1,0 +1,57 @@
+{
+  "env": {
+    "EDITOR": "claude-tmux-editor"
+  },
+  "permissions": {
+    "allow": [
+      "mcp__drawio__list-paged-model",
+      "mcp__drawio__list-layers",
+      "mcp__drawio__get-shape-categories",
+      "mcp__drawio__get-shapes-in-category",
+      "mcp__drawio__add-rectangle",
+      "mcp__drawio__add-edge",
+      "mcp__drawio__edit-cell",
+      "mcp__drawio__create-layer",
+      "mcp__drawio__set-active-layer",
+      "Bash(roam --help)",
+      "Bash(roam search:*)",
+      "Bash(roam schema:*)",
+      "Bash(roam -h)",
+      "Bash(env)",
+      "Bash(roam --json search \"Flight\")",
+      "Bash(chmod +x:*)",
+      "Bash(git check-ignore:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(roam understand:*)",
+      "Bash(pnpm --filter drawio-mcp-server build)",
+      "Bash(pnpm --filter drawio-mcp-server test)",
+      "Bash(pnpm --filter drawio-mcp-plugin build)",
+      "Bash(pnpm --filter drawio-mcp-extension compile)",
+      "Bash(pnpm --filter drawio-mcp-extension build)",
+      "Bash(NODE_OPTIONS=--experimental-vm-modules npx jest build/config.test.js --verbose)",
+      "Bash(pnpm --filter drawio-mcp-server lint)",
+      "Bash(pnpm --filter drawio-mcp-server format)",
+      "Bash(pnpm -r build)",
+      "Bash(DRAWIO_MCP_WEBSOCKET_URL=wss://env.example/ws node build/index.js --transport http --http-port 3911)",
+      "Bash(node -e \"fetch\\('http://localhost:3912/api/config'\\).then\\(r=>r.text\\(\\)\\).then\\(t=>console.log\\(t\\)\\)\")",
+      "Bash(DRAWIO_MCP_WEBSOCKET_URL=wss://env.example/ws node build/index.js --transport http --http-port 3912 --extension-port 3334 --websocket-url wss://flag.example/ws)",
+      "Bash(node -e \"fetch\\('http://localhost:3912/api/config'\\).then\\(r=>r.json\\(\\)\\).then\\(j=>console.log\\(JSON.stringify\\(j\\)\\)\\)\")"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/rtk-rewrite.sh"
+          }
+        ]
+      }
+    ]
+  },
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true
+  }
+}

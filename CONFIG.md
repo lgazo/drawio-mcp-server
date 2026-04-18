@@ -1,14 +1,35 @@
 # Configuration
 
-## CLI Flags
+## CLI Flags & Environment Variables
 
-| Flag | Description | Default |
-|------|-------------|---------|
-| `--editor`, `-e` | Enable built-in Draw.io editor (use `--editor=false` to disable) | disabled |
-| `--extension-port`, `-p` | WebSocket port for browser extension | 3333 |
-| `--http-port` | HTTP transport port | 3000 |
-| `--transport` | Transport type: `stdio`, `http`, or `stdio,http` | `stdio` |
-| `--asset-path` | Custom path for downloaded assets | - |
+Every CLI flag has a matching environment variable. CLI flags take precedence over environment variables.
+
+| Flag | Environment Variable | Description | Default |
+|------|----------------------|-------------|---------|
+| `--editor`, `-e` | `DRAWIO_MCP_EDITOR` | Enable built-in Draw.io editor (`true`/`false`) | disabled |
+| `--extension-port`, `-p` | `DRAWIO_MCP_EXTENSION_PORT` | WebSocket port for browser extension | 3333 |
+| `--http-port` | `DRAWIO_MCP_HTTP_PORT` | HTTP transport port | 3000 |
+| `--transport` | `DRAWIO_MCP_TRANSPORT` | Transport type: `stdio`, `http`, or `stdio,http` | `stdio` |
+| `--asset-path` | `DRAWIO_MCP_ASSET_PATH` | Custom path for downloaded assets | - |
+| `--websocket-url` | `DRAWIO_MCP_WEBSOCKET_URL` | Override WebSocket URL advertised to the editor (must be `ws://` or `wss://`) | derived from page |
+
+## Custom WebSocket URL (reverse proxies, HTTPS)
+
+By default, the built-in editor builds the WebSocket URL from the page it loads on: `wss://` if the page is HTTPS, otherwise `ws://`, with the page hostname and the `--extension-port` value. Behind a reverse proxy that terminates TLS and exposes the WebSocket on a different host, port, or path, set an explicit URL:
+
+```sh
+DRAWIO_MCP_WEBSOCKET_URL=wss://drawio.example.com/ws \
+  npx -y drawio-mcp-server --editor --transport http
+```
+
+Or with the equivalent CLI flag:
+
+```sh
+npx -y drawio-mcp-server --editor --transport http \
+  --websocket-url wss://drawio.example.com/ws
+```
+
+The browser extension has the same override under **Custom WebSocket URL** on its options page; use it when connecting through an HTTPS proxy.
 
 ## Built-in Editor
 

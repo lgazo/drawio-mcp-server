@@ -8,6 +8,7 @@ export interface ServerConfig {
   readonly transports: TransportType[];
   readonly editorEnabled: boolean;
   readonly assetPath?: string;
+  readonly webSocketUrl?: string;
 }
 
 export type TransportType = "stdio" | "http";
@@ -78,6 +79,33 @@ export const parseHttpPortValue = (
   }
 
   return port;
+};
+
+/**
+ * Parse WebSocket URL value - pure function
+ * Accepts ws:// or wss:// URLs only
+ */
+export const parseWebSocketUrlValue = (
+  value: string | undefined,
+): string | Error => {
+  if (!value) {
+    return new Error("--websocket-url flag requires a URL");
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    return new Error(`Invalid WebSocket URL "${value}"`);
+  }
+
+  if (parsed.protocol !== "ws:" && parsed.protocol !== "wss:") {
+    return new Error(
+      `Invalid WebSocket URL "${value}". Protocol must be ws:// or wss://`,
+    );
+  }
+
+  return value;
 };
 
 export const parseTransports = (
@@ -152,6 +180,7 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
   let transportValues: string[] | undefined;
   let editorEnabled = false;
   let assetPath: string | undefined;
+  let webSocketUrlValue: string | undefined;
 
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
@@ -207,7 +236,25 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
 
       assetPath = nextValue;
       i += 1;
+    } else if (arg === "--websocket-url") {
+      const nextValue = args[i + 1];
+
+      if (nextValue === undefined) {
+        return new Error("--websocket-url flag requires a URL");
+      }
+
+      webSocketUrlValue = nextValue;
+      i += 1;
     }
+  }
+
+  let webSocketUrl: string | undefined;
+  if (webSocketUrlValue !== undefined) {
+    const parsed = parseWebSocketUrlValue(webSocketUrlValue);
+    if (parsed instanceof Error) {
+      return parsed;
+    }
+    webSocketUrl = parsed;
   }
 
   if (httpPortValue !== undefined) {
@@ -238,6 +285,7 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
       transports,
       editorEnabled,
       assetPath,
+      webSocketUrl,
     };
   }
 
@@ -253,6 +301,7 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
       transports,
       editorEnabled,
       assetPath,
+      webSocketUrl,
     };
   }
 
@@ -267,7 +316,54 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
     transports,
     editorEnabled,
     assetPath,
+    webSocketUrl,
   };
+};
+
+/**
+ * Map known DRAWIO_MCP_* environment variables to argv tokens.
+ * Pure function - injected env in, argv out.
+ *
+ * Result is concatenated BEFORE real CLI args so that parseConfig's
+ * last-wins semantics give CLI flags precedence over env vars.
+ */
+export const envToArgs = (env: NodeJS.ProcessEnv): string[] => {
+  const out: string[] = [];
+
+  const extPort = env.DRAWIO_MCP_EXTENSION_PORT;
+  if (extPort && extPort.length > 0) {
+    out.push("--extension-port", extPort);
+  }
+
+  const httpPort = env.DRAWIO_MCP_HTTP_PORT;
+  if (httpPort && httpPort.length > 0) {
+    out.push("--http-port", httpPort);
+  }
+
+  const transport = env.DRAWIO_MCP_TRANSPORT;
+  if (transport && transport.length > 0) {
+    out.push("--transport", transport);
+  }
+
+  const editor = env.DRAWIO_MCP_EDITOR;
+  if (editor && editor.length > 0) {
+    const normalized = editor.toLowerCase();
+    if (normalized === "true" || normalized === "false") {
+      out.push("--editor", normalized);
+    }
+  }
+
+  const assetPath = env.DRAWIO_MCP_ASSET_PATH;
+  if (assetPath && assetPath.length > 0) {
+    out.push("--asset-path", assetPath);
+  }
+
+  const wsUrl = env.DRAWIO_MCP_WEBSOCKET_URL;
+  if (wsUrl && wsUrl.length > 0) {
+    out.push("--websocket-url", wsUrl);
+  }
+
+  return out;
 };
 
 /**
@@ -276,8 +372,9 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
  * Returns Error for invalid config, or ServerConfig
  */
 export const buildConfig = (): ServerConfig | Error => {
-  const args = process.argv.slice(2);
-  return parseConfig(args);
+  const envArgs = envToArgs(process.env);
+  const cliArgs = process.argv.slice(2);
+  return parseConfig([...envArgs, ...cliArgs]);
 };
 
 export interface HttpFeatureConfig {

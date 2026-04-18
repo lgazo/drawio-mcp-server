@@ -7,6 +7,8 @@ import {
   parseConfig,
   buildConfig,
   parseTransports,
+  parseWebSocketUrlValue,
+  envToArgs,
 } from "./config.js";
 
 describe("parseExtensionPortValue", () => {
@@ -334,11 +336,168 @@ describe("parseConfig", () => {
   });
 });
 
+describe("parseWebSocketUrlValue", () => {
+  test("accepts ws:// URL", () => {
+    expect(parseWebSocketUrlValue("ws://example.com:3333")).toBe(
+      "ws://example.com:3333",
+    );
+  });
+
+  test("accepts wss:// URL", () => {
+    expect(parseWebSocketUrlValue("wss://example.com/ws")).toBe(
+      "wss://example.com/ws",
+    );
+  });
+
+  test("rejects http:// URL", () => {
+    const result = parseWebSocketUrlValue("http://example.com");
+    expect(result).toBeInstanceOf(Error);
+  });
+
+  test("rejects empty string", () => {
+    const result = parseWebSocketUrlValue("");
+    expect(result).toBeInstanceOf(Error);
+  });
+
+  test("rejects undefined", () => {
+    const result = parseWebSocketUrlValue(undefined);
+    expect(result).toBeInstanceOf(Error);
+  });
+
+  test("rejects garbage", () => {
+    const result = parseWebSocketUrlValue("not a url");
+    expect(result).toBeInstanceOf(Error);
+  });
+});
+
+describe("parseConfig --websocket-url", () => {
+  test("accepts wss:// override", () => {
+    const result = parseConfig(["--websocket-url", "wss://example.com/ws"]);
+    expect(result).not.toBeInstanceOf(Error);
+    expect((result as any).webSocketUrl).toBe("wss://example.com/ws");
+  });
+
+  test("rejects http:// scheme", () => {
+    const result = parseConfig(["--websocket-url", "http://example.com"]);
+    expect(result).toBeInstanceOf(Error);
+  });
+
+  test("missing value returns Error", () => {
+    const result = parseConfig(["--websocket-url"]);
+    expect(result).toBeInstanceOf(Error);
+    expect((result as Error).message).toContain(
+      "--websocket-url flag requires a URL",
+    );
+  });
+
+  test("last --websocket-url wins", () => {
+    const result = parseConfig([
+      "--websocket-url",
+      "ws://first.example/ws",
+      "--websocket-url",
+      "wss://second.example/ws",
+    ]);
+    expect((result as any).webSocketUrl).toBe("wss://second.example/ws");
+  });
+});
+
+describe("envToArgs", () => {
+  test("empty env yields empty args", () => {
+    expect(envToArgs({})).toEqual([]);
+  });
+
+  test("maps DRAWIO_MCP_EXTENSION_PORT", () => {
+    expect(envToArgs({ DRAWIO_MCP_EXTENSION_PORT: "8080" })).toEqual([
+      "--extension-port",
+      "8080",
+    ]);
+  });
+
+  test("maps DRAWIO_MCP_HTTP_PORT", () => {
+    expect(envToArgs({ DRAWIO_MCP_HTTP_PORT: "4242" })).toEqual([
+      "--http-port",
+      "4242",
+    ]);
+  });
+
+  test("maps DRAWIO_MCP_TRANSPORT", () => {
+    expect(envToArgs({ DRAWIO_MCP_TRANSPORT: "stdio,http" })).toEqual([
+      "--transport",
+      "stdio,http",
+    ]);
+  });
+
+  test("maps DRAWIO_MCP_EDITOR true/false", () => {
+    expect(envToArgs({ DRAWIO_MCP_EDITOR: "true" })).toEqual([
+      "--editor",
+      "true",
+    ]);
+    expect(envToArgs({ DRAWIO_MCP_EDITOR: "false" })).toEqual([
+      "--editor",
+      "false",
+    ]);
+  });
+
+  test("ignores invalid DRAWIO_MCP_EDITOR value", () => {
+    expect(envToArgs({ DRAWIO_MCP_EDITOR: "yes" })).toEqual([]);
+  });
+
+  test("maps DRAWIO_MCP_ASSET_PATH", () => {
+    expect(envToArgs({ DRAWIO_MCP_ASSET_PATH: "/tmp/assets" })).toEqual([
+      "--asset-path",
+      "/tmp/assets",
+    ]);
+  });
+
+  test("maps DRAWIO_MCP_WEBSOCKET_URL", () => {
+    expect(
+      envToArgs({ DRAWIO_MCP_WEBSOCKET_URL: "wss://example.com/ws" }),
+    ).toEqual(["--websocket-url", "wss://example.com/ws"]);
+  });
+
+  test("ignores empty values", () => {
+    expect(
+      envToArgs({
+        DRAWIO_MCP_EXTENSION_PORT: "",
+        DRAWIO_MCP_WEBSOCKET_URL: "",
+      }),
+    ).toEqual([]);
+  });
+
+  test("maps multiple env vars together", () => {
+    expect(
+      envToArgs({
+        DRAWIO_MCP_EXTENSION_PORT: "8080",
+        DRAWIO_MCP_WEBSOCKET_URL: "wss://example.com/ws",
+        DRAWIO_MCP_TRANSPORT: "http",
+      }),
+    ).toEqual([
+      "--extension-port",
+      "8080",
+      "--transport",
+      "http",
+      "--websocket-url",
+      "wss://example.com/ws",
+    ]);
+  });
+});
+
 describe("buildConfig", () => {
   const originalArgv = process.argv;
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    // Strip any host-set DRAWIO_MCP_* vars so they don't leak into tests
+    const clean = { ...originalEnv };
+    for (const key of Object.keys(clean)) {
+      if (key.startsWith("DRAWIO_MCP_")) delete clean[key];
+    }
+    process.env = clean;
+  });
 
   afterEach(() => {
     process.argv = originalArgv;
+    process.env = originalEnv;
   });
 
   test("uses default config with empty args", () => {
@@ -378,5 +537,44 @@ describe("buildConfig", () => {
     process.argv = ["node", "script.js", "--extension-port", "abc"];
     const result = buildConfig();
     expect(result).toBeInstanceOf(Error);
+  });
+
+  test("env var DRAWIO_MCP_WEBSOCKET_URL is honored", () => {
+    process.argv = ["node", "script.js"];
+    process.env = {
+      ...originalEnv,
+      DRAWIO_MCP_WEBSOCKET_URL: "wss://env.example/ws",
+    };
+    const result = buildConfig();
+    expect((result as any).webSocketUrl).toBe("wss://env.example/ws");
+  });
+
+  test("CLI flag overrides env var (last-wins)", () => {
+    process.argv = [
+      "node",
+      "script.js",
+      "--websocket-url",
+      "wss://flag.example/ws",
+    ];
+    process.env = {
+      ...originalEnv,
+      DRAWIO_MCP_WEBSOCKET_URL: "wss://env.example/ws",
+    };
+    const result = buildConfig();
+    expect((result as any).webSocketUrl).toBe("wss://flag.example/ws");
+  });
+
+  test("env var DRAWIO_MCP_EXTENSION_PORT is honored", () => {
+    process.argv = ["node", "script.js"];
+    process.env = { ...originalEnv, DRAWIO_MCP_EXTENSION_PORT: "9090" };
+    const result = buildConfig();
+    expect((result as any).extensionPort).toBe(9090);
+  });
+
+  test("CLI port overrides env var port", () => {
+    process.argv = ["node", "script.js", "--extension-port", "7777"];
+    process.env = { ...originalEnv, DRAWIO_MCP_EXTENSION_PORT: "9090" };
+    const result = buildConfig();
+    expect((result as any).extensionPort).toBe(7777);
   });
 });

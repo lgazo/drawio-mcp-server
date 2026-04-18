@@ -1,6 +1,6 @@
 {
   "name": "drawio-mcp",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "description": "Draw.io MCP - A monorepo containing the MCP server and browser plugin",
   "private": true,
   "type": "module",

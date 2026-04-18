@@ -20,7 +20,7 @@ import {
 import { AddressInfo } from "node:net";
 
 import { WebSocket, WebSocketServer } from "ws";
-const VERSION = process.env.npm_package_version ?? "2.0.4";
+const VERSION = process.env.npm_package_version ?? "2.1.0";
 import {
   buildConfig,
   shouldShowHelp,
@@ -167,6 +167,7 @@ function registerConfigRoute(app: Hono, config: ServerConfig) {
     c.json({
       websocketPort: config.extensionPort,
       serverUrl: `http://localhost:${config.httpPort}`,
+      websocketUrl: config.webSocketUrl,
     }),
   );
 }

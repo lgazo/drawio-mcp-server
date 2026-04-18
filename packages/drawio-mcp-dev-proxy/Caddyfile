@@ -1,0 +1,13 @@
+{
+	auto_https disable_redirects
+}
+
+https://localhost:{$DRAWIO_MCP_PROXY_PORT:8443} {
+	tls internal
+
+	handle_path /ws* {
+		reverse_proxy http://localhost:{$DRAWIO_MCP_WS_UPSTREAM:3333}
+	}
+
+	reverse_proxy localhost:{$DRAWIO_MCP_HTTP_UPSTREAM:3000}
+}

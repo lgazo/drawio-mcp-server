@@ -2,6 +2,7 @@
 export interface ExtensionConfig {
   websocketPort: number;
   urlPatterns: string[];
+  websocketUrl?: string;
 }
 
 import { safeMigrateConfig } from './utils/configMigration';
@@ -11,6 +12,18 @@ export const DEFAULT_CONFIG: ExtensionConfig = {
   websocketPort: 3333,
   urlPatterns: ["*://app.diagrams.net/*"],
 };
+
+export function isValidExtensionWebSocketUrl(value: unknown): value is string {
+  if (typeof value !== 'string' || value.length === 0) {
+    return false;
+  }
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'ws:' || parsed.protocol === 'wss:';
+  } catch {
+    return false;
+  }
+}
 
 // Storage key
 export const CONFIG_STORAGE_KEY = 'drawio-mcp-config';
@@ -58,10 +71,15 @@ export async function saveConfig(config: ExtensionConfig): Promise<void> {
 }
 
 /**
- * Build WebSocket URL from stored config
+ * Build WebSocket URL from stored config.
+ * If websocketUrl override is set, use it verbatim.
+ * Otherwise fall back to ws://localhost:<port>.
  */
 export async function getWebSocketUrl(): Promise<string> {
   const config = await getConfig();
+  if (isValidExtensionWebSocketUrl(config.websocketUrl)) {
+    return config.websocketUrl;
+  }
   return `ws://localhost:${config.websocketPort}`;
 }
 

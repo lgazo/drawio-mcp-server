@@ -1,5 +1,5 @@
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import type { Browser, Page } from "@playwright/test";
+import type { Browser, BrowserContext, Page } from "@playwright/test";
 
 import type { createDrawioMcpApp } from "../index.js";
 import type { MemoryLogger } from "./logger.js";
@@ -23,8 +23,14 @@ export type CellSnapshot = {
 
 export type RealEnvironmentApp = ReturnType<typeof createDrawioMcpApp>;
 
+export interface ProxyHandle {
+  stop(): Promise<void>;
+  readonly proxyPort: number;
+}
+
 export interface RealEnvironmentContext {
   browser: Browser;
+  browserContext: BrowserContext;
   page: Page;
   client: Client;
   app: RealEnvironmentApp;
@@ -33,4 +39,6 @@ export interface RealEnvironmentContext {
   artifactRunDir: string;
   httpPort: number;
   wsPort: number;
+  baseUrl: string;
+  proxy: ProxyHandle | null;
 }

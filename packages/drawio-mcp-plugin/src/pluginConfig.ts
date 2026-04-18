@@ -8,12 +8,25 @@
 export interface PluginConfig {
   websocketPort: number;
   serverUrl: string;
+  websocketUrl?: string;
 }
 
 export const DEFAULT_PLUGIN_CONFIG: PluginConfig = {
   websocketPort: 3333,
   serverUrl: "",
 };
+
+function isValidWebSocketUrl(value: unknown): value is string {
+  if (typeof value !== "string" || value.length === 0) {
+    return false;
+  }
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "ws:" || parsed.protocol === "wss:";
+  } catch {
+    return false;
+  }
+}
 
 const PLUGIN_CONFIG_KEY = "drawio-mcp-plugin-config";
 
@@ -32,6 +45,9 @@ export async function fetchPluginConfig(): Promise<PluginConfig> {
         websocketPort:
           serverConfig.websocketPort || DEFAULT_PLUGIN_CONFIG.websocketPort,
         serverUrl: serverConfig.serverUrl || window.location.origin,
+        websocketUrl: isValidWebSocketUrl(serverConfig.websocketUrl)
+          ? serverConfig.websocketUrl
+          : undefined,
       };
       writePluginConfig(cachedConfig);
       return cachedConfig;
@@ -102,18 +118,27 @@ export function validatePluginConfig(config: unknown): {
     };
   }
 
+  const websocketUrl = isValidWebSocketUrl(cfg.websocketUrl)
+    ? cfg.websocketUrl
+    : undefined;
+
   return {
     isValid: true,
     config: {
       websocketPort: cfg.websocketPort,
       serverUrl: cfg.serverUrl || "",
+      websocketUrl,
     },
   };
 }
 
 export function buildWebSocketUrl(config: PluginConfig): string {
+  if (config.websocketUrl) {
+    return config.websocketUrl;
+  }
+  const scheme = window.location.protocol === "https:" ? "wss:" : "ws:";
   const host = window.location.hostname;
-  return `ws://${host}:${config.websocketPort}`;
+  return `${scheme}//${host}:${config.websocketPort}`;
 }
 
 export function resetPluginConfigToDefaults(): void {

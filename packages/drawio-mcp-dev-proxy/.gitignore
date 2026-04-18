@@ -1,0 +1,4 @@
+/bin/*
+!/bin/.gitkeep
+/build/
+/node_modules/

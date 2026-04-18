@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "chrome-devtools": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["chrome-devtools-mcp@latest", "--browser-url=http://127.0.0.1:9226"]
+    },
+    "playwright": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["@playwright/mcp@latest", "--cdp-endpoint", "http://127.0.0.1:9226"]
+    },
+    "drawio": {
+      "type": "http",
+      "url": "http://localhost:3000/mcp"
+    }
+  }
+}

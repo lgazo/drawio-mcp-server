@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { getConfig, saveConfig, resetConfigToDefaults, type ExtensionConfig } from "../../config";
+import { getConfig, saveConfig, resetConfigToDefaults, isValidExtensionWebSocketUrl, type ExtensionConfig } from "../../config";
 import { validateMV3Pattern, isValidPatternList, deduplicatePatterns, patternsAreEquivalent } from "../../utils/urlPatternValidator";
 
 function Options() {
@@ -8,6 +8,8 @@ function Options() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [portInput, setPortInput] = useState('');
+  const [urlInput, setUrlInput] = useState('');
+  const [urlError, setUrlError] = useState<string>('');
   const [patterns, setPatterns] = useState<string[]>([]);
   const [newPatternInput, setNewPatternInput] = useState('');
   const [patternsError, setPatternsError] = useState<string>('');
@@ -22,6 +24,7 @@ function Options() {
       const currentConfig = await getConfig();
       setConfig(currentConfig);
       setPortInput(currentConfig.websocketPort.toString());
+      setUrlInput(currentConfig.websocketUrl ?? '');
       setPatterns(currentConfig.urlPatterns);
     } catch (error) {
       console.error('Failed to load config:', error);
@@ -49,6 +52,14 @@ function Options() {
       return;
     }
 
+    const trimmedUrl = urlInput.trim();
+    if (trimmedUrl.length > 0 && !isValidExtensionWebSocketUrl(trimmedUrl)) {
+      setUrlError('URL must start with ws:// or wss://');
+      setMessage({ type: 'error', text: 'Invalid WebSocket URL' });
+      return;
+    }
+    setUrlError('');
+
     // Validate patterns
     if (!isValidPatternList(patterns)) {
       setMessage({ type: 'error', text: 'Invalid URL patterns detected. Please fix errors and try again.' });
@@ -60,7 +71,8 @@ function Options() {
       const uniquePatterns = deduplicatePatterns(patterns);
       const newConfig: ExtensionConfig = {
         websocketPort: parseInt(portInput, 10),
-        urlPatterns: uniquePatterns
+        urlPatterns: uniquePatterns,
+        websocketUrl: trimmedUrl.length > 0 ? trimmedUrl : undefined
       };
       await saveConfig(newConfig);
       setConfig(newConfig);
@@ -81,6 +93,8 @@ function Options() {
       const defaultConfig = await getConfig(); // Reload from defaults
       setConfig(defaultConfig);
       setPortInput(defaultConfig.websocketPort.toString());
+      setUrlInput(defaultConfig.websocketUrl ?? '');
+      setUrlError('');
       setPatterns(defaultConfig.urlPatterns);
       setMessage({ type: 'success', text: 'Settings reset to defaults! Connection will reconnect automatically.' });
     } catch (error) {
@@ -183,6 +197,25 @@ function Options() {
                 required
               />
               <span className="input-hint">(1024-65535)</span>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="url-input">Custom WebSocket URL (optional):</label>
+              <input
+                id="url-input"
+                type="text"
+                value={urlInput}
+                onChange={(e) => {
+                  setUrlInput(e.target.value);
+                  if (urlError) setUrlError('');
+                  if (message) setMessage(null);
+                }}
+                className="port-input"
+                disabled={saving}
+                placeholder="wss://example.com/drawio-ws"
+              />
+              <span className="input-hint">Overrides host/port. Use wss:// behind HTTPS proxies.</span>
+              {urlError && <span className="error-text">{urlError}</span>}
             </div>
           </div>
 
