@@ -50,6 +50,7 @@ import {
   type AssetConfig,
 } from "./assets/index.js";
 import { registerTools } from "./tools/index.js";
+import { createServerWithSchemaStripping } from "./register-tool.js";
 
 const fatalLog = create_console_logger();
 
@@ -407,7 +408,7 @@ export function createDrawioMcpApp(overrides?: {
       _serverLoggerBound = true;
     }
 
-    registerTools(server, context);
+    registerTools(createServerWithSchemaStripping(server), context);
     mcpServers.add(server);
     return server;
   }
