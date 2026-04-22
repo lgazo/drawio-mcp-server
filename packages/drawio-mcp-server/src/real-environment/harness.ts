@@ -1,8 +1,4 @@
-import {
-  chromium,
-  type ConsoleMessage,
-  type Page,
-} from "@playwright/test";
+import { chromium, type ConsoleMessage, type Page } from "@playwright/test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { spawnCaddy, type CaddyHandle } from "drawio-mcp-dev-proxy";

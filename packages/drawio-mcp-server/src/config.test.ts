@@ -336,7 +336,6 @@ describe("parseConfig", () => {
       editorEnabled: false,
     });
   });
-
 });
 
 describe("parseConfig --host", () => {
@@ -366,7 +365,9 @@ describe("parseConfig --host", () => {
   test("--host without value returns Error", () => {
     const result = parseConfig(["--host"]);
     expect(result).toBeInstanceOf(Error);
-    expect((result as Error).message).toContain("--host flag requires an IP address");
+    expect((result as Error).message).toContain(
+      "--host flag requires an IP address",
+    );
   });
 });
 

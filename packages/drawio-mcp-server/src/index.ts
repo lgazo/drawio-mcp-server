@@ -64,7 +64,10 @@ export type DrawioMcpApp = {
   context: Context;
   emitter: EventEmitter;
   close: () => Promise<void>;
-  startWebSocketServer: (extensionPort?: number, host?: string) => Promise<WebSocketServer>;
+  startWebSocketServer: (
+    extensionPort?: number,
+    host?: string,
+  ) => Promise<WebSocketServer>;
   startStdioTransport: () => Promise<void>;
   startHttpServer: (
     httpPort: number,
@@ -104,7 +107,10 @@ Examples:
 
 // No PORT constant needed - using dynamic config
 
-async function checkPortAvailable(port: number, host?: string): Promise<boolean> {
+async function checkPortAvailable(
+  port: number,
+  host?: string,
+): Promise<boolean> {
   return new Promise((resolve) => {
     const server = createServer();
 
