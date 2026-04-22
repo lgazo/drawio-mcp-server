@@ -64,7 +64,7 @@ export type DrawioMcpApp = {
   context: Context;
   emitter: EventEmitter;
   close: () => Promise<void>;
-  startWebSocketServer: (extensionPort?: number) => Promise<WebSocketServer>;
+  startWebSocketServer: (extensionPort?: number, host?: string) => Promise<WebSocketServer>;
   startStdioTransport: () => Promise<void>;
   startHttpServer: (
     httpPort: number,
@@ -87,7 +87,8 @@ Options:
   --editor, -e                   Enable draw.io editor endpoint
   --http-port                    HTTP server port for Streamable HTTP transport (default: 3000)
   --transport                    Transport type: stdio, http (default: stdio)
-  --asset-path <path>           Custom path for downloaded assets
+  --asset-path <path>            Custom path for downloaded assets
+  --host <ip>                    Bind address for all servers (default: OS-assigned, e.g. 127.0.0.1 or ::1)
   --help, -h                     Show this help message
 
 Examples:
@@ -103,11 +104,11 @@ Examples:
 
 // No PORT constant needed - using dynamic config
 
-async function checkPortAvailable(port: number): Promise<boolean> {
+async function checkPortAvailable(port: number, host?: string): Promise<boolean> {
   return new Promise((resolve) => {
     const server = createServer();
 
-    server.listen(port, () => {
+    server.listen({ port, ...(host !== undefined ? { host } : {}) }, () => {
       server.close(() => resolve(true));
     });
 
@@ -323,6 +324,7 @@ async function startHttpServer(
   const httpServer = serve({
     fetch: app.fetch,
     port: httpPort,
+    ...(config.host !== undefined ? { hostname: config.host } : {}),
   });
 
   const listeningPort =
@@ -445,13 +447,13 @@ export function createDrawioMcpApp(overrides?: {
   let wsServer: WebSocketServer | undefined;
   let httpServer: ReturnType<typeof serve> | undefined;
 
-  async function startWebSocketServer(extensionPort = 3333) {
+  async function startWebSocketServer(extensionPort = 3333, host?: string) {
     getLog().debug(
       `Draw.io MCP Server (${VERSION}) starting (WebSocket extension port: ${extensionPort})`,
     );
 
     if (extensionPort !== 0) {
-      const isPortAvailable = await checkPortAvailable(extensionPort);
+      const isPortAvailable = await checkPortAvailable(extensionPort, host);
       if (!isPortAvailable) {
         throw new Error(
           `[start_websocket_server] Error: Port ${extensionPort} is already in use. Please stop the process using this port and try again.`,
@@ -459,7 +461,10 @@ export function createDrawioMcpApp(overrides?: {
       }
     }
 
-    wsServer = new WebSocketServer({ port: extensionPort });
+    wsServer = new WebSocketServer({
+      port: extensionPort,
+      ...(host !== undefined ? { host } : {}),
+    });
 
     wsServer.on("connection", (ws) => {
       getLog().debug(
@@ -612,7 +617,7 @@ async function main() {
 
   const app = createDrawioMcpApp();
 
-  await app.startWebSocketServer(config.extensionPort);
+  await app.startWebSocketServer(config.extensionPort, config.host);
   if (config.transports.indexOf("stdio") > -1) {
     await app.startStdioTransport();
   }

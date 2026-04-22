@@ -11,6 +11,7 @@ Every CLI flag has a matching environment variable. CLI flags take precedence ov
 | `--http-port` | `DRAWIO_MCP_HTTP_PORT` | HTTP transport port | 3000 |
 | `--transport` | `DRAWIO_MCP_TRANSPORT` | Transport type: `stdio`, `http`, or `stdio,http` | `stdio` |
 | `--asset-path` | `DRAWIO_MCP_ASSET_PATH` | Custom path for downloaded assets | - |
+| `--host` | `DRAWIO_MCP_HOST` | Explicit IPv4 or IPv6 bind address for all server endpoints (HTTP, WebSocket) | unset (OS chooses) |
 | `--websocket-url` | `DRAWIO_MCP_WEBSOCKET_URL` | Override WebSocket URL advertised to the editor (must be `ws://` or `wss://`) | derived from page |
 
 ## Custom WebSocket URL (reverse proxies, HTTPS)
@@ -30,6 +31,27 @@ npx -y drawio-mcp-server --editor --transport http \
 ```
 
 The browser extension has the same override under **Custom WebSocket URL** on its options page; use it when connecting through an HTTPS proxy.
+
+## Host Binding
+
+By default, the server binds to an OS-assigned address (typically `127.0.0.1` on Linux and Windows, or `::1` on macOS). On macOS and systems with `IPV6_V6ONLY=1`, the OS may bind to IPv6-only, causing connections from browsers attempting `ws://localhost:XXXX` (IPv4) to fail.
+
+Use `--host` to explicitly set the bind address:
+
+```sh
+drawio-mcp-server --host 127.0.0.1
+```
+
+Or with the environment variable:
+
+```sh
+DRAWIO_MCP_HOST=127.0.0.1 drawio-mcp-server
+```
+
+Example values:
+- `127.0.0.1` — IPv4 loopback (localhost IPv4 only)
+- `0.0.0.0` — All IPv4 interfaces
+- `::1` — IPv6 loopback (localhost IPv6 only)
 
 ## Built-in Editor
 

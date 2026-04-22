@@ -1,3 +1,5 @@
+import { isIP } from "node:net";
+
 /**
  * Application configuration interface
  */
@@ -9,6 +11,7 @@ export interface ServerConfig {
   readonly editorEnabled: boolean;
   readonly assetPath?: string;
   readonly webSocketUrl?: string;
+  readonly host?: string;
 }
 
 export type TransportType = "stdio" | "http";
@@ -108,6 +111,24 @@ export const parseWebSocketUrlValue = (
   return value;
 };
 
+/**
+ * Parse host value - pure function
+ * Accepts IPv4 or IPv6 addresses only (no hostnames)
+ */
+export const parseHostValue = (value: string | undefined): string | Error => {
+  if (!value) {
+    return new Error("--host flag requires an IP address");
+  }
+
+  if (isIP(value) === 0) {
+    return new Error(
+      `Invalid host "${value}". Must be a valid IPv4 or IPv6 address`,
+    );
+  }
+
+  return value;
+};
+
 export const parseTransports = (
   values: string[] | undefined,
 ): TransportType[] | Error => {
@@ -181,6 +202,7 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
   let editorEnabled = false;
   let assetPath: string | undefined;
   let webSocketUrlValue: string | undefined;
+  let hostValue: string | undefined;
 
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
@@ -245,6 +267,15 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
 
       webSocketUrlValue = nextValue;
       i += 1;
+    } else if (arg === "--host") {
+      const nextValue = args[i + 1];
+
+      if (nextValue === undefined) {
+        return new Error("--host flag requires an IP address");
+      }
+
+      hostValue = nextValue;
+      i += 1;
     }
   }
 
@@ -255,6 +286,15 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
       return parsed;
     }
     webSocketUrl = parsed;
+  }
+
+  let host: string | undefined;
+  if (hostValue !== undefined) {
+    const parsed = parseHostValue(hostValue);
+    if (parsed instanceof Error) {
+      return parsed;
+    }
+    host = parsed;
   }
 
   if (httpPortValue !== undefined) {
@@ -286,6 +326,7 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
       editorEnabled,
       assetPath,
       webSocketUrl,
+      host,
     };
   }
 
@@ -302,6 +343,7 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
       editorEnabled,
       assetPath,
       webSocketUrl,
+      host,
     };
   }
 
@@ -317,6 +359,7 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
     editorEnabled,
     assetPath,
     webSocketUrl,
+    host,
   };
 };
 
@@ -361,6 +404,11 @@ export const envToArgs = (env: NodeJS.ProcessEnv): string[] => {
   const wsUrl = env.DRAWIO_MCP_WEBSOCKET_URL;
   if (wsUrl && wsUrl.length > 0) {
     out.push("--websocket-url", wsUrl);
+  }
+
+  const host = env.DRAWIO_MCP_HOST;
+  if (host && host.length > 0) {
+    out.push("--host", host);
   }
 
   return out;

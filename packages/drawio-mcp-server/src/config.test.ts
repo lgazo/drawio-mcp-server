@@ -8,8 +8,10 @@ import {
   buildConfig,
   parseTransports,
   parseWebSocketUrlValue,
+  parseHostValue,
   envToArgs,
 } from "./config.js";
+import type { ServerConfig } from "./config.js";
 
 describe("parseExtensionPortValue", () => {
   test("valid port returns number", () => {
@@ -334,6 +336,38 @@ describe("parseConfig", () => {
       editorEnabled: false,
     });
   });
+
+});
+
+describe("parseConfig --host", () => {
+  test("--host sets host in config", () => {
+    const result = parseConfig(["--host", "127.0.0.1"]);
+    expect(result).not.toBeInstanceOf(Error);
+    expect((result as ServerConfig).host).toBe("127.0.0.1");
+  });
+
+  test("--host with IPv6 sets host in config", () => {
+    const result = parseConfig(["--host", "::1"]);
+    expect(result).not.toBeInstanceOf(Error);
+    expect((result as ServerConfig).host).toBe("::1");
+  });
+
+  test("--host with invalid value returns Error", () => {
+    const result = parseConfig(["--host", "localhost"]);
+    expect(result).toBeInstanceOf(Error);
+  });
+
+  test("omitting --host leaves host undefined", () => {
+    const result = parseConfig([]);
+    expect(result).not.toBeInstanceOf(Error);
+    expect((result as ServerConfig).host).toBeUndefined();
+  });
+
+  test("--host without value returns Error", () => {
+    const result = parseConfig(["--host"]);
+    expect(result).toBeInstanceOf(Error);
+    expect((result as Error).message).toContain("--host flag requires an IP address");
+  });
 });
 
 describe("parseWebSocketUrlValue", () => {
@@ -367,6 +401,40 @@ describe("parseWebSocketUrlValue", () => {
   test("rejects garbage", () => {
     const result = parseWebSocketUrlValue("not a url");
     expect(result).toBeInstanceOf(Error);
+  });
+});
+
+describe("parseHostValue", () => {
+  test("undefined input returns Error", () => {
+    expect(parseHostValue(undefined)).toBeInstanceOf(Error);
+  });
+
+  test("empty string returns Error", () => {
+    expect(parseHostValue("")).toBeInstanceOf(Error);
+  });
+
+  test("valid IPv4 loopback returns value", () => {
+    expect(parseHostValue("127.0.0.1")).toBe("127.0.0.1");
+  });
+
+  test("valid IPv4 wildcard returns value", () => {
+    expect(parseHostValue("0.0.0.0")).toBe("0.0.0.0");
+  });
+
+  test("valid IPv6 loopback returns value", () => {
+    expect(parseHostValue("::1")).toBe("::1");
+  });
+
+  test("valid IPv6 wildcard returns value", () => {
+    expect(parseHostValue("::")).toBe("::");
+  });
+
+  test("hostname string returns Error", () => {
+    expect(parseHostValue("localhost")).toBeInstanceOf(Error);
+  });
+
+  test("arbitrary string returns Error", () => {
+    expect(parseHostValue("not-an-ip")).toBeInstanceOf(Error);
   });
 });
 
@@ -479,6 +547,16 @@ describe("envToArgs", () => {
       "--websocket-url",
       "wss://example.com/ws",
     ]);
+  });
+
+  test("DRAWIO_MCP_HOST maps to --host", () => {
+    const result = envToArgs({ DRAWIO_MCP_HOST: "0.0.0.0" });
+    expect(result).toEqual(["--host", "0.0.0.0"]);
+  });
+
+  test("missing DRAWIO_MCP_HOST produces no args", () => {
+    const result = envToArgs({});
+    expect(result).toEqual([]);
   });
 });
 
