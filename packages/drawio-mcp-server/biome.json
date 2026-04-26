@@ -1,0 +1,48 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.4.13/schema.json",
+  "formatter": {
+    "enabled": false
+  },
+  "assist": {
+    "enabled": false
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": false,
+      "suspicious": {
+        "noConsole": "error"
+      }
+    }
+  },
+  "files": {
+    "includes": ["src/**/*.ts"]
+  },
+  "overrides": [
+    {
+      "includes": [
+        "src/mcp_console_logger.ts",
+        "src/mcp_server_logger.ts",
+        "src/standard_console_logger.ts",
+        "src/prefetch-assets.ts"
+      ],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/**/*.test.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "off"
+          }
+        }
+      }
+    }
+  ]
+}

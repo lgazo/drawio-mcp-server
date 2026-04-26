@@ -7,3 +7,4 @@ packages:
 
 catalog:
   typescript: "5.9.3"
+  "@biomejs/biome": "2.4.13"
