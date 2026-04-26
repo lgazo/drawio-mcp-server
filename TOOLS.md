@@ -217,6 +217,16 @@ Creates a new blank page and appends it to the target/current document. On suppo
 
 *Returns*: Metadata for the created page
 
+### `copy-page`
+
+Creates a copy of an existing page in the target/current document. When possible, the previously visible page is restored after the copy is created.
+
+*Parameters*:
+- `page`: Source page selector for the page to copy. Use exactly one of `{ index }` or `{ id }`
+- `name`: Optional name for the copied page
+
+*Returns*: Metadata for the copied page
+
 ### `rename-page`
 
 Renames a page in the target/current document without switching the visible page.

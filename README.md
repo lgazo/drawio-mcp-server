@@ -15,7 +15,7 @@ Let's do some Vibe Diagramming with the most wide-spread diagramming tool called
 - Multi-document targeting with `list-documents` and `target_document` selectors for multi-tab workflows
 - Multi-page targeting with required `target_page` selectors for page-scoped tools
 - Per-document FIFO serialization for live operations, so multiple agents can work on different files safely
-- Page management tools: `list-pages`, `get-current-page`, `create-page`, `rename-page`
+- Page management tools: `list-pages`, `get-current-page`, `create-page`, `copy-page`, `rename-page`
 - Import and export diagrams from/to XML, SVG (with embedded XML), or PNG (with embedded XML) ![v2.0.0](https://img.shields.io/badge/v2.0.0-blue)
 - Edge geometry control with waypoints and automatic self-connector routing ![v2.0.0](https://img.shields.io/badge/v2.0.0-blue)
 - Parent-child relationships for nested shapes and grouping ![v2.0.0](https://img.shields.io/badge/v2.0.0-blue)

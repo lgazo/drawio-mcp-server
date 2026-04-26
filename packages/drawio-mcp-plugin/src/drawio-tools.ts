@@ -963,6 +963,74 @@ export function create_page(ui: any, options: DrawioCellOptions): PageInfo {
   return serialize_page_info(ui, newPage, index);
 }
 
+export function copy_page(ui: any, options: DrawioCellOptions): PageInfo {
+  const page_selector =
+    typeof options.page === "number" ? { index: options.page } : options.page;
+  const resolved = resolve_target_page(ui, page_selector, "page");
+
+  if (typeof ui?.duplicatePage !== "function") {
+    throw new Error("Draw.io page copying is not supported in this version");
+  }
+
+  const currentId =
+    ui?.currentPage !== undefined && ui?.currentPage !== null
+      ? get_page_id(ui.currentPage)
+      : null;
+  const requestedName =
+    typeof options.name === "string" && options.name.length > 0
+      ? options.name
+      : undefined;
+  const copiedPage = ui.duplicatePage(resolved.page, requestedName);
+
+  if (!copiedPage) {
+    throw new Error("Failed to copy the target page");
+  }
+
+  if (
+    requestedName &&
+    get_page_name(copiedPage, resolved.index) !== requestedName
+  ) {
+    assert_page_rename_supported(ui, "rename the copied page", copiedPage);
+
+    if (!rename_page_without_switch(ui, copiedPage, requestedName)) {
+      throw new Error("Failed to rename the copied page");
+    }
+  }
+
+  if (currentId !== null) {
+    const currentPage = ui.pages.find((page: any) => {
+      try {
+        return get_page_id(page) === currentId;
+      } catch {
+        return false;
+      }
+    });
+    const visiblePageId =
+      ui?.currentPage !== undefined && ui?.currentPage !== null
+        ? get_page_id(ui.currentPage)
+        : null;
+
+    if (
+      currentPage &&
+      visiblePageId !== null &&
+      visiblePageId !== currentId &&
+      typeof ui?.selectPage === "function"
+    ) {
+      ui.selectPage(currentPage);
+    }
+  }
+
+  const copiedPageId = get_page_id(copiedPage);
+  const index = Array.isArray(ui.pages)
+    ? ui.pages.findIndex((page: any) => get_page_id(page) === copiedPageId)
+    : -1;
+  if (index === -1) {
+    throw new Error("Copied page is not present in the page list");
+  }
+
+  return serialize_page_info(ui, copiedPage, index);
+}
+
 export function rename_page(ui: any, options: DrawioCellOptions): PageInfo {
   const page_selector =
     typeof options.page === "number" ? { index: options.page } : options.page;

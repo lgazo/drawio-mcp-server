@@ -34,6 +34,7 @@ describe("shared tool registry", () => {
         "list-pages",
         "get-current-page",
         "create-page",
+        "copy-page",
         "rename-page",
       ]),
     );
@@ -67,6 +68,8 @@ describe("shared tool registry", () => {
     expect(registry.get("rename-page")?.params.has("target_document")).toBe(
       true,
     );
+    expect(registry.get("copy-page")?.params.has("page")).toBe(true);
+    expect(registry.get("copy-page")?.params.has("target_document")).toBe(true);
     expect(registry.get("get-shape-by-name")?.params.has("target_page")).toBe(
       false,
     );
@@ -423,6 +426,57 @@ describe("shared tool registry", () => {
         (globalThis as { RenamePage?: unknown }).RenamePage = originalRenamePage;
       }
     }
+  });
+
+  it("copies a target page and restores the visible page", async () => {
+    const { copy_page } = await loadDrawioTools();
+    const currentPage = {
+      getId: () => "page-1",
+      getName: () => "Visible Page",
+    };
+    const sourcePage = {
+      getId: () => "page-2",
+      getName: () => "Source Page",
+    };
+    let copiedName = "Source Page Copy";
+    const copiedPage = {
+      getId: () => "page-3",
+      getName: () => copiedName,
+      setName: jest.fn((nextName: string) => {
+        copiedName = nextName;
+      }),
+    };
+    const ui = {
+      currentPage,
+      pages: [currentPage, sourcePage],
+      duplicatePage: jest.fn((page: any, name?: string) => {
+        copiedName = name ?? copiedName;
+        ui.pages.push(copiedPage);
+        ui.currentPage = copiedPage;
+        return copiedPage;
+      }),
+      selectPage: jest.fn((page: any) => {
+        ui.currentPage = page;
+      }),
+    };
+
+    const result = copy_page(ui, {
+      page: { id: "page-2" },
+      name: "Copied Source Page",
+    });
+
+    expect(ui.duplicatePage).toHaveBeenCalledWith(
+      sourcePage,
+      "Copied Source Page",
+    );
+    expect(ui.selectPage).toHaveBeenCalledWith(currentPage);
+    expect(ui.currentPage).toBe(currentPage);
+    expect(result).toEqual({
+      index: 2,
+      id: "page-3",
+      name: "Copied Source Page",
+      is_current: false,
+    });
   });
 
   it("runs background-safe tools on off-page models without selecting the page", async () => {

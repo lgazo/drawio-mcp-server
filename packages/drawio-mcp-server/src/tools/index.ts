@@ -2,6 +2,7 @@ import { ToolRegistrar } from "./types.js";
 import { registerAddCellOfShapeTool } from "./add-cell-of-shape.js";
 import { registerAddEdgeTool } from "./add-edge.js";
 import { registerAddRectangleTool } from "./add-rectangle.js";
+import { registerCopyPageTool } from "./copy-page.js";
 import { registerCreateLayerTool } from "./create-layer.js";
 import { registerCreatePageTool } from "./create-page.js";
 import { registerDeleteCellByIdTool } from "./delete-cell-by-id.js";
@@ -54,6 +55,7 @@ const registrars: ToolRegistrar[] = [
   registerListPagesTool,
   registerGetCurrentPageTool,
   registerCreatePageTool,
+  registerCopyPageTool,
   registerRenamePageTool,
 ];
 

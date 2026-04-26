@@ -368,6 +368,86 @@ describe("real environment/pages and concurrency", () => {
       logCountBefore,
     );
   }, 180000);
+
+  it("copies a page for derivative edits without changing the source page", async () => {
+    await resetDiagram(context);
+    context.browserMessages.length = 0;
+    const logCountBefore = context.logger.entries.length;
+
+    const { payload: renamedSourcePayload } = await callToolJson<{
+      success: boolean;
+      result: PageInfo;
+    }>(context, "rename-page", {
+      page: { index: 0 },
+      name: "Template Page",
+    });
+    expectToolSuccess(renamedSourcePayload);
+    const sourcePage = unwrapToolPayload<PageInfo>(renamedSourcePayload);
+
+    await callToolJson(context, "add-rectangle", {
+      target_page: { id: sourcePage.id },
+      x: 100,
+      y: 120,
+      width: 210,
+      height: 90,
+      text: "Template Seed",
+    });
+
+    const { payload: copiedPagePayload } = await callToolJson<{
+      success: boolean;
+      result: PageInfo;
+    }>(context, "copy-page", {
+      page: { id: sourcePage.id },
+      name: "Template Variant",
+    });
+    expectToolSuccess(copiedPagePayload);
+    const copiedPage = unwrapToolPayload<PageInfo>(copiedPagePayload);
+    expect(copiedPage).toMatchObject({
+      name: "Template Variant",
+      is_current: false,
+    });
+
+    const { payload: currentAfterCopyPayload } = await callToolJson<{
+      success: boolean;
+      result: PageInfo;
+    }>(context, "get-current-page", {});
+    expectToolSuccess(currentAfterCopyPayload);
+    const currentAfterCopy = unwrapToolPayload<PageInfo>(
+      currentAfterCopyPayload,
+    );
+    expect(currentAfterCopy.id).toBe(sourcePage.id);
+
+    await callToolJson(context, "add-rectangle", {
+      target_page: { id: copiedPage.id },
+      x: 360,
+      y: 120,
+      width: 210,
+      height: 90,
+      text: "Variant Only",
+    });
+
+    const sourceExport = await callToolRaw(context, "export-diagram", {
+      target_page: { id: sourcePage.id },
+      format: "xml",
+      size: "page",
+    });
+    const copiedExport = await callToolRaw(context, "export-diagram", {
+      target_page: { id: copiedPage.id },
+      format: "xml",
+      size: "page",
+    });
+
+    const sourceXml = extractPrimaryText(sourceExport);
+    const copiedXml = extractPrimaryText(copiedExport);
+
+    expect(sourceXml).toContain("Template Seed");
+    expect(sourceXml).not.toContain("Variant Only");
+    expect(copiedXml).toContain("Template Seed");
+    expect(copiedXml).toContain("Variant Only");
+
+    await expectNoBrowserErrors(context, "copy-page");
+    await expectNoServerErrors(context, "copy-page", logCountBefore);
+  }, 180000);
 });
 
 describe("real environment/pages and concurrency over HTTP", () => {

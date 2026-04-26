@@ -4,6 +4,7 @@ import {
   add_edge,
   add_new_rectangle,
   assert_target_document_active,
+  copy_page,
   create_layer,
   create_page,
   delete_cell_by_id,
@@ -371,6 +372,11 @@ const rawToolDefinitions: ToolDefinition[] = [
     name: "create-page",
     params: new Set(["name"]),
     handler: create_page,
+  },
+  {
+    name: "copy-page",
+    params: new Set(["page", "name"]),
+    handler: copy_page,
   },
   {
     name: "rename-page",
