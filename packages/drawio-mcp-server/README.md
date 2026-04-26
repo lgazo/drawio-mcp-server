@@ -181,6 +181,10 @@ Configuration without `--editor`:
 
 See the [extension documentation](./packages/drawio-mcp-extension/README.md) for more details.
 
+## Logging
+
+Logs go to **stderr** by default so the `stdio` transport keeps stdout reserved for MCP JSON-RPC frames. To send diagnostics to the connected MCP client as `notifications/message` instead, pass `--logger mcp-server` (or set `DRAWIO_MCP_LOGGER=mcp-server`). The legacy `LOGGER_TYPE` environment variable has been removed; see [CONFIG.md](./CONFIG.md#logging) for details.
+
 ## Related Resources
 
 [Configuration](./CONFIG.md) - CLI flags and advanced options

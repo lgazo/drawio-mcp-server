@@ -1,5 +1,24 @@
 # Draw.io MCP Server
 
+## Logging discipline (drawio-mcp-server)
+
+When the `stdio` transport is active, **stdout must contain only JSON-RPC frames produced by the MCP SDK**. A single stray `console.log` will cause spec-strict clients (e.g. codex-cli) to reject the server. The rules below codify this.
+
+1. **Stdout discipline.** `console.log`, `console.info`, `console.dir`, and `process.stdout.write` are banned in `packages/drawio-mcp-server/src/**` outside the allowlist below. The MCP SDK transport is the only legitimate writer to stdout.
+2. **Logger usage.** Every production function that needs to emit a diagnostic MUST receive an `AppLogger` (`index.ts`) or `Logger` (`types.ts`) — as a parameter or via `Context.log`. Constructing a logger inside a function is forbidden except in the entry-point files listed in rule 3.
+3. **Allowlist (the only files permitted to call `console.*`):**
+   - `src/mcp_console_logger.ts` — the stderr bridge implementation.
+   - `src/mcp_server_logger.ts` — internal `console.error` for unrecoverable invalid-level guard.
+   - `src/standard_console_logger.ts` — **test-only** logger (writes to stdout). Do not import from production code.
+   - `src/index.ts` — only via the module-scope `fatalLog` constant. No other site in `index.ts` may use `console.*`.
+   - `src/prefetch-assets.ts` — separate CLI entrypoint; instantiates `mcp_console_logger` and uses it.
+   - `src/**/*.test.ts` — tests may use `console` and `standard_console_logger` freely.
+4. **Pre-boot phase.** Code that runs before `createDrawioMcpApp({ config })` returns (CLI help, config-parse failure) uses `fatalLog`. After the app exists, use `app.log` or a logger provided by dependency injection.
+5. **Two logger modes.** `--logger console` (default) writes to stderr; `--logger mcp-server` sends MCP `notifications/message` to the connected client. No other logging output channels exist; do not add raw `process.stderr.write` either — go through the logger.
+6. **Transport-mode awareness.** `src/stdio-transport-purity.test.ts` spawns the binary with `--transport stdio` and asserts every non-empty stdout line parses as JSON. This catches stdout contamination introduced by future commits.
+7. **Browser packages exempt.** `packages/drawio-mcp-extension/**` and `packages/drawio-mcp-plugin/**` execute in a browser context and may use `console.*` freely; they share no streams with the MCP server.
+8. **Lint enforcement (Biome).** `biome check src/` runs as part of `pnpm --filter drawio-mcp-server lint` and enforces `noConsole` for `src/**` with the per-file overrides matching rule 3. Biome is a devDep of `drawio-mcp-server` and pinned via the pnpm catalog.
+
 ## Codebase navigation
 
 This project uses `roam` for codebase comprehension. Always prefer roam over Glob/Grep/Read exploration.
