@@ -82,7 +82,9 @@ export type DrawioMcpApp = {
  * Display help message and exit
  */
 function showHelp(): never {
-  console.log(`
+  fatalLog.log(
+    "info",
+    `
 Draw.io MCP Server (${VERSION})
 
 Usage: drawio-mcp-server [options]
@@ -104,7 +106,8 @@ Examples:
   drawio-mcp-server --editor                  # Enable draw.io editor endpoint
   drawio-mcp-server -e --http                 # Enable editor and HTTP transport
   drawio-mcp-server --editor --asset-path /data/assets # Use custom asset path
-  `);
+  `,
+  );
   process.exit(0);
 }
 
@@ -613,7 +616,7 @@ async function main() {
 
   // Handle errors from configuration parsing
   if (configResult instanceof Error) {
-    console.error(`Error: ${configResult.message}`);
+    fatalLog.log("error", `Error: ${configResult.message}`);
     process.exit(1);
   }
 
@@ -648,7 +651,7 @@ const isMainModule = process.argv[1]
 
 if (isMainModule) {
   main().catch((error) => {
-    fatalLog.debug("Fatal error in main():", error);
+    fatalLog.log("error", "Fatal error in main():", error);
     process.exit(1);
   });
 }
