@@ -94,6 +94,7 @@ Options:
   --transport                    Transport type: stdio, http (default: stdio)
   --asset-path <path>            Custom path for downloaded assets
   --host <ip>                    Bind address for all servers (default: OS-assigned, e.g. 127.0.0.1 or ::1)
+  --logger <mode>                Logger mode: console (stderr) or mcp-server (MCP notifications/message) (default: console)
   --help, -h                     Show this help message
 
 Examples:

@@ -13,6 +13,7 @@ Every CLI flag has a matching environment variable. CLI flags take precedence ov
 | `--asset-path` | `DRAWIO_MCP_ASSET_PATH` | Custom path for downloaded assets | - |
 | `--host` | `DRAWIO_MCP_HOST` | Explicit IPv4 or IPv6 bind address for all server endpoints (HTTP, WebSocket) | unset (OS chooses) |
 | `--websocket-url` | `DRAWIO_MCP_WEBSOCKET_URL` | Override WebSocket URL advertised to the editor (must be `ws://` or `wss://`) | derived from page |
+| `--logger` | `DRAWIO_MCP_LOGGER` | Logger mode: `console` (writes to stderr) or `mcp-server` (sends MCP `notifications/message`). The legacy underscore form `mcp_server` is also accepted as a value alias. | `console` |
 
 ## Custom WebSocket URL (reverse proxies, HTTPS)
 
@@ -322,3 +323,19 @@ The `--transport` flag controls which transports are enabled:
 - `--transport stdio,http` - Both transports
 
 When using the built-in editor (`--editor`), HTTP transport is enabled automatically.
+
+## Logging
+
+The server keeps stdout reserved for MCP JSON-RPC frames whenever the `stdio` transport is active. Diagnostic output is routed via one of two loggers, selected with `--logger`:
+
+- `--logger console` (default) writes to **stderr**. Safe for stdio MCP clients (e.g. Claude Desktop, Codex CLI) that strictly enforce the spec.
+- `--logger mcp-server` sends logs to the connected MCP client as `notifications/message`. This advertises the `logging` capability and lets the client adjust per-logger levels at runtime via `logging/setLevel`. Use this only when your client supports MCP logging notifications.
+
+Examples:
+
+```sh
+drawio-mcp-server --editor --logger mcp-server
+DRAWIO_MCP_LOGGER=mcp-server drawio-mcp-server --editor
+```
+
+> **Note (breaking change):** the previous `LOGGER_TYPE` environment variable has been removed. Use `--logger` or `DRAWIO_MCP_LOGGER` instead.
