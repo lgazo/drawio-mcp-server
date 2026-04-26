@@ -12,7 +12,7 @@ Retrieves the currently selected cell in Draw.io with all its attributes.
 
 ### `get-shape-categories`
 
-Retrieves available shape categories from the diagram's library.
+Retrieves available shape categories from the diagram's library. Categories cover the curated `general` set plus every vendor palette drawio ships — AWS (`mxgraph.aws4.*`), GCP (`mxgraph.gcp2.*`), Azure (`mxgraph.azure2.*`), Cisco19 (`mxgraph.cisco19.*`), and CiscoSafe (`mxgraph.cisco_safe.*`) — discovered at runtime from drawio's loaded sidebar, so the catalog always matches the editor version in use.
 
 *Returns*: Array of category objects with their IDs and names
 
@@ -27,10 +27,10 @@ Retrieves all shapes in a specified category from the diagram's library.
 
 ### `get-shape-by-name`
 
-Retrieves a specific shape by its name from all available shapes.
+Retrieves a specific shape by its name from all available shapes (general + AWS / GCP / Azure / Cisco19 / CiscoSafe vendors discovered at runtime).
 
 *Parameters*:
-- `shape_name`: Name of the shape to retrieve
+- `shape_name`: Name of the shape to retrieve (e.g. `mxgraph.gcp2.cloud_functions`, `mxgraph.cisco19.router`, `mxgraph.cisco_safe.capability`)
 
 *Returns*: Shape object including its category and style information
 

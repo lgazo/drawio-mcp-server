@@ -5,7 +5,8 @@
  * Creates WebSocket connection and handles MCP tool requests
  */
 
-import "./shape-library";
+import { setRuntimeCatalog } from "./shape-library";
+import { extractShapesFromSidebar } from "./shape-extractor";
 
 import {
   createWebSocketManager,
@@ -406,6 +407,45 @@ const addMenuItem = (ui: DrawioUI): void => {
   }
 };
 
+function tryExtractShapes(): boolean {
+  try {
+    if (!ui?.sidebar) return false;
+    const map = extractShapesFromSidebar(ui);
+    if (map.size === 0) return false;
+    const runtime = new Map(
+      [...map].map(
+        ([k, v]) =>
+          [k, { style: v.style, category: v.category, name: v.name }] as const,
+      ),
+    );
+    setRuntimeCatalog(runtime);
+    console.info(
+      `[plugin] extracted ${map.size} vendor shapes from drawio sidebar`,
+    );
+    return true;
+  } catch (err) {
+    console.warn("[plugin] shape extraction attempt failed", err);
+    return false;
+  }
+}
+
+function scheduleShapeExtraction(): void {
+  if (tryExtractShapes()) return;
+  let attempts = 0;
+  const maxAttempts = 10;
+  const interval = setInterval(() => {
+    attempts += 1;
+    if (tryExtractShapes() || attempts >= maxAttempts) {
+      clearInterval(interval);
+      if (attempts >= maxAttempts) {
+        console.error(
+          "[plugin] shape extraction gave up after retries; vendor shapes unavailable",
+        );
+      }
+    }
+  }, 1000);
+}
+
 function initPlugin() {
   console.debug("[plugin] Loading Draw.io MCP Plugin...");
 
@@ -431,6 +471,8 @@ function initPlugin() {
         initializeSettingsDialog();
 
         addMenuItem(ui);
+
+        scheduleShapeExtraction();
 
         console.info("[plugin] MCP Plugin fully initialized");
       });

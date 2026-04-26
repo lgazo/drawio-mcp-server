@@ -11,6 +11,7 @@ Let's do some Vibe Diagramming with the most wide-spread diagramming tool called
 
 - Import, embed or expand [Mermaid](https://mermaid.js.org/) diagram ![v2.1.0](https://img.shields.io/badge/v2.1.0-blue)
 - Enable Draw.io MCP in IFrames ![v2.1.0](https://img.shields.io/badge/v2.1.0-blue)
+- AWS, GCP, Azure, Cisco19, and CiscoSafe stencils auto-discovered at runtime from drawio's sidebar ![v2.1.0](https://img.shields.io/badge/v2.1.0-blue)
 - Import and export diagrams from/to XML, SVG (with embedded XML), or PNG (with embedded XML) ![v2.0.0](https://img.shields.io/badge/v2.0.0-blue)
 - Edge geometry control with waypoints and automatic self-connector routing ![v2.0.0](https://img.shields.io/badge/v2.0.0-blue)
 - Parent-child relationships for nested shapes and grouping ![v2.0.0](https://img.shields.io/badge/v2.0.0-blue)
@@ -149,6 +150,7 @@ The server provides MCP tools for:
 - **Diagram inspection** - read shapes, layers, and cell properties
 - **Diagram modification** - add/edit/delete shapes, edges, and labels
 - **Layer management** - create, switch, and organize layers
+- **Vendor shape coverage** - AWS, GCP, Azure, Cisco19, and CiscoSafe stencils auto-discovered at runtime from drawio's sidebar, so agents can place icons like `mxgraph.gcp2.cloud_run` or `mxgraph.cisco19.router` without hand-curated catalogs
 
 See [Tools Reference](./TOOLS.md) for the complete list of available tools.
 
@@ -180,10 +182,6 @@ Configuration without `--editor`:
 ```
 
 See the [extension documentation](./packages/drawio-mcp-extension/README.md) for more details.
-
-## Logging
-
-Logs go to **stderr** by default so the `stdio` transport keeps stdout reserved for MCP JSON-RPC frames. To send diagnostics to the connected MCP client as `notifications/message` instead, pass `--logger mcp-server` (or set `DRAWIO_MCP_LOGGER=mcp-server`). The legacy `LOGGER_TYPE` environment variable has been removed; see [CONFIG.md](./CONFIG.md#logging) for details.
 
 ## Related Resources
 

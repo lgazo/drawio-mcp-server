@@ -250,4 +250,95 @@ describe("real environment/shapes", () => {
       logCountBefore,
     );
   }, 180000);
+
+  const vendorCases: Array<{
+    label: string;
+    shape_name: string;
+    keyFragment: string;
+  }> = [
+    {
+      label: "GCP search marker",
+      shape_name: "mxgraph.gcp2.search",
+      keyFragment: "mxgraph.gcp2.search",
+    },
+    {
+      label: "Azure compute Virtual_Machine",
+      shape_name: "mxgraph.azure2.compute.virtual_machine",
+      keyFragment: "Virtual_Machine.svg",
+    },
+    {
+      label: "Cisco19 l2_switch",
+      shape_name: "mxgraph.cisco19.l2_switch",
+      keyFragment: "prIcon=l2_switch",
+    },
+    {
+      label: "CiscoSafe capability anti_malware",
+      shape_name: "mxgraph.cisco_safe.capability.anti_malware",
+      keyFragment: "mxgraph.cisco_safe.capability.anti_malware",
+    },
+  ];
+
+  for (const vendorCase of vendorCases) {
+    it(
+      `resolves and renders ${vendorCase.label} from runtime-extracted catalog`,
+      async () => {
+        await resetDiagram(context);
+        context.browserMessages.length = 0;
+        const logCountBefore = context.logger.entries.length;
+
+        const { payload: shapeByNamePayload } = await callToolJson<any>(
+          context,
+          "get-shape-by-name",
+          { shape_name: vendorCase.shape_name },
+        );
+        const shapeByName = unwrapToolPayload<any>(shapeByNamePayload);
+        expect(shapeByName).toBeDefined();
+        expect(shapeByName).not.toBeNull();
+        expect(String(shapeByName?.style ?? "")).toContain(
+          vendorCase.keyFragment,
+        );
+
+        const { payload } = await callToolJson<{
+          success: boolean;
+          result: { id: string; style?: string };
+        }>(context, "add-cell-of-shape", {
+          shape_name: vendorCase.shape_name,
+          text: vendorCase.label,
+          x: 200,
+          y: 160,
+          width: 120,
+          height: 120,
+        });
+        expectToolSuccess(payload);
+
+        const screenshotLabel = `shapes-${vendorCase.shape_name.replace(
+          /[^a-z0-9]+/gi,
+          "-",
+        )}`;
+
+        await withVerificationScreenshot(
+          context,
+          screenshotLabel,
+          "before-live-state-verification",
+          async () => {
+            const exportedXml = await context.page.evaluate(() => {
+              const maybeWindow = window as any;
+              const editor = maybeWindow.ui?.editor;
+              const xmlNode = editor?.getGraphXml?.();
+              return (window as any).mxUtils?.getXml?.(xmlNode) ?? "";
+            });
+
+            const cell = await getCellById(context.page, payload.result.id);
+            expect(cell).not.toBeNull();
+            expect(exportedXml).toContain(`id="${payload.result.id}"`);
+            expect(exportedXml).toContain(vendorCase.keyFragment);
+          },
+        );
+
+        await expectNoBrowserErrors(context, screenshotLabel);
+        await expectNoServerErrors(context, screenshotLabel, logCountBefore);
+      },
+      180000,
+    );
+  }
 });

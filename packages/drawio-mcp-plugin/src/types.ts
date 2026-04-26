@@ -58,6 +58,7 @@ export interface DrawioUI {
   actions?: any;
   pages?: any[];
   currentPage?: any;
+  sidebar?: any;
   getXmlFileData(ignoreSelection?: boolean, currentPage?: boolean, uncompressed?: boolean, resolveReferences?: boolean): any;
   getFileData(
     forceXml?: boolean,

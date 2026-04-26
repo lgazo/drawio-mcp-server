@@ -4,7 +4,11 @@
  * Tool implementations that run inside the Draw.io plugin
  */
 
-import { shapeLibrary } from "./shape-library.js";
+import {
+  getCategories,
+  getShape,
+  getShapesByCategory,
+} from "./shape-library.js";
 import type { MxGraphIsLayer } from "./types.js";
 
 export type CellId = string;
@@ -633,7 +637,7 @@ export function set_cell_shape(ui: any, options: DrawioCellOptions) {
     );
   }
 
-  const style = shapeLibrary?.[shape_name]?.style;
+  const style = getShape(shape_name)?.style;
   if (!style) {
     throw new Error(
       `set_cell_shape could not find a shape named '${shape_name}'`,
@@ -696,35 +700,19 @@ export function set_cell_data(ui: any, options: DrawioCellOptions) {
   return cell;
 }
 
-export function get_shape_categories(ui: any) {
-  const shapes = shapeLibrary;
-  const categories = new Set<string>();
-  for (const shape of Object.values(shapes)) {
-    categories.add((shape as any).category || "General");
-  }
-  return [...categories];
+export function get_shape_categories(_ui: any) {
+  return getCategories();
 }
 
-export function get_shapes_in_category(ui: any, options: DrawioCellOptions) {
-  const shapes = shapeLibrary;
-  return Object.entries(shapes)
-    .filter(([_, shape]: [string, any]) => {
-      return shape.category === options.category_id;
-    })
-    .map(([shape_key, shape_value]: [string, any]) => {
-      return {
-        id: shape_key,
-        title: shape_value.title || shape_key,
-      };
-    });
+export function get_shapes_in_category(_ui: any, options: DrawioCellOptions) {
+  return getShapesByCategory(options.category_id as string);
 }
 
 export function get_shape_by_name(
-  ui: any,
+  _ui: any,
   options: DrawioCellOptions,
 ): any | null {
-  const shapes = shapeLibrary;
-  const shape = shapes[options.shape_name as string];
+  const shape = getShape(options.shape_name as string);
   if (!shape) return null;
   return {
     id: options.shape_name,
