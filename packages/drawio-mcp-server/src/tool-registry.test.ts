@@ -495,6 +495,94 @@ describe("shared tool registry", () => {
     });
   });
 
+  it("copies a target page to the end through the low-level move command", async () => {
+    const { copy_page } = await loadDrawioTools();
+    const originalMovePage = (globalThis as { MovePage?: unknown }).MovePage;
+
+    (globalThis as { MovePage?: unknown }).MovePage = function FakeMovePage(
+      this: {
+        ui: any;
+        oldIndex: number;
+        newIndex: number;
+        execute: () => void;
+      },
+      ui: any,
+      oldIndex: number,
+      newIndex: number,
+    ) {
+      this.ui = ui;
+      this.oldIndex = oldIndex;
+      this.newIndex = newIndex;
+      this.execute = () => {
+        const [page] = this.ui.pages.splice(this.oldIndex, 1);
+        this.ui.pages.splice(this.newIndex, 0, page);
+      };
+    } as unknown as typeof originalMovePage;
+
+    try {
+      const currentPage = {
+        getId: () => "page-1",
+        getName: () => "Visible Page",
+      };
+      const sourcePage = {
+        getId: () => "page-2",
+        getName: () => "Source Page",
+      };
+      const trailingPage = {
+        getId: () => "page-4",
+        getName: () => "Trailing Page",
+      };
+      const copiedPage = {
+        getId: () => "page-3",
+        getName: () => "Copied Source Page",
+      };
+      const execute = jest.fn((command: { execute: () => void }) => {
+        command.execute();
+      });
+      const ui = {
+        currentPage,
+        pages: [currentPage, sourcePage, trailingPage],
+        duplicatePage: jest.fn((page: any) => {
+          const sourceIndex = ui.pages.indexOf(page);
+          ui.pages.splice(sourceIndex + 1, 0, copiedPage);
+          ui.currentPage = copiedPage;
+          return copiedPage;
+        }),
+        selectPage: jest.fn((page: any) => {
+          ui.currentPage = page;
+        }),
+        editor: {
+          graph: {
+            model: {
+              execute,
+            },
+          },
+        },
+      };
+
+      const result = copy_page(ui, {
+        page: { id: "page-2" },
+        name: "Copied Source Page",
+      });
+
+      expect(execute).toHaveBeenCalledTimes(1);
+      expect(ui.pages.map((page) => page.getId())).toEqual([
+        "page-1",
+        "page-2",
+        "page-4",
+        "page-3",
+      ]);
+      expect(ui.currentPage).toBe(currentPage);
+      expect(result.index).toBe(3);
+    } finally {
+      if (originalMovePage === undefined) {
+        delete (globalThis as { MovePage?: unknown }).MovePage;
+      } else {
+        (globalThis as { MovePage?: unknown }).MovePage = originalMovePage;
+      }
+    }
+  });
+
   it("runs background-safe tools on off-page models without selecting the page", async () => {
     await activateDocument();
     const toolDefinitions = await loadToolDefinitions();

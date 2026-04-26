@@ -402,6 +402,15 @@ describe("real environment/pages and concurrency", () => {
     expectToolSuccess(tailPagePayload);
     const tailPage = unwrapToolPayload<PageInfo>(tailPagePayload);
 
+    const { payload: pagesBeforeCopyPayload } = await callToolJson<{
+      success: boolean;
+      result: PageInfo[];
+    }>(context, "list-pages", {});
+    expectToolSuccess(pagesBeforeCopyPayload);
+    const pagesBeforeCopy = unwrapToolPayload<PageInfo[]>(
+      pagesBeforeCopyPayload,
+    );
+
     const { payload: copiedPagePayload } = await callToolJson<{
       success: boolean;
       result: PageInfo;
@@ -423,11 +432,13 @@ describe("real environment/pages and concurrency", () => {
     expectToolSuccess(pagesAfterCopyPayload);
     const pagesAfterCopy = unwrapToolPayload<PageInfo[]>(pagesAfterCopyPayload);
     expect(pagesAfterCopy.map((page) => page.id)).toEqual([
-      sourcePage.id,
-      tailPage.id,
+      ...pagesBeforeCopy.map((page) => page.id),
       copiedPage.id,
     ]);
-    expect(copiedPage.index).toBe(2);
+    expect(copiedPage.index).toBe(pagesBeforeCopy.length);
+    expect(
+      pagesAfterCopy.find((page) => page.id === tailPage.id)?.index,
+    ).toBe(tailPage.index);
 
     const { payload: currentAfterCopyPayload } = await callToolJson<{
       success: boolean;
