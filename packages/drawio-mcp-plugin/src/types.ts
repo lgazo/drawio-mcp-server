@@ -91,7 +91,7 @@ export interface DrawioUI {
   selectPage?: (page: DrawioPage, force?: boolean, noSelect?: boolean) => void;
   removePage?: (page: DrawioPage) => void;
   renamePage?: (page: DrawioPage) => void;
-  movePage?: (page: DrawioPage, index: number) => void;
+  movePage?: (oldIndex: number, newIndex: number) => void;
   duplicatePage?: (page: DrawioPage, newName?: string) => DrawioPage | null;
   getXmlFileData(ignoreSelection?: boolean, currentPage?: boolean, uncompressed?: boolean, resolveReferences?: boolean): any;
   getFileData(

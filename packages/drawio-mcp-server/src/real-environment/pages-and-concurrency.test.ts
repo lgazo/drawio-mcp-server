@@ -393,6 +393,15 @@ describe("real environment/pages and concurrency", () => {
       text: "Template Seed",
     });
 
+    const { payload: tailPagePayload } = await callToolJson<{
+      success: boolean;
+      result: PageInfo;
+    }>(context, "create-page", {
+      name: "Existing Tail Page",
+    });
+    expectToolSuccess(tailPagePayload);
+    const tailPage = unwrapToolPayload<PageInfo>(tailPagePayload);
+
     const { payload: copiedPagePayload } = await callToolJson<{
       success: boolean;
       result: PageInfo;
@@ -406,6 +415,19 @@ describe("real environment/pages and concurrency", () => {
       name: "Template Variant",
       is_current: false,
     });
+
+    const { payload: pagesAfterCopyPayload } = await callToolJson<{
+      success: boolean;
+      result: PageInfo[];
+    }>(context, "list-pages", {});
+    expectToolSuccess(pagesAfterCopyPayload);
+    const pagesAfterCopy = unwrapToolPayload<PageInfo[]>(pagesAfterCopyPayload);
+    expect(pagesAfterCopy.map((page) => page.id)).toEqual([
+      sourcePage.id,
+      tailPage.id,
+      copiedPage.id,
+    ]);
+    expect(copiedPage.index).toBe(2);
 
     const { payload: currentAfterCopyPayload } = await callToolJson<{
       success: boolean;

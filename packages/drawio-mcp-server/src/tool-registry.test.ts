@@ -438,6 +438,10 @@ describe("shared tool registry", () => {
       getId: () => "page-2",
       getName: () => "Source Page",
     };
+    const trailingPage = {
+      getId: () => "page-4",
+      getName: () => "Trailing Page",
+    };
     let copiedName = "Source Page Copy";
     const copiedPage = {
       getId: () => "page-3",
@@ -448,12 +452,17 @@ describe("shared tool registry", () => {
     };
     const ui = {
       currentPage,
-      pages: [currentPage, sourcePage],
+      pages: [currentPage, sourcePage, trailingPage],
       duplicatePage: jest.fn((page: any, name?: string) => {
         copiedName = name ?? copiedName;
-        ui.pages.push(copiedPage);
+        const sourceIndex = ui.pages.indexOf(page);
+        ui.pages.splice(sourceIndex + 1, 0, copiedPage);
         ui.currentPage = copiedPage;
         return copiedPage;
+      }),
+      movePage: jest.fn((oldIndex: number, newIndex: number) => {
+        const [page] = ui.pages.splice(oldIndex, 1);
+        ui.pages.splice(newIndex, 0, page);
       }),
       selectPage: jest.fn((page: any) => {
         ui.currentPage = page;
@@ -469,10 +478,17 @@ describe("shared tool registry", () => {
       sourcePage,
       "Copied Source Page",
     );
+    expect(ui.movePage).toHaveBeenCalledWith(2, 3);
     expect(ui.selectPage).toHaveBeenCalledWith(currentPage);
     expect(ui.currentPage).toBe(currentPage);
+    expect(ui.pages.map((page) => page.getId())).toEqual([
+      "page-1",
+      "page-2",
+      "page-4",
+      "page-3",
+    ]);
     expect(result).toEqual({
-      index: 2,
+      index: 3,
       id: "page-3",
       name: "Copied Source Page",
       is_current: false,

@@ -401,7 +401,7 @@ function get_drawio_runtime_ctor(name: string) {
   return typeof globalCtor === "function" ? (globalCtor as any) : null;
 }
 
-function insert_page_without_switch(ui: any, page: any, index: number) {
+function change_page_without_switch(ui: any, page: any, index: number) {
   const ChangePage = get_drawio_runtime_ctor("ChangePage");
   const execute = ui?.editor?.graph?.model?.execute;
 
@@ -410,6 +410,31 @@ function insert_page_without_switch(ui: any, page: any, index: number) {
   }
 
   execute.call(ui.editor.graph.model, new ChangePage(ui, page, page, index, true));
+  return true;
+}
+
+function insert_page_without_switch(ui: any, page: any, index: number) {
+  return change_page_without_switch(ui, page, index);
+}
+
+function move_page_without_switch(
+  ui: any,
+  oldIndex: number,
+  newIndex: number,
+) {
+  if (typeof ui?.movePage === "function") {
+    ui.movePage(oldIndex, newIndex);
+    return true;
+  }
+
+  const MovePage = get_drawio_runtime_ctor("MovePage");
+  const execute = ui?.editor?.graph?.model?.execute;
+
+  if (typeof MovePage !== "function" || typeof execute !== "function") {
+    return false;
+  }
+
+  execute.call(ui.editor.graph.model, new MovePage(ui, oldIndex, newIndex));
   return true;
 }
 
@@ -428,6 +453,46 @@ function rename_page_without_switch(ui: any, page: any, name: string) {
 
   page.setName(name);
   return true;
+}
+
+function find_page_index_by_id(ui: any, pageId: string): number {
+  if (!Array.isArray(ui?.pages)) {
+    return -1;
+  }
+
+  return ui.pages.findIndex((page: any) => {
+    try {
+      return get_page_id(page) === pageId;
+    } catch {
+      return false;
+    }
+  });
+}
+
+function move_page_to_end(ui: any, page: any): number {
+  const pageId = get_page_id(page);
+  const currentIndex = find_page_index_by_id(ui, pageId);
+  if (currentIndex === -1) {
+    throw new Error("Copied page is not present in the page list");
+  }
+
+  const lastIndex = ui.pages.length - 1;
+  if (currentIndex === lastIndex) {
+    return currentIndex;
+  }
+
+  if (!move_page_without_switch(ui, currentIndex, lastIndex)) {
+    throw new Error(
+      "Draw.io page reordering is not supported in this version; cannot move the copied page to the end",
+    );
+  }
+
+  const movedIndex = find_page_index_by_id(ui, pageId);
+  if (movedIndex !== lastIndex) {
+    throw new Error("Failed to move the copied page to the end");
+  }
+
+  return movedIndex;
 }
 
 function can_insert_page_without_switch(ui: any) {
@@ -997,6 +1062,8 @@ export function copy_page(ui: any, options: DrawioCellOptions): PageInfo {
     }
   }
 
+  const index = move_page_to_end(ui, copiedPage);
+
   if (currentId !== null) {
     const currentPage = ui.pages.find((page: any) => {
       try {
@@ -1018,14 +1085,6 @@ export function copy_page(ui: any, options: DrawioCellOptions): PageInfo {
     ) {
       ui.selectPage(currentPage);
     }
-  }
-
-  const copiedPageId = get_page_id(copiedPage);
-  const index = Array.isArray(ui.pages)
-    ? ui.pages.findIndex((page: any) => get_page_id(page) === copiedPageId)
-    : -1;
-  if (index === -1) {
-    throw new Error("Copied page is not present in the page list");
   }
 
   return serialize_page_info(ui, copiedPage, index);
