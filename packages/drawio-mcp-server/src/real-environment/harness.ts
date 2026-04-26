@@ -5,7 +5,11 @@ import { spawnCaddy, type CaddyHandle } from "drawio-mcp-dev-proxy";
 import { createServer } from "node:net";
 
 import { ensureAssets } from "../assets/index.js";
-import { getHttpFeatureConfig, type ServerConfig } from "../config.js";
+import {
+  defaultConfig,
+  getHttpFeatureConfig,
+  type ServerConfig,
+} from "../config.js";
 import { createDrawioMcpApp } from "../index.js";
 import type {
   CellSnapshot,
@@ -38,7 +42,7 @@ export async function createRealEnvironmentContext(): Promise<RealEnvironmentCon
 
   await ensureAssets({}, () => undefined);
 
-  const app = createDrawioMcpApp({ log: logger });
+  const app = createDrawioMcpApp({ config: defaultConfig(), log: logger });
 
   const wsServer = await app.startWebSocketServer(0);
   const wsPort = Number((wsServer.address() as { port: number }).port);

@@ -23,6 +23,7 @@ import { WebSocket, WebSocketServer } from "ws";
 const VERSION = process.env.npm_package_version ?? "2.1.0";
 import {
   buildConfig,
+  defaultConfig,
   shouldShowHelp,
   type ServerConfig,
   getHttpFeatureConfig,
@@ -121,21 +122,6 @@ async function checkPortAvailable(
 
     server.on("error", () => resolve(false));
   });
-}
-
-const logger_type = process.env.LOGGER_TYPE;
-let capabilities: any = {
-  resources: {},
-  tools: {},
-};
-if (logger_type === "mcp_server") {
-  capabilities = {
-    ...capabilities,
-    logging: {
-      setLevels: true,
-      levels: validLogLevels,
-    },
-  };
 }
 
 async function start_stdio_transport(
@@ -353,17 +339,37 @@ async function startHttpServer(
   };
 }
 
-export function createDrawioMcpApp(overrides?: {
+export function createDrawioMcpApp(options?: {
+  config?: ServerConfig;
   log?: AppLogger;
 }): DrawioMcpApp {
+  const config = options?.config ?? defaultConfig();
   const emitter = new EventEmitter();
   const conns = new Set<WebSocket>();
   const mcpServers = new Set<McpServer>();
 
+  const capabilities: {
+    resources: Record<string, unknown>;
+    tools: Record<string, unknown>;
+    logging?: {
+      setLevels: true;
+      levels: typeof validLogLevels;
+    };
+  } = {
+    resources: {},
+    tools: {},
+  };
+  if (config.logger === "mcp-server") {
+    capabilities.logging = {
+      setLevels: true,
+      levels: validLogLevels,
+    };
+  }
+
   // Lazily resolved log — uses console logger until a server logger is
-  // explicitly requested via LOGGER_TYPE=mcp_server, in which case the
-  // first McpServer created will be used for the logger binding.
-  let _log: AppLogger | undefined = overrides?.log;
+  // explicitly requested via --logger mcp-server, in which case the first
+  // McpServer created will be used for the logger binding.
+  let _log: AppLogger | undefined = options?.log;
   let _serverLoggerBound = false;
 
   function getLog(): AppLogger {
@@ -406,11 +412,12 @@ export function createDrawioMcpApp(overrides?: {
       },
     );
 
-    // Bind the mcp_server logger to the first server created (if requested)
+    // Bind the mcp_server logger to the first server created when the
+    // mcp-server logger mode was selected.
     if (
-      logger_type === "mcp_server" &&
+      config.logger === "mcp-server" &&
       !_serverLoggerBound &&
-      !overrides?.log
+      !options?.log
     ) {
       _log = create_server_logger(server);
       _serverLoggerBound = true;
@@ -622,7 +629,7 @@ async function main() {
     console.log("Assets ready!");
   }
 
-  const app = createDrawioMcpApp();
+  const app = createDrawioMcpApp({ config });
 
   await app.startWebSocketServer(config.extensionPort, config.host);
   if (config.transports.indexOf("stdio") > -1) {
