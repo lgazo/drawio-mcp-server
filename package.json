@@ -31,7 +31,10 @@
   "scripts": {
     "build": "pnpm -r build",
     "dev": "pnpm -r dev",
-    "clean": "pnpm -r clean"
+    "clean": "pnpm -r clean",
+    "test": "pnpm -r test",
+    "test:watch": "pnpm -r test:watch",
+    "test:coverage": "pnpm -r test:coverage"
   },
   "keywords": [
     "mcp",
