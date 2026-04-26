@@ -219,7 +219,7 @@ Creates a new blank page and appends it to the target/current document. On suppo
 
 ### `copy-page`
 
-Creates a copy of an existing page in the target/current document. When possible, the previously visible page is restored after the copy is created.
+Creates a copy of an existing page in the target/current document and appends the copy to the end of the page list. When possible, the previously visible page is restored after the copy is created.
 
 *Parameters*:
 - `page`: Source page selector for the page to copy. Use exactly one of `{ index }` or `{ id }`

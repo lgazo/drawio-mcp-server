@@ -9,7 +9,7 @@ export const TOOL_copy_page = "copy-page";
 export const registerCopyPageTool: ToolRegistrar = (server, context) => {
   server.tool(
     TOOL_copy_page,
-    "Creates a copy of an existing page in the target/current Draw.io document. When possible, the previously visible page is restored after the copy is created.",
+    "Creates a copy of an existing page in the target/current Draw.io document, appends the copy to the end of the page list, and returns the copied page metadata. When possible, the previously visible page is restored after the copy is created.",
     {
       page: target_page_field().describe(
         "Source page selector for the page to copy. Provide exactly one of `{ index }` or `{ id }`.",
