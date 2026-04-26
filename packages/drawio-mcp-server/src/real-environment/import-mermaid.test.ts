@@ -5,10 +5,7 @@ import {
   disposeRealEnvironmentContext,
   resetDiagram,
 } from "./harness.js";
-import {
-  expectNoBrowserErrors,
-  expectNoServerErrors,
-} from "./assertions.js";
+import { expectNoBrowserErrors, expectNoServerErrors } from "./assertions.js";
 import { callToolJson } from "./tools.js";
 import type { RealEnvironmentContext } from "./types.js";
 

@@ -27,9 +27,7 @@ export const registerImportMermaidTool: ToolRegistrar = (server, context) => {
         .enum(["replace", "add", "new-page"])
         .optional()
         .default("add")
-        .describe(
-          "How the resulting XML is merged into the active diagram.",
-        ),
+        .describe("How the resulting XML is merged into the active diagram."),
     },
     default_tool(TOOL_import_mermaid, context),
   );
