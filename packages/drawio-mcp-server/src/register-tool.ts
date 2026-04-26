@@ -29,7 +29,7 @@ export function createServerWithSchemaStripping(server: McpServer): McpServer {
     // Strip $schema from the registered tool's inputSchema
     // This must be done after registration
     setTimeout(() => {
-      const registeredTool = (server as any)._registeredTools?.get(name);
+      const registeredTool = (server as any)._registeredTools?.[name];
       if (registeredTool?.inputSchema) {
         registeredTool.inputSchema = stripSchemaRecursively(
           registeredTool.inputSchema,
