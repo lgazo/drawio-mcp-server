@@ -474,7 +474,9 @@ describe("parseConfig --logger", () => {
   test("--logger without value returns Error", () => {
     const result = parseConfig(["--logger"]);
     expect(result).toBeInstanceOf(Error);
-    expect((result as Error).message).toContain("--logger flag requires a mode");
+    expect((result as Error).message).toContain(
+      "--logger flag requires a mode",
+    );
   });
 
   test("--logger with invalid value returns Error", () => {
