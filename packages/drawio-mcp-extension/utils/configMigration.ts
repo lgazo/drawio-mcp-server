@@ -24,7 +24,8 @@ export const migrateConfig = (oldConfig: any): ExtensionConfig => {
     // Return default config if old config is invalid
     return {
       websocketPort: 3333,
-      urlPatterns: ['*://app.diagrams.net/*']
+      urlPatterns: ['*://app.diagrams.net/*'],
+      injectIntoIframes: false
     }
   }
 
@@ -34,7 +35,11 @@ export const migrateConfig = (oldConfig: any): ExtensionConfig => {
       typeof oldConfig.websocketPort === 'number'
         ? oldConfig.websocketPort
         : 3333,
-    urlPatterns: ['*://app.diagrams.net/*'] // default
+    urlPatterns: ['*://app.diagrams.net/*'], // default
+    injectIntoIframes:
+      typeof oldConfig.injectIntoIframes === 'boolean'
+        ? oldConfig.injectIntoIframes
+        : false
   }
 
   // Preserve urlPatterns if they exist and are valid
@@ -65,6 +70,9 @@ export const validateMigratedConfig = (config: ExtensionConfig): boolean => {
     return false
   }
   if (config.websocketUrl !== undefined && !isValidWsUrl(config.websocketUrl)) {
+    return false
+  }
+  if (typeof config.injectIntoIframes !== 'boolean') {
     return false
   }
   return true

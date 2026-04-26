@@ -1,5 +1,5 @@
 import { initializeContentScripts, updateContentScriptRegistration } from '@/contentScript';
-import { CONFIG_STORAGE_KEY } from '../config';
+import { CONFIG_STORAGE_KEY, type ExtensionConfig } from '../config';
 import { register_csp } from '@/utils/csp/csp';
 
 export default defineBackground(() => {
@@ -15,7 +15,7 @@ export default defineBackground(() => {
         console.debug("[background] Configuration changed, updating content scripts...");
 
         try {
-          const newConfig = changes[CONFIG_STORAGE_KEY].newValue;
+          const newConfig = changes[CONFIG_STORAGE_KEY].newValue as ExtensionConfig | undefined;
           if (newConfig && newConfig.urlPatterns) {
             await updateContentScriptRegistration(newConfig);
             console.debug("[background] Content scripts re-registered for new URL patterns");

@@ -3,6 +3,7 @@ export interface ExtensionConfig {
   websocketPort: number;
   urlPatterns: string[];
   websocketUrl?: string;
+  injectIntoIframes: boolean;
 }
 
 import { safeMigrateConfig } from './utils/configMigration';
@@ -11,6 +12,7 @@ import { safeMigrateConfig } from './utils/configMigration';
 export const DEFAULT_CONFIG: ExtensionConfig = {
   websocketPort: 3333,
   urlPatterns: ["*://app.diagrams.net/*"],
+  injectIntoIframes: false,
 };
 
 export function isValidExtensionWebSocketUrl(value: unknown): value is string {

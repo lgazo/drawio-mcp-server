@@ -1,5 +1,7 @@
 import { initializeContentScripts, updateContentScriptRegistration } from '@/contentScript';
-import { getWebSocketUrl, CONFIG_STORAGE_KEY } from '../config';
+import { getWebSocketUrl, CONFIG_STORAGE_KEY, type ExtensionConfig } from '../config';
+
+const CONTENT_PORT_NAME = "drawio-mcp-frame";
 
 export default defineBackground(() => {
   console.log("Hello background!", { id: browser.runtime.id });
@@ -12,6 +14,34 @@ export default defineBackground(() => {
   // Track current connection state
   let currentConnectionState: "connected" | "connecting" | "disconnected" =
     "disconnected";
+
+  // Ports opened by content scripts. One per frame (top frame + any iframes).
+  const contentPorts = new Set<ReturnType<typeof browser.runtime.connect>>();
+
+  browser.runtime.onConnect.addListener((port) => {
+    if (port.name !== CONTENT_PORT_NAME) return;
+    contentPorts.add(port);
+    console.debug(
+      `[background] content port connected (total=${contentPorts.size})`,
+      port.sender?.tab?.id,
+      port.sender?.frameId,
+    );
+    // Send current WS status to the new frame immediately.
+    try {
+      port.postMessage({
+        type: "WS_STATUS",
+        connected: currentConnectionState === "connected",
+      });
+    } catch (err) {
+      console.debug("[background] initial WS_STATUS post failed", err);
+    }
+    port.onDisconnect.addListener(() => {
+      contentPorts.delete(port);
+      console.debug(
+        `[background] content port disconnected (total=${contentPorts.size})`,
+      );
+    });
+  });
 
   // Set initial icon state
   setExtensionIcon("disconnected");
@@ -110,15 +140,19 @@ export default defineBackground(() => {
     }
   }
 
-  // Function to broadcast messages to all content scripts
-  async function broadcastToContentScripts(message: any) {
-    const tabs = await browser.tabs.query({});
-    console.debug(`[background] broadcast to tabs`, tabs);
-    for (const tab of tabs) {
-      if (tab.id) {
-        browser.tabs.sendMessage(tab.id, message).catch((err) => {
-          // Ignore errors (tabs without content script)
-        });
+  // Broadcast to every frame whose content script holds an open port.
+  // Unlike browser.tabs.sendMessage (which targets only the top frame by
+  // default), this reaches iframes too when allFrames injection is enabled.
+  function broadcastToContentScripts(message: any) {
+    console.debug(
+      `[background] broadcast to ${contentPorts.size} content port(s)`,
+    );
+    for (const port of contentPorts) {
+      try {
+        port.postMessage(message);
+      } catch (err) {
+        console.debug("[background] dropping dead port", err);
+        contentPorts.delete(port);
       }
     }
   }
@@ -186,7 +220,7 @@ export default defineBackground(() => {
 
         // Update content script registration first
         try {
-          const newConfig = changes[CONFIG_STORAGE_KEY].newValue;
+          const newConfig = changes[CONFIG_STORAGE_KEY].newValue as ExtensionConfig | undefined;
           if (newConfig && newConfig.urlPatterns) {
             await updateContentScriptRegistration(newConfig);
           }

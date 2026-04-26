@@ -62,13 +62,16 @@ importers:
         version: 19.1.2(@types/react@19.1.2)
       '@wxt-dev/module-react':
         specifier: 1.2.2
-        version: 1.2.2(vite@8.0.8(@types/node@25.0.3)(esbuild@0.27.3)(jiti@2.6.1))(wxt@0.20.20(@types/node@25.0.3)(jiti@2.6.1)(rollup@4.59.0))
+        version: 1.2.2(vite@8.0.8(@types/node@25.0.3)(esbuild@0.27.3)(jiti@2.6.1)(tsx@4.21.0))(wxt@0.20.20(@types/node@25.0.3)(jiti@2.6.1)(rollup@4.59.0)(tsx@4.21.0))
+      tsx:
+        specifier: ^4.19.2
+        version: 4.21.0
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
       wxt:
         specifier: 0.20.20
-        version: 0.20.20(@types/node@25.0.3)(jiti@2.6.1)(rollup@4.59.0)
+        version: 0.20.20(@types/node@25.0.3)(jiti@2.6.1)(rollup@4.59.0)(tsx@4.21.0)
 
   packages/drawio-mcp-plugin:
     devDependencies:
@@ -2014,6 +2017,9 @@ packages:
     resolution: {integrity: sha512-ts6Wi+2j3jQjqi70w5AlN8DFnkSwC+MqmxEzdEALB2qXZYV3X/b1CTfgPLGJNMeAWxdPfU8FO1ms3NUfaHCPYg==}
     engines: {node: '>=10'}
 
+  get-tsconfig@4.14.0:
+    resolution: {integrity: sha512-yTb+8DXzDREzgvYmh6s9vHsSVCHeC0G3PI5bEXNBHtmshPnO+S5O7qgLEOn0I5QvMy6kpZN8K1NKGyilLb93wA==}
+
   giget@2.0.0:
     resolution: {integrity: sha512-L5bGsVkxJbJgdnwyuheIunkGatUF/zssUoxxjACCseZYAVbaqdh9Tsmmlkl8vYan09H7sbvKt4pS8GqKLBrEzA==}
     hasBin: true
@@ -3018,6 +3024,9 @@ packages:
     resolution: {integrity: sha512-qYg9KP24dD5qka9J47d0aVky0N+b4fTU89LN9iDnjB5waksiC49rvMB0PrUJQGoTmH50XPiqOvAjDfaijGxYZw==}
     engines: {node: '>=8'}
 
+  resolve-pkg-maps@1.0.0:
+    resolution: {integrity: sha512-seS2Tj26TBVOC2NIc2rOe2y2ZO7efxITtLZcGSOnHHNOQ7CkiUBfw0Iw2ck6xkIhPwLhKNLS8BO+hEpngQlqzw==}
+
   restore-cursor@5.1.0:
     resolution: {integrity: sha512-oMA2dcrw6u0YfxJQXm342bFKX/E4sG9rbTzO9ptUcR/e8A33cHuvStiYOwH7fszkZlZ1z/ta9AAoPk2F4qIOHA==}
     engines: {node: '>=18'}
@@ -3328,6 +3337,11 @@ packages:
 
   tslib@2.8.1:
     resolution: {integrity: sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==}
+
+  tsx@4.21.0:
+    resolution: {integrity: sha512-5C1sg4USs1lfG0GFb2RLXsdpXqBSEhAaA/0kPL01wxzpMqLILNxIxIOKiILz+cdg/pLnOUxFYOR5yhHU666wbw==}
+    engines: {node: '>=18.0.0'}
+    hasBin: true
 
   type-detect@4.0.8:
     resolution: {integrity: sha512-0fr/mIH1dlO+x7TlcMy+bIDqKPsw/70tVyeHW787goQjhmqaZe10uwLujubK9q9Lg6Fiho1KUKDYz0Z7k7g5/g==}
@@ -4591,7 +4605,7 @@ snapshots:
   '@unrs/resolver-binding-win32-x64-msvc@1.11.1':
     optional: true
 
-  '@vitejs/plugin-react@4.7.0(vite@8.0.8(@types/node@25.0.3)(esbuild@0.27.3)(jiti@2.6.1))':
+  '@vitejs/plugin-react@4.7.0(vite@8.0.8(@types/node@25.0.3)(esbuild@0.27.3)(jiti@2.6.1)(tsx@4.21.0))':
     dependencies:
       '@babel/core': 7.28.5
       '@babel/plugin-transform-react-jsx-self': 7.27.1(@babel/core@7.28.5)
@@ -4599,7 +4613,7 @@ snapshots:
       '@rolldown/pluginutils': 1.0.0-beta.27
       '@types/babel__core': 7.20.5
       react-refresh: 0.17.0
-      vite: 8.0.8(@types/node@25.0.3)(esbuild@0.27.3)(jiti@2.6.1)
+      vite: 8.0.8(@types/node@25.0.3)(esbuild@0.27.3)(jiti@2.6.1)(tsx@4.21.0)
     transitivePeerDependencies:
       - supports-color
 
@@ -4618,11 +4632,11 @@ snapshots:
       '@types/filesystem': 0.0.36
       '@types/har-format': 1.2.16
 
-  '@wxt-dev/module-react@1.2.2(vite@8.0.8(@types/node@25.0.3)(esbuild@0.27.3)(jiti@2.6.1))(wxt@0.20.20(@types/node@25.0.3)(jiti@2.6.1)(rollup@4.59.0))':
+  '@wxt-dev/module-react@1.2.2(vite@8.0.8(@types/node@25.0.3)(esbuild@0.27.3)(jiti@2.6.1)(tsx@4.21.0))(wxt@0.20.20(@types/node@25.0.3)(jiti@2.6.1)(rollup@4.59.0)(tsx@4.21.0))':
     dependencies:
-      '@vitejs/plugin-react': 4.7.0(vite@8.0.8(@types/node@25.0.3)(esbuild@0.27.3)(jiti@2.6.1))
-      vite: 8.0.8(@types/node@25.0.3)(esbuild@0.27.3)(jiti@2.6.1)
-      wxt: 0.20.20(@types/node@25.0.3)(jiti@2.6.1)(rollup@4.59.0)
+      '@vitejs/plugin-react': 4.7.0(vite@8.0.8(@types/node@25.0.3)(esbuild@0.27.3)(jiti@2.6.1)(tsx@4.21.0))
+      vite: 8.0.8(@types/node@25.0.3)(esbuild@0.27.3)(jiti@2.6.1)(tsx@4.21.0)
+      wxt: 0.20.20(@types/node@25.0.3)(jiti@2.6.1)(rollup@4.59.0)(tsx@4.21.0)
     transitivePeerDependencies:
       - supports-color
 
@@ -5370,6 +5384,10 @@ snapshots:
       es-object-atoms: 1.1.1
 
   get-stream@6.0.1: {}
+
+  get-tsconfig@4.14.0:
+    dependencies:
+      resolve-pkg-maps: 1.0.0
 
   giget@2.0.0:
     dependencies:
@@ -6492,6 +6510,8 @@ snapshots:
 
   resolve-from@5.0.0: {}
 
+  resolve-pkg-maps@1.0.0: {}
+
   restore-cursor@5.1.0:
     dependencies:
       onetime: 7.0.0
@@ -6837,6 +6857,13 @@ snapshots:
 
   tslib@2.8.1: {}
 
+  tsx@4.21.0:
+    dependencies:
+      esbuild: 0.27.3
+      get-tsconfig: 4.14.0
+    optionalDependencies:
+      fsevents: 2.3.3
+
   type-detect@4.0.8: {}
 
   type-fest@0.21.3: {}
@@ -6960,13 +6987,13 @@ snapshots:
 
   vary@1.1.2: {}
 
-  vite-node@3.2.4(@types/node@25.0.3)(esbuild@0.27.3)(jiti@2.6.1):
+  vite-node@3.2.4(@types/node@25.0.3)(esbuild@0.27.3)(jiti@2.6.1)(tsx@4.21.0):
     dependencies:
       cac: 6.7.14
       debug: 4.4.3
       es-module-lexer: 1.7.0
       pathe: 2.0.3
-      vite: 8.0.8(@types/node@25.0.3)(esbuild@0.27.3)(jiti@2.6.1)
+      vite: 8.0.8(@types/node@25.0.3)(esbuild@0.27.3)(jiti@2.6.1)(tsx@4.21.0)
     transitivePeerDependencies:
       - '@types/node'
       - '@vitejs/devtools'
@@ -6982,7 +7009,7 @@ snapshots:
       - tsx
       - yaml
 
-  vite@8.0.8(@types/node@25.0.3)(esbuild@0.27.3)(jiti@2.6.1):
+  vite@8.0.8(@types/node@25.0.3)(esbuild@0.27.3)(jiti@2.6.1)(tsx@4.21.0):
     dependencies:
       lightningcss: 1.32.0
       picomatch: 4.0.4
@@ -6994,6 +7021,7 @@ snapshots:
       esbuild: 0.27.3
       fsevents: 2.3.3
       jiti: 2.6.1
+      tsx: 4.21.0
 
   walker@1.0.8:
     dependencies:
@@ -7084,7 +7112,7 @@ snapshots:
       is-wsl: 3.1.1
       powershell-utils: 0.1.0
 
-  wxt@0.20.20(@types/node@25.0.3)(jiti@2.6.1)(rollup@4.59.0):
+  wxt@0.20.20(@types/node@25.0.3)(jiti@2.6.1)(rollup@4.59.0)(tsx@4.21.0):
     dependencies:
       '@1natsu/wait-element': 4.1.2
       '@aklinker1/rollup-plugin-visualizer': 5.12.0(rollup@4.59.0)
@@ -7127,8 +7155,8 @@ snapshots:
       scule: 1.3.0
       tinyglobby: 0.2.15
       unimport: 5.7.0
-      vite: 8.0.8(@types/node@25.0.3)(esbuild@0.27.3)(jiti@2.6.1)
-      vite-node: 3.2.4(@types/node@25.0.3)(esbuild@0.27.3)(jiti@2.6.1)
+      vite: 8.0.8(@types/node@25.0.3)(esbuild@0.27.3)(jiti@2.6.1)(tsx@4.21.0)
+      vite-node: 3.2.4(@types/node@25.0.3)(esbuild@0.27.3)(jiti@2.6.1)(tsx@4.21.0)
       web-ext-run: 0.2.4
     transitivePeerDependencies:
       - '@types/node'

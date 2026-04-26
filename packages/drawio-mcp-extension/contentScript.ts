@@ -10,14 +10,16 @@ interface ContentScriptRegistration {
     matches: string[];
     js: string[];
     runAt: 'document_start' | 'document_end' | 'document_idle';
+    allFrames: boolean;
 }
 
 // Pure transformation: config → content script registration spec
-const createContentScriptSpec = (patterns: string[]): ContentScriptRegistration => ({
+const createContentScriptSpec = (patterns: string[], allFrames: boolean): ContentScriptRegistration => ({
     id: CONTENT_SCRIPT_ID,
     matches: patterns,
     js: ['content-scripts/content.js'],
-    runAt: 'document_idle'
+    runAt: 'document_idle',
+    allFrames
 });
 
 // Effect: Register content script (contains side effect)
@@ -38,7 +40,7 @@ const registerContentScript = async (spec: ContentScriptRegistration) => {
 export const updateContentScriptRegistration = async (config: ExtensionConfig) => {
     try {
         const deduplicatedPatterns = deduplicatePatterns(config.urlPatterns);
-        const spec = createContentScriptSpec(deduplicatedPatterns);
+        const spec = createContentScriptSpec(deduplicatedPatterns, config.injectIntoIframes);
         await registerContentScript(spec);
     } catch (error) {
         console.error("[background] Failed to update content script registration:", error);

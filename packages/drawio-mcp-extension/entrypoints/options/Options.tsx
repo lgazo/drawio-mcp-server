@@ -3,7 +3,7 @@ import { getConfig, saveConfig, resetConfigToDefaults, isValidExtensionWebSocket
 import { validateMV3Pattern, isValidPatternList, deduplicatePatterns, patternsAreEquivalent } from "../../utils/urlPatternValidator";
 
 function Options() {
-  const [config, setConfig] = useState<ExtensionConfig>({ websocketPort: 3333, urlPatterns: ["*://app.diagrams.net/*"] });
+  const [config, setConfig] = useState<ExtensionConfig>({ websocketPort: 3333, urlPatterns: ["*://app.diagrams.net/*"], injectIntoIframes: false });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -13,6 +13,7 @@ function Options() {
   const [patterns, setPatterns] = useState<string[]>([]);
   const [newPatternInput, setNewPatternInput] = useState('');
   const [patternsError, setPatternsError] = useState<string>('');
+  const [injectIntoIframes, setInjectIntoIframes] = useState(false);
 
   useEffect(() => {
     // Load current configuration
@@ -26,6 +27,7 @@ function Options() {
       setPortInput(currentConfig.websocketPort.toString());
       setUrlInput(currentConfig.websocketUrl ?? '');
       setPatterns(currentConfig.urlPatterns);
+      setInjectIntoIframes(currentConfig.injectIntoIframes);
     } catch (error) {
       console.error('Failed to load config:', error);
       setMessage({ type: 'error', text: 'Failed to load current configuration' });
@@ -72,7 +74,8 @@ function Options() {
       const newConfig: ExtensionConfig = {
         websocketPort: parseInt(portInput, 10),
         urlPatterns: uniquePatterns,
-        websocketUrl: trimmedUrl.length > 0 ? trimmedUrl : undefined
+        websocketUrl: trimmedUrl.length > 0 ? trimmedUrl : undefined,
+        injectIntoIframes
       };
       await saveConfig(newConfig);
       setConfig(newConfig);
@@ -96,6 +99,7 @@ function Options() {
       setUrlInput(defaultConfig.websocketUrl ?? '');
       setUrlError('');
       setPatterns(defaultConfig.urlPatterns);
+      setInjectIntoIframes(defaultConfig.injectIntoIframes);
       setMessage({ type: 'success', text: 'Settings reset to defaults! Connection will reconnect automatically.' });
     } catch (error) {
       console.error('Failed to reset config:', error);
@@ -300,6 +304,24 @@ function Options() {
                 <li><code>https://draw.example.com/*</code> - Custom domain</li>
                 <li><code>https://draw.example.com/drawio/*</code> - Specific path</li>
               </ul>
+            </div>
+
+            <div className="form-group">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={injectIntoIframes}
+                  onChange={(e) => setInjectIntoIframes(e.target.checked)}
+                  disabled={saving}
+                />
+                {' '}Inject into iframes (support embedded Draw.io)
+              </label>
+              <span className="input-hint">
+                Enable when Draw.io is embedded as an iframe on a host page
+                (e.g. Confluence, wiki, custom app). Matches still follow the
+                URL patterns above &mdash; they are evaluated against the
+                iframe&apos;s URL, not the host page.
+              </span>
             </div>
           </div>
 

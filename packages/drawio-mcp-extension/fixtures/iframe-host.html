@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>drawio-mcp iframe injection test host</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: system-ui, sans-serif;
+      }
+      body {
+        margin: 0;
+        padding: 1rem;
+        display: grid;
+        grid-template-rows: auto auto 1fr;
+        gap: 0.75rem;
+        height: 100vh;
+        box-sizing: border-box;
+      }
+      h1 {
+        font-size: 1rem;
+        margin: 0;
+      }
+      ol {
+        margin: 0;
+        padding-left: 1.25rem;
+        font-size: 0.85rem;
+        line-height: 1.4;
+      }
+      .frame {
+        display: flex;
+        flex-direction: column;
+        border: 1px solid #8884;
+        border-radius: 6px;
+        overflow: hidden;
+        min-height: 0;
+      }
+      .frame > header {
+        padding: 0.35rem 0.6rem;
+        background: #8881;
+        font: 600 0.8rem/1 system-ui;
+      }
+      iframe {
+        flex: 1;
+        width: 100%;
+        border: 0;
+        background: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>drawio-mcp iframe injection test host</h1>
+    <ol>
+      <li>
+        Open the extension options, add <code>http://localhost:*/*</code> to URL
+        patterns, and enable <strong>Inject into iframes</strong>.
+      </li>
+      <li>
+        Reload this page. Background log should show
+        <code>content port connected (total=2)</code> (top frame counts as 1
+        only if pattern matches it; iframes add the rest).
+      </li>
+      <li>
+        Disable <strong>Inject into iframes</strong>, reload — only the top
+        frame port should connect.
+      </li>
+    </ol>
+
+    <div class="frame">
+      <header>embed.diagrams.net (embed=1)</header>
+      <iframe
+        id="drawio-frame"
+        src="https://embed.diagrams.net/?embed=1&proto=json&spin=1&ui=kennedy"
+        title="embed.diagrams.net"
+        allow="clipboard-read; clipboard-write"
+      ></iframe>
+    </div>
+
+    <script>
+      // Drawio embed protocol: when proto=json, the iframe sends {event:"init"}
+      // and then waits for {action:"load", xml} before rendering. Without this
+      // handler the editor spins forever.
+      const DRAWIO_ORIGIN = "https://embed.diagrams.net";
+      const SAMPLE_XML = `<mxfile><diagram name="Page-1"><mxGraphModel dx="800" dy="600" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0"><root><mxCell id="0"/><mxCell id="1" parent="0"/><mxCell id="2" value="Hello from iframe host" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1"><mxGeometry x="160" y="120" width="200" height="60" as="geometry"/></mxCell></root></mxGraphModel></diagram></mxfile>`;
+
+      window.addEventListener("message", (event) => {
+        if (event.origin !== DRAWIO_ORIGIN) return;
+        let msg;
+        try {
+          msg = typeof event.data === "string" ? JSON.parse(event.data) : event.data;
+        } catch {
+          return;
+        }
+        if (msg && msg.event === "init") {
+          const iframe = document.getElementById("drawio-frame");
+          iframe.contentWindow.postMessage(
+            JSON.stringify({ action: "load", xml: SAMPLE_XML, autosave: 1 }),
+            DRAWIO_ORIGIN,
+          );
+        }
+      });
+    </script>
+  </body>
+</html>

@@ -1,5 +1,7 @@
 import { bus_reply_stream, bus_request_stream } from "@/types";
 
+const CONTENT_PORT_NAME = "drawio-mcp-frame";
+
 // Send message to WebSocket via background
 function sendToWebSocket(data: any) {
   browser.runtime.sendMessage({
@@ -20,8 +22,12 @@ export default defineContentScript({
       keepInDom: true,
     });
 
-    // Listen for messages from background
-    browser.runtime.onMessage.addListener((message) => {
+    // Open a long-lived port to the background. This is the channel
+    // background uses to broadcast WS messages to every frame (including
+    // iframes) — browser.tabs.sendMessage would only hit the top frame.
+    const port = browser.runtime.connect({ name: CONTENT_PORT_NAME });
+
+    port.onMessage.addListener((message: any) => {
       if (message.type === "WS_MESSAGE") {
         console.log(
           "[content] Received from background from WebSocket:",

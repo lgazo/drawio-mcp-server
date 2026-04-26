@@ -15,6 +15,7 @@
     "zip:firefox": "wxt zip -b firefox",
     "zip:plugin": "MODE=plugin wxt zip",
     "compile": "tsc --noEmit",
+    "test:iframe-host": "tsx scripts/serve-iframe-host.ts",
     "postinstall": "wxt prepare"
   },
   "keywords": [
@@ -40,6 +41,7 @@
     "@types/react": "19.1.2",
     "@types/react-dom": "19.1.2",
     "@wxt-dev/module-react": "1.2.2",
+    "tsx": "^4.19.2",
     "typescript": "catalog:",
     "wxt": "0.20.20"
   }
