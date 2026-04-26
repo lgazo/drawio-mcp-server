@@ -9,7 +9,9 @@ import {
   parseTransports,
   parseWebSocketUrlValue,
   parseHostValue,
+  parseLoggerValue,
   envToArgs,
+  defaultConfig,
 } from "./config.js";
 import type { ServerConfig } from "./config.js";
 
@@ -160,6 +162,7 @@ describe("parseConfig", () => {
       httpPort: 3000,
       transports: ["stdio"],
       editorEnabled: false,
+      logger: "console",
     });
   });
 
@@ -169,6 +172,7 @@ describe("parseConfig", () => {
       httpPort: 3000,
       transports: ["stdio"],
       editorEnabled: false,
+      logger: "console",
     });
   });
 
@@ -178,6 +182,7 @@ describe("parseConfig", () => {
       httpPort: 3000,
       transports: ["stdio"],
       editorEnabled: false,
+      logger: "console",
     });
   });
 
@@ -187,6 +192,7 @@ describe("parseConfig", () => {
       httpPort: 4242,
       transports: ["stdio"],
       editorEnabled: false,
+      logger: "console",
     });
   });
 
@@ -198,6 +204,7 @@ describe("parseConfig", () => {
       httpPort: 4242,
       transports: ["stdio"],
       editorEnabled: false,
+      logger: "console",
     });
   });
 
@@ -207,6 +214,7 @@ describe("parseConfig", () => {
       httpPort: 3000,
       transports: ["stdio"],
       editorEnabled: false,
+      logger: "console",
     });
   });
 
@@ -246,6 +254,7 @@ describe("parseConfig", () => {
       httpPort: 3000,
       transports: ["stdio"],
       editorEnabled: false,
+      logger: "console",
     });
   });
 
@@ -255,6 +264,7 @@ describe("parseConfig", () => {
       httpPort: 3000,
       transports: ["stdio"],
       editorEnabled: false,
+      logger: "console",
     });
   });
 
@@ -265,6 +275,7 @@ describe("parseConfig", () => {
         httpPort: 5000,
         transports: ["stdio"],
         editorEnabled: false,
+        logger: "console",
       },
     );
   });
@@ -275,6 +286,7 @@ describe("parseConfig", () => {
       httpPort: 3000,
       transports: ["stdio"],
       editorEnabled: false,
+      logger: "console",
     });
   });
 
@@ -284,6 +296,7 @@ describe("parseConfig", () => {
       httpPort: 3000,
       transports: ["stdio", "http"],
       editorEnabled: false,
+      logger: "console",
     });
   });
 
@@ -298,6 +311,7 @@ describe("parseConfig", () => {
       httpPort: 3000,
       transports: ["stdio"],
       editorEnabled: true,
+      logger: "console",
     });
   });
 
@@ -307,6 +321,7 @@ describe("parseConfig", () => {
       httpPort: 3000,
       transports: ["stdio"],
       editorEnabled: true,
+      logger: "console",
     });
   });
 
@@ -316,6 +331,7 @@ describe("parseConfig", () => {
       httpPort: 3000,
       transports: ["stdio"],
       editorEnabled: false,
+      logger: "console",
     });
   });
 
@@ -325,6 +341,7 @@ describe("parseConfig", () => {
       httpPort: 3000,
       transports: ["stdio"],
       editorEnabled: true,
+      logger: "console",
     });
   });
 
@@ -334,6 +351,7 @@ describe("parseConfig", () => {
       httpPort: 3000,
       transports: ["stdio"],
       editorEnabled: false,
+      logger: "console",
     });
   });
 });
@@ -402,6 +420,88 @@ describe("parseWebSocketUrlValue", () => {
   test("rejects garbage", () => {
     const result = parseWebSocketUrlValue("not a url");
     expect(result).toBeInstanceOf(Error);
+  });
+});
+
+describe("parseLoggerValue", () => {
+  test("accepts console", () => {
+    expect(parseLoggerValue("console")).toBe("console");
+  });
+
+  test("accepts mcp-server", () => {
+    expect(parseLoggerValue("mcp-server")).toBe("mcp-server");
+  });
+
+  test("normalises legacy mcp_server to mcp-server", () => {
+    expect(parseLoggerValue("mcp_server")).toBe("mcp-server");
+  });
+
+  test("rejects unknown value", () => {
+    expect(parseLoggerValue("foo")).toBeInstanceOf(Error);
+  });
+
+  test("rejects undefined", () => {
+    expect(parseLoggerValue(undefined)).toBeInstanceOf(Error);
+  });
+
+  test("rejects empty string", () => {
+    expect(parseLoggerValue("")).toBeInstanceOf(Error);
+  });
+});
+
+describe("parseConfig --logger", () => {
+  test("default logger is console", () => {
+    const result = parseConfig([]);
+    expect(result).not.toBeInstanceOf(Error);
+    expect((result as ServerConfig).logger).toBe("console");
+  });
+
+  test("--logger console keeps default", () => {
+    const result = parseConfig(["--logger", "console"]);
+    expect((result as ServerConfig).logger).toBe("console");
+  });
+
+  test("--logger mcp-server is accepted", () => {
+    const result = parseConfig(["--logger", "mcp-server"]);
+    expect((result as ServerConfig).logger).toBe("mcp-server");
+  });
+
+  test("--logger mcp_server is normalised", () => {
+    const result = parseConfig(["--logger", "mcp_server"]);
+    expect((result as ServerConfig).logger).toBe("mcp-server");
+  });
+
+  test("--logger without value returns Error", () => {
+    const result = parseConfig(["--logger"]);
+    expect(result).toBeInstanceOf(Error);
+    expect((result as Error).message).toContain("--logger flag requires a mode");
+  });
+
+  test("--logger with invalid value returns Error", () => {
+    const result = parseConfig(["--logger", "syslog"]);
+    expect(result).toBeInstanceOf(Error);
+    expect((result as Error).message).toContain('Invalid logger "syslog"');
+  });
+
+  test("last --logger wins", () => {
+    const result = parseConfig([
+      "--logger",
+      "mcp-server",
+      "--logger",
+      "console",
+    ]);
+    expect((result as ServerConfig).logger).toBe("console");
+  });
+});
+
+describe("defaultConfig", () => {
+  test("returns config with default logger", () => {
+    const config = defaultConfig();
+    expect(config.logger).toBe("console");
+    expect(config.extensionPort).toBe(3333);
+    expect(config.httpPort).toBe(3000);
+    expect(config.transports).toEqual(["stdio"]);
+    expect(config.editorEnabled).toBe(false);
   });
 });
 
@@ -559,6 +659,17 @@ describe("envToArgs", () => {
     const result = envToArgs({});
     expect(result).toEqual([]);
   });
+
+  test("DRAWIO_MCP_LOGGER maps to --logger", () => {
+    expect(envToArgs({ DRAWIO_MCP_LOGGER: "mcp-server" })).toEqual([
+      "--logger",
+      "mcp-server",
+    ]);
+  });
+
+  test("DRAWIO_MCP_LOGGER empty produces no args", () => {
+    expect(envToArgs({ DRAWIO_MCP_LOGGER: "" })).toEqual([]);
+  });
 });
 
 describe("buildConfig", () => {
@@ -587,6 +698,7 @@ describe("buildConfig", () => {
       httpPort: 3000,
       transports: ["stdio"],
       editorEnabled: false,
+      logger: "console",
     });
   });
 
@@ -598,6 +710,7 @@ describe("buildConfig", () => {
       httpPort: 3000,
       transports: ["stdio"],
       editorEnabled: false,
+      logger: "console",
     });
   });
 
@@ -609,6 +722,7 @@ describe("buildConfig", () => {
       httpPort: 4242,
       transports: ["stdio"],
       editorEnabled: false,
+      logger: "console",
     });
   });
 
@@ -655,5 +769,19 @@ describe("buildConfig", () => {
     process.env = { ...originalEnv, DRAWIO_MCP_EXTENSION_PORT: "9090" };
     const result = buildConfig();
     expect((result as any).extensionPort).toBe(7777);
+  });
+
+  test("env var DRAWIO_MCP_LOGGER is honored", () => {
+    process.argv = ["node", "script.js"];
+    process.env = { ...originalEnv, DRAWIO_MCP_LOGGER: "mcp-server" };
+    const result = buildConfig();
+    expect((result as ServerConfig).logger).toBe("mcp-server");
+  });
+
+  test("CLI --logger overrides DRAWIO_MCP_LOGGER", () => {
+    process.argv = ["node", "script.js", "--logger", "console"];
+    process.env = { ...originalEnv, DRAWIO_MCP_LOGGER: "mcp-server" };
+    const result = buildConfig();
+    expect((result as ServerConfig).logger).toBe("console");
   });
 });

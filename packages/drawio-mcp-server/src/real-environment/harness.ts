@@ -66,6 +66,7 @@ export async function createRealEnvironmentContext(): Promise<RealEnvironmentCon
       transports: [],
       editorEnabled: true,
       webSocketUrl,
+      logger: "console",
     };
 
     await app.startHttpServer(
@@ -80,6 +81,7 @@ export async function createRealEnvironmentContext(): Promise<RealEnvironmentCon
       httpPort: 0,
       transports: [],
       editorEnabled: true,
+      logger: "console",
     };
 
     const startedHttp = await app.startHttpServer(

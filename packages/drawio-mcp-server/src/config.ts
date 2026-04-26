@@ -12,9 +12,11 @@ export interface ServerConfig {
   readonly assetPath?: string;
   readonly webSocketUrl?: string;
   readonly host?: string;
+  readonly logger: LoggerMode;
 }
 
 export type TransportType = "stdio" | "http";
+export type LoggerMode = "console" | "mcp-server";
 
 /**
  * Default configuration values
@@ -24,6 +26,7 @@ const DEFAULT_CONFIG: ServerConfig = {
   httpPort: 3000,
   transports: ["stdio"],
   editorEnabled: false,
+  logger: "console",
 } as const;
 
 /**
@@ -129,6 +132,29 @@ export const parseHostValue = (value: string | undefined): string | Error => {
   return value;
 };
 
+/**
+ * Parse logger mode value - pure function
+ * Accepts "console" or "mcp-server". For convenience the legacy underscore
+ * form "mcp_server" is normalised to "mcp-server".
+ */
+export const parseLoggerValue = (
+  value: string | undefined,
+): LoggerMode | Error => {
+  if (!value) {
+    return new Error("--logger flag requires a mode (console|mcp-server)");
+  }
+
+  const normalized = value === "mcp_server" ? "mcp-server" : value;
+
+  if (normalized === "console" || normalized === "mcp-server") {
+    return normalized;
+  }
+
+  return new Error(
+    `Invalid logger "${value}". Must be one of: console, mcp-server`,
+  );
+};
+
 export const parseTransports = (
   values: string[] | undefined,
 ): TransportType[] | Error => {
@@ -203,6 +229,7 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
   let assetPath: string | undefined;
   let webSocketUrlValue: string | undefined;
   let hostValue: string | undefined;
+  let loggerValue: string | undefined;
 
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
@@ -276,7 +303,25 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
 
       hostValue = nextValue;
       i += 1;
+    } else if (arg === "--logger") {
+      const nextValue = args[i + 1];
+
+      if (nextValue === undefined) {
+        return new Error("--logger flag requires a mode (console|mcp-server)");
+      }
+
+      loggerValue = nextValue;
+      i += 1;
     }
+  }
+
+  let logger: LoggerMode = DEFAULT_CONFIG.logger;
+  if (loggerValue !== undefined) {
+    const parsed = parseLoggerValue(loggerValue);
+    if (parsed instanceof Error) {
+      return parsed;
+    }
+    logger = parsed;
   }
 
   let webSocketUrl: string | undefined;
@@ -327,6 +372,7 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
       assetPath,
       webSocketUrl,
       host,
+      logger,
     };
   }
 
@@ -344,6 +390,7 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
       assetPath,
       webSocketUrl,
       host,
+      logger,
     };
   }
 
@@ -360,6 +407,7 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
     assetPath,
     webSocketUrl,
     host,
+    logger,
   };
 };
 
@@ -411,6 +459,11 @@ export const envToArgs = (env: NodeJS.ProcessEnv): string[] => {
     out.push("--host", host);
   }
 
+  const logger = env.DRAWIO_MCP_LOGGER;
+  if (logger && logger.length > 0) {
+    out.push("--logger", logger);
+  }
+
   return out;
 };
 
@@ -423,6 +476,19 @@ export const buildConfig = (): ServerConfig | Error => {
   const envArgs = envToArgs(process.env);
   const cliArgs = process.argv.slice(2);
   return parseConfig([...envArgs, ...cliArgs]);
+};
+
+/**
+ * Convenience: parse an empty argument list and return the default
+ * ServerConfig. Used by test harnesses that need a config object but do not
+ * exercise the parser.
+ */
+export const defaultConfig = (): ServerConfig => {
+  const result = parseConfig([]);
+  if (result instanceof Error) {
+    throw result;
+  }
+  return result;
 };
 
 export interface HttpFeatureConfig {
