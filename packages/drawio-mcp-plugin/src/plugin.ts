@@ -47,6 +47,7 @@ import {
   create_layer,
   export_diagram,
   import_diagram,
+  import_mermaid,
   type DrawioCellOptions,
 } from "./drawio-tools";
 import { type DrawioUI } from "./types";
@@ -250,6 +251,11 @@ const toolDefinitions = [
     name: "import-diagram",
     params: new Set(["data", "format", "mode", "filename"]),
     handler: import_diagram,
+  },
+  {
+    name: "import-mermaid",
+    params: new Set(["mermaid_source", "mode", "insert_mode"]),
+    handler: import_mermaid,
   },
 ];
 

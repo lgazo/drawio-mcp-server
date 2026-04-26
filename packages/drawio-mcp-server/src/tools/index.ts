@@ -13,6 +13,7 @@ import { registerGetShapeByNameTool } from "./get-shape-by-name.js";
 import { registerGetShapeCategoriesTool } from "./get-shape-categories.js";
 import { registerGetShapesInCategoryTool } from "./get-shapes-in-category.js";
 import { registerImportDiagramTool } from "./import-diagram.js";
+import { registerImportMermaidTool } from "./import-mermaid.js";
 import { registerListLayersTool } from "./list-layers.js";
 import { registerListPagedModelTool } from "./list-paged-model.js";
 import { registerMoveCellToLayerTool } from "./move-cell-to-layer.js";
@@ -43,6 +44,7 @@ const registrars: ToolRegistrar[] = [
   registerCreateLayerTool,
   registerExportDiagramTool,
   registerImportDiagramTool,
+  registerImportMermaidTool,
 ];
 
 export function registerTools(...args: Parameters<ToolRegistrar>) {

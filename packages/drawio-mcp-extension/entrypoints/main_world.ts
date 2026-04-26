@@ -17,6 +17,8 @@ import {
   get_active_layer,
   create_layer,
   export_diagram,
+  import_diagram,
+  import_mermaid,
 } from "drawio-mcp-plugin";
 import { on_standard_tool_request_from_server } from "../bus";
 import type { DrawioUI, DrawIOFunction } from "../types";
@@ -190,6 +192,22 @@ export default defineUnlistedScript(() => {
           ui,
           new Set(["format", "scale", "border", "background", "shadow", "crop", "selection_only", "transparent", "dpi", "embed_xml", "size"]),
           export_diagram as DrawIOFunction,
+        );
+
+        const TOOL_import_diagram = "import-diagram";
+        on_standard_tool_request_from_server(
+          TOOL_import_diagram,
+          ui,
+          new Set(["data", "format", "mode", "filename"]),
+          import_diagram as DrawIOFunction,
+        );
+
+        const TOOL_import_mermaid = "import-mermaid";
+        on_standard_tool_request_from_server(
+          TOOL_import_mermaid,
+          ui,
+          new Set(["mermaid_source", "mode", "insert_mode"]),
+          import_mermaid as DrawIOFunction,
         );
       });
     } else {

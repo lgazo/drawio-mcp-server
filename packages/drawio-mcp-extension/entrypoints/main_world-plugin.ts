@@ -18,6 +18,8 @@ import {
   get_active_layer,
   create_layer,
   export_diagram,
+  import_diagram,
+  import_mermaid,
   readPluginConfig,
   writePluginConfig,
   buildWebSocketUrl,
@@ -207,6 +209,16 @@ const toolDefinitions = [
     name: "export-diagram",
     params: new Set(["format", "scale", "border", "background", "shadow", "crop", "selection_only", "transparent", "dpi", "embed_xml", "size"]),
     handler: export_diagram
+  },
+  {
+    name: "import-diagram",
+    params: new Set(["data", "format", "mode", "filename"]),
+    handler: import_diagram
+  },
+  {
+    name: "import-mermaid",
+    params: new Set(["mermaid_source", "mode", "insert_mode"]),
+    handler: import_mermaid
   }
 ];
 
