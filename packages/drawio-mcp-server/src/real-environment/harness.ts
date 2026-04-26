@@ -40,7 +40,7 @@ export async function createRealEnvironmentContext(): Promise<RealEnvironmentCon
   const browserMessages: { type: string; text: string }[] = [];
   const artifactRunDir = await createArtifactRunDir();
 
-  await ensureAssets({}, () => undefined);
+  await ensureAssets({}, logger);
 
   const app = createDrawioMcpApp({ config: defaultConfig(), log: logger });
 

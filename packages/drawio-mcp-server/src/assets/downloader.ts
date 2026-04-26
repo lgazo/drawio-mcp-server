@@ -10,6 +10,8 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Extract } from "unzipper";
 
+import type { Logger } from "../types.js";
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const DRAWIO_GITHUB_API =
@@ -75,7 +77,7 @@ export async function extractWar(
   });
 }
 
-export function cleanupExtractedFiles(extractDir: string): void {
+export function cleanupExtractedFiles(extractDir: string, log: Logger): void {
   const webappDir = join(extractDir, "webapp");
   const pathsToRemove = [
     join(webappDir, "WEB-INF"),
@@ -86,9 +88,9 @@ export function cleanupExtractedFiles(extractDir: string): void {
     if (existsSync(path)) {
       try {
         rmSync(path, { recursive: true, force: true });
-        console.log(`Removed: ${path}`);
+        log.log("info", `Removed: ${path}`);
       } catch (err) {
-        console.warn(`Failed to remove ${path}:`, err);
+        log.log("warning", `Failed to remove ${path}:`, err);
       }
     }
   }
@@ -96,43 +98,41 @@ export function cleanupExtractedFiles(extractDir: string): void {
 
 export async function downloadAndExtractAssets(
   targetDir: string,
-  onProgress?: (msg: string) => void,
+  log: Logger,
 ): Promise<void> {
-  const progress = onProgress || console.log;
-
-  progress("Fetching draw.io release info...");
+  log.log("info", "Fetching draw.io release info...");
 
   const warUrl = await getLatestWarUrl();
   const warPath = join(targetDir, "draw.war");
 
-  progress(`Downloading draw.war from ${warUrl}...`);
+  log.log("info", `Downloading draw.war from ${warUrl}...`);
   await downloadFile(warUrl, warPath);
-  progress("Download complete.");
+  log.log("info", "Download complete.");
 
   const webappDir = join(targetDir, "webapp");
 
-  progress("Extracting archive...");
+  log.log("info", "Extracting archive...");
   await extractWar(warPath, webappDir);
-  progress("Extraction complete.");
+  log.log("info", "Extraction complete.");
 
-  progress("Cleaning up unnecessary files...");
-  cleanupExtractedFiles(targetDir);
+  log.log("info", "Cleaning up unnecessary files...");
+  cleanupExtractedFiles(targetDir, log);
 
   // Remove the WAR file
   try {
     rmSync(warPath, { force: true });
   } catch (err) {
-    console.warn("Failed to remove WAR file:", err);
+    log.log("warning", "Failed to remove WAR file:", err);
   }
 
-  progress("Assets ready!");
+  log.log("info", "Assets ready!");
 }
 
 export async function ensureAssets(
   config: {
     readonly assetPath?: string;
   },
-  onProgress?: (msg: string) => void,
+  log: Logger,
 ): Promise<{ readonly assetRoot: string; readonly isLocal: boolean }> {
   const { getCacheDir, getAssetRoot, assetsExist } =
     await import("./manager.js");
@@ -141,8 +141,8 @@ export async function ensureAssets(
   const assetRoot = getAssetRoot(config);
 
   if (!assetsExist(config)) {
-    console.log(`Assets not found in ${assetRoot}. Downloading...`);
-    await downloadAndExtractAssets(cacheDir, onProgress);
+    log.log("info", `Assets not found in ${assetRoot}. Downloading...`);
+    await downloadAndExtractAssets(cacheDir, log);
   }
 
   return { assetRoot, isLocal: true };

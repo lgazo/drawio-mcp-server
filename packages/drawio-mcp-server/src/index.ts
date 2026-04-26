@@ -628,7 +628,7 @@ async function main() {
     const assetConfig: AssetConfig = {
       assetPath: config.assetPath,
     };
-    await ensureAssets(assetConfig, (msg) => app.log.debug(msg));
+    await ensureAssets(assetConfig, app.log);
     app.log.debug("Assets ready!");
   }
 
