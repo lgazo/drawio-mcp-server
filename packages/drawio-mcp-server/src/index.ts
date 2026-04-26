@@ -620,17 +620,17 @@ async function main() {
   const config: ServerConfig = configResult;
   const features = getHttpFeatureConfig(config);
 
+  const app = createDrawioMcpApp({ config });
+
   // Initialize assets if needed
   if (features.enableEditor) {
-    console.log("Initializing draw.io assets...");
+    app.log.debug("Initializing draw.io assets...");
     const assetConfig: AssetConfig = {
       assetPath: config.assetPath,
     };
-    await ensureAssets(assetConfig, (msg) => console.log(msg));
-    console.log("Assets ready!");
+    await ensureAssets(assetConfig, (msg) => app.log.debug(msg));
+    app.log.debug("Assets ready!");
   }
-
-  const app = createDrawioMcpApp({ config });
 
   await app.startWebSocketServer(config.extensionPort, config.host);
   if (config.transports.indexOf("stdio") > -1) {
