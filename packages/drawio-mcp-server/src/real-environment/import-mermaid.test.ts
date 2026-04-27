@@ -11,6 +11,13 @@ import type { RealEnvironmentContext } from "./types.js";
 
 const FLOWCHART = "graph TD\nA[Start] --> B[Stop]";
 
+type PageInfo = {
+  index: number;
+  id: string;
+  name: string;
+  is_current: boolean;
+};
+
 describe("real environment/import-mermaid", () => {
   let context: RealEnvironmentContext;
 
@@ -95,5 +102,38 @@ describe("real environment/import-mermaid", () => {
     expect(String(content[0]?.text ?? "")).toContain(
       "`target_page` is required",
     );
+  }, 180000);
+
+  it("allows new-page imports without target_page", async () => {
+    await resetDiagram(context);
+
+    const { payload: beforePagesPayload } = await callToolJson<{
+      success: boolean;
+      result: PageInfo[];
+    }>(context, "list-pages", {});
+    expect(beforePagesPayload.success).toBe(true);
+
+    const { payload } = await callToolJson<{
+      success: boolean;
+      result?: { mode?: string; xml?: string };
+    }>(context, "import-mermaid", {
+      mermaid_source: FLOWCHART,
+      mode: "native",
+      insert_mode: "new-page",
+    });
+
+    expect(payload.success).toBe(true);
+    expect(payload.result?.mode).toBe("native");
+    expect(payload.result?.xml ?? "").toContain("mxGraphModel");
+
+    const { payload: afterPagesPayload } = await callToolJson<{
+      success: boolean;
+      result: PageInfo[];
+    }>(context, "list-pages", {});
+    expect(afterPagesPayload.success).toBe(true);
+    expect(afterPagesPayload.result).toHaveLength(
+      beforePagesPayload.result.length + 1,
+    );
+    expect(afterPagesPayload.result.at(-1)?.is_current).toBe(true);
   }, 180000);
 });
