@@ -1,25 +1,5 @@
 import {
-  add_cell_of_shape,
-  add_edge,
-  add_new_rectangle,
-  delete_cell_by_id,
-  edit_cell,
-  edit_edge,
-  set_cell_shape,
-  set_cell_data,
-  get_shape_by_name,
-  get_shape_categories,
-  get_shapes_in_category,
-  list_paged_model,
   remove_circular_dependencies,
-  list_layers,
-  set_active_layer,
-  move_cell_to_layer,
-  get_active_layer,
-  create_layer,
-  export_diagram,
-  import_diagram,
-  import_mermaid,
   readPluginConfig,
   writePluginConfig,
   buildWebSocketUrl,
@@ -28,6 +8,7 @@ import {
   showSettingsDialog,
   hideSettingsDialog,
   reply_name,
+  toolDefinitions,
 } from "drawio-mcp-plugin";
 import type {
   WebSocketManager,
@@ -110,117 +91,6 @@ const createToolHandler = (
 let ui: DrawioUI;
 let wsManager: WebSocketManager | null = null;
 let settingsDialog: { element: HTMLElement; update: (state: SettingsDialogState) => void } | null = null;
-
-// Tool registrations (pure function definitions for consistency)
-const toolDefinitions = [
-  {
-    name: "get-selected-cell",
-    params: new Set<string>([]),
-    handler: (ui: DrawioUI, _options: Record<string, unknown>) => {
-      return ui.editor.graph.getSelectionCell() || "no cell selected";
-    }
-  },
-  {
-    name: "add-rectangle",
-    params: new Set(["x", "y", "width", "height", "text", "style"]),
-    handler: add_new_rectangle
-  },
-  {
-    name: "delete-cell-by-id",
-    params: new Set(["cell_id"]),
-    handler: delete_cell_by_id
-  },
-  {
-    name: "add-edge",
-    params: new Set(["source_id", "target_id", "style", "text"]),
-    handler: add_edge
-  },
-  {
-    name: "get-shape-categories",
-    params: new Set([]),
-    handler: get_shape_categories
-  },
-  {
-    name: "get-shapes-in-category",
-    params: new Set(["category_id"]),
-    handler: get_shapes_in_category
-  },
-  {
-    name: "get-shape-by-name",
-    params: new Set(["shape_name"]),
-    handler: get_shape_by_name
-  },
-  {
-    name: "add-cell-of-shape",
-    params: new Set(["x", "y", "width", "height", "text", "style"]),
-    handler: add_cell_of_shape
-  },
-  {
-    name: "set-cell-shape",
-    params: new Set(["cell_id", "shape_name"]),
-    handler: set_cell_shape
-  },
-  {
-    name: "set-cell-data",
-    params: new Set(["cell_id", "key", "value"]),
-    handler: set_cell_data
-  },
-  {
-    name: "list-paged-model",
-    params: new Set(["page", "page_size", "filter"]),
-    handler: list_paged_model
-  },
-  {
-    name: "edit-cell",
-    params: new Set(["cell_id", "text", "x", "y", "width", "height", "style"]),
-    handler: edit_cell
-  },
-  {
-    name: "edit-edge",
-    params: new Set(["cell_id", "text", "source_id", "target_id", "style"]),
-    handler: edit_edge
-  },
-  {
-    name: "list-layers",
-    params: new Set([]),
-    handler: list_layers
-  },
-  {
-    name: "set-active-layer",
-    params: new Set(["layer_id"]),
-    handler: set_active_layer
-  },
-  {
-    name: "move-cell-to-layer",
-    params: new Set(["cell_id", "target_layer_id"]),
-    handler: move_cell_to_layer
-  },
-  {
-    name: "get-active-layer",
-    params: new Set([]),
-    handler: get_active_layer
-  },
-  {
-    name: "create-layer",
-    params: new Set(["name"]),
-    handler: create_layer
-  },
-  {
-    name: "export-diagram",
-    params: new Set(["format", "scale", "border", "background", "shadow", "crop", "selection_only", "transparent", "dpi", "embed_xml", "size"]),
-    handler: export_diagram
-  },
-  {
-    name: "import-diagram",
-    params: new Set(["data", "format", "mode", "filename"]),
-    handler: import_diagram
-  },
-  {
-    name: "import-mermaid",
-    params: new Set(["mermaid_source", "mode", "insert_mode"]),
-    handler: import_mermaid
-  }
-];
 
 // Tool handlers map (will be populated on plugin load)
 const toolHandlers = new Map<string, (request: any) => any>();

@@ -13,6 +13,49 @@ import type { MxGraphIsLayer } from "./types.js";
 
 export type CellId = string;
 export type CellStyle = string;
+export type TargetDocumentSelector = {
+  id?: string;
+};
+export type TargetPageSelector = {
+  index?: number;
+  id?: string;
+};
+export type PageInfo = {
+  index: number;
+  id: string;
+  name: string;
+  is_current: boolean;
+};
+export type DocumentInfo = {
+  id: string;
+  title: string | null;
+  mode: string | null;
+  hash: string | null;
+  file_url: string | null;
+  page_count: number;
+  current_page: PageInfo | null;
+};
+
+export type PageExecutionMode =
+  | "visible-page"
+  | "background-page"
+  | "hybrid-page";
+
+export type PageExecutionPolicy = {
+  mode: PageExecutionMode;
+  mutates?: boolean;
+  allow_background?: (options: DrawioCellOptions) => boolean;
+  sync_live_current_page_state?: boolean;
+};
+
+export type PreparedPageExecution = {
+  ui: any;
+  page: any;
+  index: number;
+  is_background: boolean;
+  did_change: () => boolean;
+  cleanup: () => void;
+};
 
 export interface DrawioCellOptions {
   cell_id?: CellId;
@@ -32,10 +75,180 @@ export interface DrawioCellOptions {
   layer_id?: string;
   target_layer_id?: string;
   name?: string;
-  page?: number;
+  mode?: string;
+  insert_mode?: "replace" | "add" | "new-page";
+  mermaid_source?: string;
+  format?: "svg" | "png" | "xml";
+  page?: number | TargetPageSelector;
   page_size?: number;
   filter?: any;
+  scale?: number;
+  border?: number;
+  background?: string | null;
+  shadow?: boolean;
+  crop?: boolean;
+  selection_only?: boolean;
+  transparent?: boolean;
+  dpi?: number;
+  embed_xml?: boolean;
+  size?: "selection" | "page" | "diagram";
   points?: Array<{ x: number; y: number }>;
+  target_document?: TargetDocumentSelector;
+  target_page?: TargetPageSelector;
+}
+
+let active_document_id: string | null = null;
+
+function normalize_optional_string(value: unknown): string | null {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+
+  return String(value);
+}
+
+export function set_active_document_id(document_id: string | null) {
+  active_document_id = document_id;
+}
+
+export function assert_target_document_active(
+  target_document?: TargetDocumentSelector,
+) {
+  const targetDocumentId =
+    typeof target_document?.id === "string" && target_document.id.length > 0
+      ? target_document.id
+      : null;
+
+  if (!targetDocumentId) {
+    throw new Error("`target_document.id` is required");
+  }
+
+  if (!active_document_id) {
+    throw new Error("No active Draw.io document is registered in this tab");
+  }
+
+  if (targetDocumentId !== active_document_id) {
+    throw new Error(
+      `Target document ${targetDocumentId} is no longer active in this Draw.io tab; call list-documents and retry`,
+    );
+  }
+}
+
+export type ImportMermaidOptions = {
+  mermaid_source: string;
+  mode?: "native" | "embed";
+  insert_mode?: "replace" | "add" | "new-page";
+};
+
+export type ImportMermaidResult =
+  | {
+      success: true;
+      mode: "native" | "embed";
+      message: string;
+      cells?: number;
+      xml?: string;
+    }
+  | { success: false; message: string };
+
+export function import_mermaid(
+  ui: any,
+  options: Record<string, unknown>,
+): Promise<ImportMermaidResult> {
+  const opts = options as unknown as ImportMermaidOptions;
+  const mermaidSource = opts.mermaid_source;
+  const mode = opts.mode ?? "native";
+  const insertMode = opts.insert_mode ?? "add";
+
+  if (!mermaidSource || typeof mermaidSource !== "string") {
+    return Promise.resolve({
+      success: false,
+      message: "mermaid_source must be a non-empty string",
+    });
+  }
+
+  if (typeof ui?.parseMermaidDiagram !== "function") {
+    return Promise.resolve({
+      success: false,
+      message:
+        "ui.parseMermaidDiagram is not available; this Draw.io build does not expose Mermaid support.",
+    });
+  }
+
+  const enableParser = mode === "native";
+
+  return new Promise<ImportMermaidResult>((resolve) => {
+    let settled = false;
+    const settle = (result: ImportMermaidResult) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      resolve(result);
+    };
+
+    try {
+      ui.parseMermaidDiagram(
+        mermaidSource,
+        undefined,
+        (xml: string) => {
+          if (!xml || typeof xml !== "string") {
+            settle({
+              success: false,
+              message: "Mermaid parser returned empty XML",
+            });
+            return;
+          }
+
+          try {
+            const importResult = import_diagram(ui, {
+              data: xml,
+              format: "xml",
+              mode: insertMode,
+            });
+
+            if (!importResult.success) {
+              settle({
+                success: false,
+                message: `Mermaid converted, but inserting into the diagram failed: ${importResult.message}`,
+              });
+              return;
+            }
+
+            settle({
+              success: true,
+              mode,
+              message: importResult.message,
+              cells: importResult.cells,
+              xml,
+            });
+          } catch (err) {
+            settle({
+              success: false,
+              message: `Insert after Mermaid conversion failed: ${err instanceof Error ? err.message : String(err)}`,
+            });
+          }
+        },
+        (err: any) => {
+          settle({
+            success: false,
+            message: `Mermaid render failed: ${err?.message ?? String(err)}`,
+          });
+        },
+        (err: any) => {
+          settle({
+            success: false,
+            message: `Mermaid parse error: ${err?.message ?? String(err)}`,
+          });
+        },
+        enableParser,
+      );
+    } catch (err) {
+      settle({
+        success: false,
+        message: `parseMermaidDiagram threw: ${err instanceof Error ? err.message : String(err)}`,
+      });
+    }
+  });
 }
 
 export interface TransformedCell {
@@ -212,6 +425,806 @@ export function remove_circular_dependencies<T>(
   }
 
   return result as T;
+}
+
+function ensure_pages_api(ui: any, selector_name: string) {
+  if (!Array.isArray(ui?.pages) || ui.pages.length === 0) {
+    throw new Error(
+      `Draw.io pages are unavailable; cannot resolve \`${selector_name}\``,
+    );
+  }
+}
+
+function get_page_id(page: any): string {
+  if (typeof page?.getId === "function") {
+    return String(page.getId());
+  }
+
+  const id = page?.id ?? page?.node?.getAttribute?.("id");
+  if (id === undefined || id === null || id === "") {
+    throw new Error("Target page does not expose a stable ID");
+  }
+
+  return String(id);
+}
+
+function get_page_name(page: any, index: number): string {
+  if (typeof page?.getName === "function") {
+    const name = page.getName();
+    if (name !== undefined && name !== null && name !== "") {
+      return String(name);
+    }
+  }
+
+  const fallback = page?.name ?? page?.node?.getAttribute?.("name");
+  if (fallback !== undefined && fallback !== null && fallback !== "") {
+    return String(fallback);
+  }
+
+  return `Page-${index + 1}`;
+}
+
+function get_page_rename_probe(ui: any, explicit_page?: any) {
+  if (explicit_page) {
+    return explicit_page;
+  }
+
+  if (ui?.currentPage) {
+    return ui.currentPage;
+  }
+
+  if (Array.isArray(ui?.pages) && ui.pages.length > 0) {
+    return ui.pages[0];
+  }
+
+  return null;
+}
+
+function assert_page_rename_supported(
+  ui: any,
+  action: string,
+  explicit_page?: any,
+) {
+  const page = get_page_rename_probe(ui, explicit_page);
+
+  if (typeof page?.setName !== "function") {
+    throw new Error(
+      `Draw.io page renaming is not supported in this version; cannot ${action}`,
+    );
+  }
+
+  return page;
+}
+
+function rollback_created_page(ui: any, page: any) {
+  if (!page || typeof ui?.removePage !== "function") {
+    return;
+  }
+
+  try {
+    ui.removePage(page);
+  } catch (error) {
+    console.warn("Could not roll back created page:", error);
+  }
+}
+
+function get_drawio_runtime_ctor(name: string) {
+  const maybeWindow =
+    typeof window === "undefined"
+      ? undefined
+      : ((window as unknown) as Record<string, unknown> | undefined);
+  const globalCtor =
+    (globalThis as Record<string, unknown> | undefined)?.[name] ??
+    maybeWindow?.[name];
+
+  return typeof globalCtor === "function" ? (globalCtor as any) : null;
+}
+
+function change_page_without_switch(ui: any, page: any, index: number) {
+  const ChangePage = get_drawio_runtime_ctor("ChangePage");
+  const execute = ui?.editor?.graph?.model?.execute;
+
+  if (typeof ChangePage !== "function" || typeof execute !== "function") {
+    return false;
+  }
+
+  execute.call(ui.editor.graph.model, new ChangePage(ui, page, page, index, true));
+  return true;
+}
+
+function insert_page_without_switch(ui: any, page: any, index: number) {
+  return change_page_without_switch(ui, page, index);
+}
+
+function move_page_without_switch(
+  ui: any,
+  oldIndex: number,
+  newIndex: number,
+) {
+  if (typeof ui?.movePage === "function") {
+    ui.movePage(oldIndex, newIndex);
+    return true;
+  }
+
+  const MovePage = get_drawio_runtime_ctor("MovePage");
+  const execute = ui?.editor?.graph?.model?.execute;
+
+  if (typeof MovePage !== "function" || typeof execute !== "function") {
+    return false;
+  }
+
+  execute.call(ui.editor.graph.model, new MovePage(ui, oldIndex, newIndex));
+  return true;
+}
+
+function rename_page_without_switch(ui: any, page: any, name: string) {
+  const RenamePage = get_drawio_runtime_ctor("RenamePage");
+  const execute = ui?.editor?.graph?.model?.execute;
+
+  if (typeof RenamePage === "function" && typeof execute === "function") {
+    execute.call(ui.editor.graph.model, new RenamePage(ui, page, name));
+    return true;
+  }
+
+  if (typeof page?.setName !== "function") {
+    return false;
+  }
+
+  page.setName(name);
+  return true;
+}
+
+function find_page_index_by_id(ui: any, pageId: string): number {
+  if (!Array.isArray(ui?.pages)) {
+    return -1;
+  }
+
+  return ui.pages.findIndex((page: any) => {
+    try {
+      return get_page_id(page) === pageId;
+    } catch {
+      return false;
+    }
+  });
+}
+
+function move_page_to_end(ui: any, page: any): number {
+  const pageId = get_page_id(page);
+  const currentIndex = find_page_index_by_id(ui, pageId);
+  if (currentIndex === -1) {
+    throw new Error("Copied page is not present in the page list");
+  }
+
+  const lastIndex = ui.pages.length - 1;
+  if (currentIndex === lastIndex) {
+    return currentIndex;
+  }
+
+  if (!move_page_without_switch(ui, currentIndex, lastIndex)) {
+    throw new Error(
+      "Draw.io page reordering is not supported in this version; cannot move the copied page to the end",
+    );
+  }
+
+  const movedIndex = find_page_index_by_id(ui, pageId);
+  if (movedIndex !== lastIndex) {
+    throw new Error("Failed to move the copied page to the end");
+  }
+
+  return movedIndex;
+}
+
+function can_insert_page_without_switch(ui: any) {
+  const graph = ui?.editor?.graph;
+
+  if (!graph || typeof graph.isEnabled !== "function" || graph.isEnabled() !== true) {
+    return false;
+  }
+
+  if (typeof graph.isEditing === "function" && graph.isEditing() === true) {
+    graph.stopEditing?.(false);
+  }
+
+  return true;
+}
+
+export function serialize_page_info(
+  ui: any,
+  page: any,
+  index: number,
+  isCurrent: boolean = (() => {
+    if (ui?.currentPage === undefined || ui?.currentPage === null) {
+      return false;
+    }
+
+    try {
+      return get_page_id(page) === get_page_id(ui.currentPage);
+    } catch {
+      return false;
+    }
+  })(),
+): PageInfo {
+  return {
+    index,
+    id: get_page_id(page),
+    name: get_page_name(page, index),
+    is_current: isCurrent,
+  };
+}
+
+export function serialize_document_info(
+  ui: any,
+  document_id: string,
+): DocumentInfo {
+  const file = ui?.getCurrentFile?.();
+  const pages = Array.isArray(ui?.pages) ? ui.pages : [];
+  const currentId =
+    ui?.currentPage !== undefined && ui?.currentPage !== null
+      ? get_page_id(ui.currentPage)
+      : null;
+  const currentIndex = pages.findIndex(
+    (page: any) => currentId !== null && get_page_id(page) === currentId,
+  );
+
+  return {
+    id: document_id,
+    title: normalize_optional_string(file?.getTitle?.()),
+    mode: normalize_optional_string(file?.getMode?.()),
+    hash: normalize_optional_string(file?.getHash?.()),
+    file_url: normalize_optional_string(file?.getFileUrl?.()),
+    page_count: pages.length,
+    current_page:
+      currentIndex >= 0 && ui?.currentPage
+        ? serialize_page_info(ui, ui.currentPage, currentIndex, true)
+        : null,
+  };
+}
+
+export function resolve_target_page(
+  ui: any,
+  target_page?: TargetPageSelector,
+  selector_name: string = "target_page",
+) {
+  ensure_pages_api(ui, selector_name);
+
+  if (!target_page || typeof target_page !== "object") {
+    throw new Error(`\`${selector_name}\` is required`);
+  }
+
+  const hasIndex = Number.isInteger(target_page.index);
+  const hasId = typeof target_page.id === "string" && target_page.id.length > 0;
+
+  if (hasIndex === hasId) {
+    throw new Error(
+      `\`${selector_name}\` must include exactly one of \`index\` or \`id\``,
+    );
+  }
+
+  if (hasIndex) {
+    const index = Number(target_page.index);
+    if (index < 0 || index >= ui.pages.length) {
+      throw new Error(
+        `\`${selector_name}.index\` ${index} is out of range for ${ui.pages.length} pages`,
+      );
+    }
+
+    return {
+      page: ui.pages[index],
+      index,
+    };
+  }
+
+  const index = ui.pages.findIndex((page: any) => {
+    try {
+      return get_page_id(page) === target_page.id;
+    } catch {
+      return false;
+    }
+  });
+
+  if (index === -1) {
+    throw new Error(`Page with ID ${target_page.id} was not found`);
+  }
+
+  return {
+    page: ui.pages[index],
+    index,
+  };
+}
+
+export function switch_to_target_page(ui: any, page: any) {
+  const currentId =
+    ui?.currentPage !== undefined && ui?.currentPage !== null
+      ? get_page_id(ui.currentPage)
+      : null;
+  const targetId = get_page_id(page);
+
+  if (currentId !== null && currentId === targetId) {
+    return;
+  }
+
+  if (typeof ui?.selectPage !== "function") {
+    throw new Error("Draw.io page switching is not supported in this version");
+  }
+
+  ui.selectPage(page);
+}
+
+function create_noop_execution(
+  ui: any,
+  page: any,
+  index: number,
+): PreparedPageExecution {
+  return {
+    ui,
+    page,
+    index,
+    is_background: false,
+    did_change: () => false,
+    cleanup: () => {},
+  };
+}
+
+function sync_live_current_page_state(ui: any) {
+  if (!ui?.currentPage || !ui?.editor?.graph) {
+    return;
+  }
+
+  const liveGraph = ui.editor.graph;
+  const model = typeof liveGraph?.getModel === "function" ? liveGraph.getModel() : null;
+
+  if (!model?.root) {
+    return;
+  }
+
+  ui.currentPage.root = model.root;
+  ui.currentPage.graphModelNode = null;
+
+  if (typeof liveGraph?.getViewState === "function") {
+    ui.currentPage.viewState = liveGraph.getViewState();
+  }
+
+  ui.currentPage.needsUpdate = true;
+}
+
+function create_background_page_ui(
+  ui: any,
+  page: any,
+): PreparedPageExecution | null {
+  const runtimeWindow = (globalThis as { window?: any }).window;
+  const runtimeDocument = (globalThis as { document?: any }).document;
+  const liveGraph = ui?.editor?.graph;
+  if (
+    !liveGraph ||
+    typeof liveGraph?.getStylesheet !== "function" ||
+    typeof ui?.createTemporaryGraph !== "function" ||
+    typeof ui?.updatePageRoot !== "function"
+  ) {
+    return null;
+  }
+
+  const resolvedPage = ui.updatePageRoot(page);
+  const tempGraph = ui.createTemporaryGraph(liveGraph.getStylesheet());
+  if (!tempGraph || typeof tempGraph?.getModel !== "function") {
+    return null;
+  }
+
+  const tempModel = tempGraph.getModel();
+  if (!tempModel || typeof tempModel?.setRoot !== "function") {
+    return null;
+  }
+
+  let didChange = false;
+  const mxEvent = runtimeWindow?.mxEvent;
+  const changeEventName = mxEvent?.CHANGE ?? "change";
+  const changeListener = () => {
+    didChange = true;
+  };
+
+  if (typeof tempModel?.addListener === "function") {
+    tempModel.addListener(changeEventName, changeListener);
+  }
+
+  let containerAttached = false;
+  const cleanup = () => {
+    if (typeof tempModel?.removeListener === "function") {
+      tempModel.removeListener(changeListener);
+    }
+
+    if (typeof tempGraph?.destroy === "function") {
+      try {
+        tempGraph.destroy();
+      } catch (error) {
+        console.warn("Could not destroy temporary draw.io graph:", error);
+      }
+    }
+
+    if (containerAttached && tempGraph.container?.parentNode) {
+      try {
+        tempGraph.container.parentNode.removeChild(tempGraph.container);
+      } catch (error) {
+        console.warn("Could not detach temporary draw.io graph container:", error);
+      }
+    }
+  };
+
+  try {
+    if (
+      runtimeDocument?.body &&
+      tempGraph.container &&
+      tempGraph.container.parentNode == null
+    ) {
+      runtimeDocument.body.appendChild(tempGraph.container);
+      containerAttached = true;
+    }
+    tempModel.setRoot(resolvedPage.root);
+
+    if (typeof tempGraph?.setViewState === "function" && resolvedPage.viewState) {
+      tempGraph.setViewState(resolvedPage.viewState);
+    } else if (
+      resolvedPage.viewState?.defaultParent &&
+      typeof tempGraph?.setDefaultParent === "function"
+    ) {
+      tempGraph.setDefaultParent(resolvedPage.viewState.defaultParent);
+    }
+
+    if (typeof tempGraph?.setAdaptiveColors === "function") {
+      tempGraph.setAdaptiveColors(resolvedPage.viewState?.adaptiveColors ?? null);
+    }
+
+    if (typeof tempGraph?.setBackgroundImage === "function") {
+      tempGraph.setBackgroundImage(resolvedPage.viewState?.backgroundImage ?? null);
+    }
+
+    if (resolvedPage.viewState?.background !== undefined) {
+      tempGraph.background = resolvedPage.viewState.background;
+    }
+  } catch (error) {
+    cleanup();
+    throw error;
+  }
+
+  const scopedUi = Object.create(ui);
+  scopedUi.editor = Object.create(ui.editor);
+  scopedUi.editor.graph = tempGraph;
+  scopedUi.currentPage = resolvedPage;
+
+  return {
+    ui: scopedUi,
+    page: resolvedPage,
+    index: -1,
+    is_background: true,
+    did_change: () => didChange,
+    cleanup,
+  };
+}
+
+function create_page_export_graph(
+  ui: any,
+  sourceGraph: any,
+  page: any,
+): { graph: any; cleanup: () => void } | null {
+  const runtimeDocument = (globalThis as { document?: any }).document;
+
+  if (
+    !page ||
+    typeof ui?.createTemporaryGraph !== "function" ||
+    typeof ui?.updatePageRoot !== "function" ||
+    typeof sourceGraph?.getStylesheet !== "function"
+  ) {
+    return null;
+  }
+
+  const resolvedPage = ui.updatePageRoot(page);
+  const tempGraph = ui.createTemporaryGraph(sourceGraph.getStylesheet());
+  const tempModel = tempGraph?.getModel?.();
+
+  if (!tempGraph || !tempModel || typeof tempModel?.setRoot !== "function") {
+    return null;
+  }
+
+  const pageIndex = Array.isArray(ui?.pages)
+    ? ui.pages.findIndex((candidate: any) => {
+        try {
+          return get_page_id(candidate) === get_page_id(resolvedPage);
+        } catch {
+          return false;
+        }
+      })
+    : -1;
+  const fallbackGetGlobalVariable =
+    typeof sourceGraph?.getGlobalVariable === "function"
+      ? sourceGraph.getGlobalVariable
+      : null;
+
+  if (fallbackGetGlobalVariable) {
+    tempGraph.getGlobalVariable = function (name: string) {
+      if (name === "pagenumber" && pageIndex >= 0) {
+        return pageIndex + 1;
+      }
+
+      if (name === "page") {
+        return get_page_name(resolvedPage, Math.max(pageIndex, 0));
+      }
+
+      return fallbackGetGlobalVariable.apply(this, arguments);
+    };
+  }
+
+  if (typeof tempGraph?.setAdaptiveColors === "function") {
+    tempGraph.setAdaptiveColors(resolvedPage.viewState?.adaptiveColors ?? null);
+  }
+
+  if (typeof tempGraph?.setBackgroundImage === "function") {
+    tempGraph.setBackgroundImage(resolvedPage.viewState?.backgroundImage ?? null);
+  }
+
+  if (resolvedPage.viewState?.background !== undefined) {
+    tempGraph.background = resolvedPage.viewState.background;
+  }
+
+  let containerAttached = false;
+  try {
+    if (
+      runtimeDocument?.body &&
+      tempGraph.container &&
+      tempGraph.container.parentNode == null
+    ) {
+      runtimeDocument.body.appendChild(tempGraph.container);
+      containerAttached = true;
+    }
+  } catch (error) {
+    console.warn(
+      "Could not attach temporary draw.io export graph container:",
+      error,
+    );
+  }
+
+  tempModel.setRoot(resolvedPage.root);
+
+  return {
+    graph: tempGraph,
+    cleanup: () => {
+      if (typeof tempGraph?.destroy === "function") {
+        try {
+          tempGraph.destroy();
+        } catch (error) {
+          console.warn("Could not destroy temporary draw.io export graph:", error);
+        }
+      }
+
+      if (containerAttached && tempGraph.container?.parentNode) {
+        try {
+          tempGraph.container.parentNode.removeChild(tempGraph.container);
+        } catch (error) {
+          console.warn(
+            "Could not detach temporary draw.io export graph container:",
+            error,
+          );
+        }
+      }
+    },
+  };
+}
+
+export function prepare_target_page_execution(
+  ui: any,
+  target_page: TargetPageSelector | undefined,
+  options: {
+    prefer_background?: boolean;
+    sync_live_current_page_state?: boolean;
+  } = {},
+): PreparedPageExecution {
+  const resolved = resolve_target_page(ui, target_page);
+  const currentId =
+    ui?.currentPage !== undefined && ui?.currentPage !== null
+      ? get_page_id(ui.currentPage)
+      : null;
+  const targetId = get_page_id(resolved.page);
+
+  if (options.prefer_background && currentId !== null && currentId !== targetId) {
+    const backgroundExecution = create_background_page_ui(ui, resolved.page);
+    if (backgroundExecution) {
+      if (options.sync_live_current_page_state) {
+        sync_live_current_page_state(ui);
+      }
+
+      return {
+        ...backgroundExecution,
+        index: resolved.index,
+      };
+    }
+  }
+
+  if (currentId !== targetId) {
+    switch_to_target_page(ui, resolved.page);
+  }
+
+  return create_noop_execution(ui, resolved.page, resolved.index);
+}
+
+export function mark_page_execution_modified(
+  ui: any,
+  execution: PreparedPageExecution,
+) {
+  if (!execution.is_background || !execution.did_change()) {
+    return;
+  }
+
+  const page = execution.page;
+  page.needsUpdate = true;
+  page.graphModelNode = null;
+
+  if (typeof page?.setDiagramModified === "function") {
+    page.setDiagramModified(true);
+  }
+
+  try {
+    ui.getCurrentFile?.()?.fileChanged?.();
+  } catch (error) {
+    console.warn("Could not notify draw.io file change after background mutation:", error);
+  }
+}
+
+export function get_selected_cell(ui: any) {
+  return ui.editor.graph.getSelectionCell() || "no cell selected";
+}
+
+export function list_pages(ui: any): PageInfo[] {
+  ensure_pages_api(ui, "pages");
+
+  return ui.pages.map((page: any, index: number) =>
+    serialize_page_info(ui, page, index),
+  );
+}
+
+export function get_current_page(ui: any): PageInfo {
+  ensure_pages_api(ui, "current page");
+
+  const currentId =
+    ui?.currentPage !== undefined && ui?.currentPage !== null
+      ? get_page_id(ui.currentPage)
+      : null;
+  const currentIndex = ui.pages.findIndex(
+    (page: any) => currentId !== null && get_page_id(page) === currentId,
+  );
+  if (currentIndex === -1 || !ui.currentPage) {
+    throw new Error("Current page is not available");
+  }
+
+  return serialize_page_info(ui, ui.currentPage, currentIndex, true);
+}
+
+export function create_page(ui: any, options: DrawioCellOptions): PageInfo {
+  if (typeof ui?.insertPage !== "function") {
+    throw new Error("Draw.io page creation is not supported in this version");
+  }
+
+  if (options.name) {
+    assert_page_rename_supported(ui, "create a named page");
+  }
+
+  const pageIndex = Array.isArray(ui.pages) ? ui.pages.length : 0;
+  let newPage: any = null;
+
+  if (
+    typeof ui?.createPage === "function" &&
+    typeof ui?.createPageId === "function" &&
+    can_insert_page_without_switch(ui)
+  ) {
+    newPage = ui.createPage(options.name ?? null, ui.createPageId());
+
+    if (!insert_page_without_switch(ui, newPage, pageIndex)) {
+      newPage = null;
+    }
+  }
+
+  if (!newPage) {
+    newPage = ui.insertPage(null, pageIndex);
+    if (!newPage) {
+      throw new Error("Failed to create a new page");
+    }
+
+    if (options.name) {
+      try {
+        assert_page_rename_supported(ui, "create a named page", newPage);
+        newPage.setName(options.name);
+      } catch (error) {
+        rollback_created_page(ui, newPage);
+        throw error;
+      }
+    }
+  }
+
+  const newPageId = get_page_id(newPage);
+  const index = Array.isArray(ui.pages)
+    ? ui.pages.findIndex((page: any) => get_page_id(page) === newPageId)
+    : -1;
+  if (index === -1) {
+    throw new Error("Created page is not present in the page list");
+  }
+
+  return serialize_page_info(ui, newPage, index);
+}
+
+export function copy_page(ui: any, options: DrawioCellOptions): PageInfo {
+  const page_selector =
+    typeof options.page === "number" ? { index: options.page } : options.page;
+  const resolved = resolve_target_page(ui, page_selector, "page");
+
+  if (typeof ui?.duplicatePage !== "function") {
+    throw new Error("Draw.io page copying is not supported in this version");
+  }
+
+  const currentId =
+    ui?.currentPage !== undefined && ui?.currentPage !== null
+      ? get_page_id(ui.currentPage)
+      : null;
+  const requestedName =
+    typeof options.name === "string" && options.name.length > 0
+      ? options.name
+      : undefined;
+  const copiedPage = ui.duplicatePage(resolved.page, requestedName);
+
+  if (!copiedPage) {
+    throw new Error("Failed to copy the target page");
+  }
+
+  if (
+    requestedName &&
+    get_page_name(copiedPage, resolved.index) !== requestedName
+  ) {
+    assert_page_rename_supported(ui, "rename the copied page", copiedPage);
+
+    if (!rename_page_without_switch(ui, copiedPage, requestedName)) {
+      throw new Error("Failed to rename the copied page");
+    }
+  }
+
+  const index = move_page_to_end(ui, copiedPage);
+
+  if (currentId !== null) {
+    const currentPage = ui.pages.find((page: any) => {
+      try {
+        return get_page_id(page) === currentId;
+      } catch {
+        return false;
+      }
+    });
+    const visiblePageId =
+      ui?.currentPage !== undefined && ui?.currentPage !== null
+        ? get_page_id(ui.currentPage)
+        : null;
+
+    if (
+      currentPage &&
+      visiblePageId !== null &&
+      visiblePageId !== currentId &&
+      typeof ui?.selectPage === "function"
+    ) {
+      ui.selectPage(currentPage);
+    }
+  }
+
+  return serialize_page_info(ui, copiedPage, index);
+}
+
+export function rename_page(ui: any, options: DrawioCellOptions): PageInfo {
+  const page_selector =
+    typeof options.page === "number" ? { index: options.page } : options.page;
+  const resolved = resolve_target_page(ui, page_selector, "page");
+
+  if (!options.name) {
+    throw new Error("`name` is required");
+  }
+
+  assert_page_rename_supported(ui, "rename a page", resolved.page);
+
+  if (!rename_page_without_switch(ui, resolved.page, options.name)) {
+    throw new Error("Failed to rename the target page");
+  }
+
+  return serialize_page_info(ui, resolved.page, resolved.index);
 }
 
 /**
@@ -1216,25 +2229,74 @@ function export_svg(ui: any, params: SvgExportParams): ExportResult {
 
   if (embedXml) {
     const currentPage = size === "page" || size === "selection";
-    const svgString = ui.getFileData(
-      false,
+    const xml = ui.getFileData(
       true,
+      null,
       null,
       null,
       ignoreSelection,
       currentPage,
     );
-    const bounds = graph.getGraphBounds();
-    const w = Math.ceil(bounds.width * scale + bounds.x * scale + 2 * border);
-    const h = Math.ceil(bounds.height * scale + bounds.y * scale + 2 * border);
+    const exportGraphSession = create_page_export_graph(ui, graph, ui.currentPage);
+    const renderGraph = exportGraphSession?.graph ?? graph;
 
-    return {
-      format: "svg",
-      mimeType: "image/svg+xml",
-      data: svgString,
-      width: w,
-      height: h,
-    };
+    try {
+      const svgString =
+        typeof ui.getEmbeddedSvg === "function"
+          ? ui.getEmbeddedSvg(
+              xml,
+              renderGraph,
+              null,
+              false,
+              null,
+              ignoreSelection,
+              null,
+              undefined,
+              bg,
+              scale,
+              border,
+              includeShadow,
+            )
+          : (() => {
+              const svgRoot = renderGraph.getSvg(
+                bg,
+                scale,
+                border,
+                !params.cropToDiagram,
+                null,
+                ignoreSelection,
+              );
+
+              if (renderGraph.shadowVisible || includeShadow) {
+                renderGraph.addSvgShadow(svgRoot, null, null, border === 0);
+              }
+
+              svgRoot.setAttribute("content", xml);
+
+              return (
+                (Graph.xmlDeclaration || '<?xml version="1.0" encoding="UTF-8"?>') +
+                "\n" +
+                (Graph.svgFileComment || "") +
+                "\n" +
+                (Graph.svgDoctype || "") +
+                "\n" +
+                mxUtils.getXml(svgRoot)
+              );
+            })();
+      const bounds = renderGraph.getGraphBounds();
+      const w = Math.ceil(bounds.width * scale + bounds.x * scale + 2 * border);
+      const h = Math.ceil(bounds.height * scale + bounds.y * scale + 2 * border);
+
+      return {
+        format: "svg",
+        mimeType: "image/svg+xml",
+        data: svgString,
+        width: w,
+        height: h,
+      };
+    } finally {
+      exportGraphSession?.cleanup();
+    }
   }
 
   const svgRoot = graph.getSvg(
@@ -1777,10 +2839,47 @@ export function import_diagram(
           };
         }
 
+        const importedPageName = filename
+          ? filename.replace(/\.[^/.]+$/, "")
+          : null;
+
+        if (importedPageName) {
+          try {
+            assert_page_rename_supported(
+              ui,
+              "create a named imported page",
+            );
+          } catch (error) {
+            return {
+              success: false,
+              message:
+                error instanceof Error ? error.message : "Page renaming is not supported",
+            };
+          }
+        }
+
         // Create new page
         const newPage = ui.insertPage();
         if (!newPage) {
           return { success: false, message: "Failed to create new page" };
+        }
+
+        if (importedPageName) {
+          try {
+            assert_page_rename_supported(
+              ui,
+              "create a named imported page",
+              newPage,
+            );
+            newPage.setName(importedPageName);
+          } catch (error) {
+            rollback_created_page(ui, newPage);
+            return {
+              success: false,
+              message:
+                error instanceof Error ? error.message : "Page renaming is not supported",
+            };
+          }
         }
 
         // Switch to new page
@@ -1817,12 +2916,6 @@ export function import_diagram(
           model.endUpdate();
         }
 
-        // Set page name if filename provided
-        if (filename && newPage.setName) {
-          const pageName = filename.replace(/\.[^/.]+$/, ""); // Remove extension
-          newPage.setName(pageName);
-        }
-
         return {
           success: true,
           message: `Diagram imported successfully (new page created)${filename ? `: ${filename}` : ""}`,
@@ -1840,116 +2933,4 @@ export function import_diagram(
       message: `Import failed: ${error instanceof Error ? error.message : "Unknown error"}`,
     };
   }
-}
-
-export type ImportMermaidOptions = {
-  mermaid_source: string;
-  mode?: "native" | "embed";
-  insert_mode?: "replace" | "add" | "new-page";
-};
-
-export type ImportMermaidResult =
-  | {
-      success: true;
-      mode: "native" | "embed";
-      message: string;
-      cells?: number;
-      xml?: string;
-    }
-  | { success: false; message: string };
-
-export function import_mermaid(
-  ui: any,
-  options: Record<string, unknown>,
-): Promise<ImportMermaidResult> {
-  const opts = options as unknown as ImportMermaidOptions;
-  const mermaid_source = opts.mermaid_source;
-  const mode = opts.mode ?? "native";
-  const insert_mode = opts.insert_mode ?? "add";
-
-  if (!mermaid_source || typeof mermaid_source !== "string") {
-    return Promise.resolve({
-      success: false,
-      message: "mermaid_source must be a non-empty string",
-    });
-  }
-
-  if (typeof ui?.parseMermaidDiagram !== "function") {
-    return Promise.resolve({
-      success: false,
-      message:
-        "ui.parseMermaidDiagram is not available — this Draw.io build does not expose Mermaid support.",
-    });
-  }
-
-  const enableParser = mode === "native";
-
-  return new Promise<ImportMermaidResult>((resolve) => {
-    let settled = false;
-    const settle = (result: ImportMermaidResult) => {
-      if (settled) return;
-      settled = true;
-      resolve(result);
-    };
-
-    try {
-      ui.parseMermaidDiagram(
-        mermaid_source,
-        undefined,
-        (xml: string) => {
-          if (!xml || typeof xml !== "string") {
-            settle({
-              success: false,
-              message: "Mermaid parser returned empty XML",
-            });
-            return;
-          }
-          try {
-            const importResult = import_diagram(ui, {
-              data: xml,
-              format: "xml",
-              mode: insert_mode,
-            });
-            if (!importResult.success) {
-              settle({
-                success: false,
-                message: `Mermaid converted, but inserting into the diagram failed: ${importResult.message}`,
-              });
-              return;
-            }
-            settle({
-              success: true,
-              mode,
-              message: importResult.message,
-              cells: importResult.cells,
-              xml,
-            });
-          } catch (err) {
-            settle({
-              success: false,
-              message: `Insert after Mermaid conversion failed: ${err instanceof Error ? err.message : String(err)}`,
-            });
-          }
-        },
-        (err: any) => {
-          settle({
-            success: false,
-            message: `Mermaid render failed: ${err?.message ?? String(err)}`,
-          });
-        },
-        (err: any) => {
-          settle({
-            success: false,
-            message: `Mermaid parse error: ${err?.message ?? String(err)}`,
-          });
-        },
-        enableParser,
-      );
-    } catch (err) {
-      settle({
-        success: false,
-        message: `parseMermaidDiagram threw: ${err instanceof Error ? err.message : String(err)}`,
-      });
-    }
-  });
 }

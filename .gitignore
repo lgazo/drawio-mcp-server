@@ -140,3 +140,10 @@ coverage/
 # Build output
 build/
 .artifacts/
+
+# Local tooling and test artifacts
+.idea/
+.playwright-cli/
+playwright-report/
+test-results/
+test-diagram/

@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { default_tool } from "../tool.js";
-import { Attributes } from "./shared.js";
+import { Attributes, target_page_field } from "./shared.js";
 import { ToolRegistrar } from "./types.js";
 
 export const TOOL_list_paged_model = "list-paged-model";
@@ -9,8 +9,9 @@ export const TOOL_list_paged_model = "list-paged-model";
 export const registerListPagedModelTool: ToolRegistrar = (server, context) => {
   server.tool(
     TOOL_list_paged_model,
-    "Retrieves a paginated view of all cells (vertices and edges) in the current Draw.io diagram. This tool provides access to the complete model data with essential fields only, sanitized to remove circular dependencies and excessive data. It allows to filter based on multiple criteria and attribute boolean logic. Useful for programmatic inspection of diagram structure without overwhelming response sizes.",
+    "Retrieves a paginated view of all cells (vertices and edges) on the target page. This tool provides access to the complete model data with essential fields only, sanitized to remove circular dependencies and excessive data.",
     {
+      target_page: target_page_field(),
       page: z
         .number()
         .optional()
@@ -61,6 +62,6 @@ export const registerListPagedModelTool: ToolRegistrar = (server, context) => {
         )
         .default({}),
     },
-    default_tool(TOOL_list_paged_model, context),
+    default_tool(TOOL_list_paged_model, context, { queue: true }),
   );
 };

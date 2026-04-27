@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { default_tool } from "../tool.js";
+import { target_page_field } from "./shared.js";
 import { ToolRegistrar } from "./types.js";
 
 export const TOOL_add_edge = "add-edge";
@@ -10,6 +11,7 @@ export const registerAddEdgeTool: ToolRegistrar = (server, context) => {
     TOOL_add_edge,
     "This tool creates an edge, sometimes called also a relation, between two vertexes (cells). When source and target are the same shape (self-connector), a loop edge style is automatically applied if no custom style is provided.",
     {
+      target_page: target_page_field(),
       source_id: z
         .string()
         .describe("Source ID of a cell. It is represented by `id` attribute."),
@@ -47,6 +49,6 @@ export const registerAddEdgeTool: ToolRegistrar = (server, context) => {
           "ID of the parent cell. If provided, the new edge will be created as a child of this cell. If omitted, the edge is created at the diagram root level.",
         ),
     },
-    default_tool(TOOL_add_edge, context),
+    default_tool(TOOL_add_edge, context, { queue: true }),
   );
 };

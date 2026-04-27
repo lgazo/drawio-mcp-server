@@ -12,46 +12,139 @@ export type ToolFn<S> = (
   args: S,
   extra: RequestHandlerExtra<ServerRequest, ServerNotification>,
 ) => Promise<CallToolResult>;
+export type ToolExecutionOptions = {
+  queue?: boolean;
+  reply_timeout_ms?: number;
+  routing?: "document" | "none";
+};
+
+const DEFAULT_REPLY_TIMEOUT_MS = (() => {
+  const raw = process.env.DRAWIO_MCP_REPLY_TIMEOUT_MS;
+  const parsed = Number(raw);
+
+  if (Number.isFinite(parsed) && parsed > 0) {
+    return parsed;
+  }
+
+  return 60_000;
+})();
 
 export function build_channel<S>(
-  { bus, id_generator, log }: Context,
+  { bus, id_generator, request_queue, document_routing, log }: Context,
   event_name: string,
   handler: Handler,
+  options: ToolExecutionOptions = {},
 ) {
-  const fn: ToolFn<S> = async (
-    _args: S,
-    _extra: RequestHandlerExtra<ServerRequest, ServerNotification>,
+  const routing = options.routing ?? "document";
+
+  const invoke = async (
+    request_payload: Record<string, unknown>,
+    queue_key: string,
   ) => {
+    const reply_timeout_ms =
+      options.reply_timeout_ms && options.reply_timeout_ms > 0
+        ? options.reply_timeout_ms
+        : DEFAULT_REPLY_TIMEOUT_MS;
     const request_id = id_generator.generate();
-    // const event_name = `get-selected-cell`;
     const reply_name = `${event_name}.${request_id}`;
     bus.send_to_extension({
       __event: event_name,
       __request_id: request_id,
-      ..._args,
+      ...request_payload,
     });
-    log.debug(`[${event_name}] emitted, waiting for reply @${reply_name}`);
+    log.debug(
+      `[${event_name}] emitted on ${queue_key}, waiting for reply @${reply_name}`,
+    );
 
-    const p: Promise<CallToolResult> = new Promise((resolve, _reject) => {
+    const p: Promise<CallToolResult> = new Promise((resolve, reject) => {
       log.debug(`[${event_name}] waiting for response @${reply_name}`);
 
-      bus.on_reply_from_extension(reply_name, (reply: Record<string, any>) => {
-        // bus.on(reply_name, (args) => {
-        log.debug(`[${reply_name}] received response`, reply);
-        const data = strip_internal_fields(reply);
+      let settled = false;
+      let timeout_handle: ReturnType<typeof setTimeout> | undefined;
+      let cleanup: (() => void) | undefined;
 
-        const response = handler(data);
-        resolve(response);
+      const finish = (finalize: () => void) => {
+        if (settled) {
+          return;
+        }
+
+        settled = true;
+        if (timeout_handle) {
+          clearTimeout(timeout_handle);
+        }
+        cleanup?.();
+        finalize();
+      };
+
+      timeout_handle = setTimeout(() => {
+        finish(() => {
+          const error = new Error(
+            `Timed out waiting for reply to \`${event_name}\` after ${reply_timeout_ms}ms`,
+          );
+          log.log("warn", `[${reply_name}] ${error.message}`);
+          reject(error);
+        });
+      }, reply_timeout_ms);
+
+      cleanup = bus.on_reply_from_extension(reply_name, (reply: Record<string, any>) => {
+        // bus.on(reply_name, (args) => {
+        finish(() => {
+          log.debug(`[${reply_name}] received response`, reply);
+          const data = strip_internal_fields(reply);
+
+          try {
+            const response = handler(data);
+            resolve(response);
+          } catch (error) {
+            reject(error);
+          }
+        });
       });
+
+      if (settled) {
+        cleanup?.();
+      }
     });
 
     return p;
   };
 
+  const fn: ToolFn<S> = async (
+    _args: S,
+    _extra: RequestHandlerExtra<ServerRequest, ServerNotification>,
+  ) => {
+    let request_payload = { ...(_args as Record<string, unknown>) };
+    let queue_key = "global";
+
+    if (routing === "document") {
+      const resolved = await document_routing.resolve_target_document(
+        request_payload,
+      );
+      queue_key = resolved.connection_id;
+      request_payload = {
+        ...request_payload,
+        target_document: resolved.target_document,
+        __target_connection_id: resolved.connection_id,
+      };
+    }
+
+    if (options.queue) {
+      return request_queue.enqueue(queue_key, () =>
+        invoke(request_payload, queue_key),
+      );
+    }
+
+    return invoke(request_payload, queue_key);
+  };
+
   return fn;
 }
 
-export function default_tool(name: string, context: Context) {
+export function default_tool(
+  name: string,
+  context: Context,
+  options: ToolExecutionOptions = {},
+) {
   const fn = build_channel(context, name, (reply) => {
     const response: CallToolResult = {
       content: [
@@ -62,12 +155,16 @@ export function default_tool(name: string, context: Context) {
       ],
     };
     return response;
-  });
+  }, options);
 
   return fn;
 }
 
-export function export_tool_handler(name: string, context: Context) {
+export function export_tool_handler(
+  name: string,
+  context: Context,
+  options: ToolExecutionOptions = {},
+) {
   const fn = build_channel(context, name, (reply) => {
     const { success, result, error } = reply;
 
@@ -116,7 +213,7 @@ export function export_tool_handler(name: string, context: Context) {
       content,
     };
     return response;
-  });
+  }, options);
 
   return fn;
 }
