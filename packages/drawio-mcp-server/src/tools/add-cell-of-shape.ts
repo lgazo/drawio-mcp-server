@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { default_tool } from "../tool.js";
+import { target_page_field } from "./shared.js";
 import { ToolRegistrar } from "./types.js";
 
 export const TOOL_add_cell_of_shape = "add-cell-of-shape";
@@ -8,8 +9,9 @@ export const TOOL_add_cell_of_shape = "add-cell-of-shape";
 export const registerAddCellOfShapeTool: ToolRegistrar = (server, context) => {
   server.tool(
     TOOL_add_cell_of_shape,
-    "This tool allows you to add new vertex cell (object) on the current page of a Draw.io diagram by its shape name. It accepts multiple optional input parameter.",
+    "This tool allows you to add a new vertex cell on the target page of the current Draw.io document by its shape name.",
     {
+      target_page: target_page_field(),
       shape_name: z
         .string()
         .describe(
@@ -52,6 +54,6 @@ export const registerAddCellOfShapeTool: ToolRegistrar = (server, context) => {
           "ID of the parent cell. If provided, the new cell will be created as a child of this cell. If omitted, the cell is created at the diagram root level.",
         ),
     },
-    default_tool(TOOL_add_cell_of_shape, context),
+    default_tool(TOOL_add_cell_of_shape, context, { queue: true }),
   );
 };

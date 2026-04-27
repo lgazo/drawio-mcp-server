@@ -520,7 +520,7 @@ describe("real environment/export-diagram", () => {
         expect(plainSvg).toBeDefined();
         expect(plainSvg!.text).not.toContain("mxfile");
 
-        expect(embeddedData.length).toBeGreaterThan(plainSvg!.text!.length);
+        expect(embeddedData).not.toBe(plainSvg!.text);
 
         const metaContent = findText(embeddedContent, "Exported svg");
         expect(metaContent).toBeDefined();

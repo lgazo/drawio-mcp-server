@@ -30,14 +30,17 @@ import {
   type HttpFeatureConfig,
 } from "./config.js";
 import {
-  Bus,
   bus_reply_stream,
   bus_request_stream,
-  BusListener,
-  Context,
+  type ConnectedDocumentInfo,
+  type Context,
+  type CurrentDocumentPageInfo,
+  type ResolvedDocumentTarget,
+  type TargetDocumentSelector,
 } from "./types.js";
 import { create_bus } from "./emitter_bus.js";
 import { nanoid_id_generator } from "./nanoid_id_generator.js";
+import { create_request_queue } from "./request_queue.js";
 import { create_logger as create_console_logger } from "./mcp_console_logger.js";
 import {
   create_logger as create_server_logger,
@@ -52,6 +55,7 @@ import {
 } from "./assets/index.js";
 import { registerTools } from "./tools/index.js";
 import { createServerWithSchemaStripping } from "./register-tool.js";
+import { target_document_field } from "./tools/shared.js";
 
 const fatalLog = create_console_logger();
 
@@ -349,7 +353,7 @@ export function createDrawioMcpApp(options?: {
 }): DrawioMcpApp {
   const config = options?.config ?? defaultConfig();
   const emitter = new EventEmitter();
-  const conns = new Set<WebSocket>();
+  const connectionIdGenerator = nanoid_id_generator();
   const mcpServers = new Set<McpServer>();
 
   const capabilities: {
@@ -369,6 +373,17 @@ export function createDrawioMcpApp(options?: {
       levels: validLogLevels,
     };
   }
+
+  type ConnectionEntry = {
+    connection_id: string;
+    ws: WebSocket;
+    document: ConnectedDocumentInfo | null;
+    updated_at: number;
+    sync_waiters: Set<() => void>;
+  };
+
+  const conns = new Map<string, ConnectionEntry>();
+  const DOCUMENT_SYNC_TIMEOUT_MS = 1000;
 
   // Lazily resolved log — uses console logger until a server logger is
   // explicitly requested via --logger mcp-server, in which case the first
@@ -391,14 +406,237 @@ export function createDrawioMcpApp(options?: {
 
   const bus = create_bus(lazyLog)(emitter);
   const id_generator = nanoid_id_generator();
+  const request_queue = create_request_queue(lazyLog);
+
+  function normalizeOptionalString(value: unknown): string | null {
+    if (value === undefined || value === null || value === "") {
+      return null;
+    }
+
+    return String(value);
+  }
+
+  function normalizeCurrentPage(value: unknown): CurrentDocumentPageInfo | null {
+    if (!value || typeof value !== "object") {
+      return null;
+    }
+
+    const record = value as Record<string, unknown>;
+    const id = normalizeOptionalString(record.id);
+    const name = normalizeOptionalString(record.name);
+    const index = Number(record.index);
+
+    if (!id || !name || !Number.isInteger(index) || index < 0) {
+      return null;
+    }
+
+    return {
+      index,
+      id,
+      name,
+      is_current: true,
+    };
+  }
+
+  function normalizeDocumentState(value: unknown): ConnectedDocumentInfo | null {
+    if (!value || typeof value !== "object") {
+      return null;
+    }
+
+    const record = value as Record<string, unknown>;
+    const id = normalizeOptionalString(record.id);
+
+    if (!id) {
+      return null;
+    }
+
+    const page_count = Number(record.page_count);
+
+    return {
+      id,
+      title: normalizeOptionalString(record.title),
+      mode: normalizeOptionalString(record.mode),
+      hash: normalizeOptionalString(record.hash),
+      file_url: normalizeOptionalString(record.file_url),
+      page_count:
+        Number.isInteger(page_count) && page_count >= 0 ? page_count : 0,
+      current_page: normalizeCurrentPage(record.current_page),
+    };
+  }
+
+  function listKnownDocuments(): ConnectedDocumentInfo[] {
+    return [...conns.values()]
+      .map((entry) => entry.document)
+      .filter((document): document is ConnectedDocumentInfo => document !== null);
+  }
+
+  function findConnectionByDocumentId(
+    documentId: string,
+  ): ConnectionEntry | undefined {
+    return [...conns.values()].find((entry) => entry.document?.id === documentId);
+  }
+
+  function flushSyncWaiters(entry: ConnectionEntry) {
+    for (const resolve of [...entry.sync_waiters]) {
+      try {
+        resolve();
+      } catch {
+        // ignore
+      }
+    }
+    entry.sync_waiters.clear();
+  }
+
+  function sendControlMessage(entry: ConnectionEntry, control: string) {
+    if (entry.ws.readyState !== WebSocket.OPEN) {
+      return false;
+    }
+
+    entry.ws.send(
+      JSON.stringify({
+        __control: control,
+      }),
+    );
+    return true;
+  }
+
+  function requestDocumentSync(entry: ConnectionEntry): Promise<void> {
+    return new Promise((resolve) => {
+      let settled = false;
+      let timeout: ReturnType<typeof setTimeout> | undefined;
+
+      const wrappedFinish = () => {
+        if (settled) {
+          return;
+        }
+
+        settled = true;
+        if (timeout) {
+          clearTimeout(timeout);
+        }
+        entry.sync_waiters.delete(wrappedFinish);
+        resolve();
+      };
+
+      entry.sync_waiters.add(wrappedFinish);
+      timeout = setTimeout(() => {
+        wrappedFinish();
+      }, DOCUMENT_SYNC_TIMEOUT_MS);
+
+      if (!sendControlMessage(entry, "sync-document-state")) {
+        wrappedFinish();
+      }
+    });
+  }
+
+  async function syncAllDocuments() {
+    await Promise.all([...conns.values()].map((entry) => requestDocumentSync(entry)));
+  }
+
+  const document_routing = {
+    list_documents: async (): Promise<ConnectedDocumentInfo[]> => {
+      await syncAllDocuments();
+      return listKnownDocuments();
+    },
+    resolve_target_document: async (
+      args: Record<string, unknown>,
+    ): Promise<ResolvedDocumentTarget> => {
+      const rawSelector = args.target_document;
+
+      if (rawSelector && typeof rawSelector === "object") {
+        const selector = rawSelector as Partial<TargetDocumentSelector>;
+        const documentId = normalizeOptionalString(selector.id);
+
+        if (!documentId) {
+          throw new Error("`target_document.id` is required");
+        }
+
+        let entry = findConnectionByDocumentId(documentId);
+
+        if (!entry) {
+          await syncAllDocuments();
+          entry = findConnectionByDocumentId(documentId);
+        }
+
+        if (!entry || !entry.document) {
+          throw new Error(`Document with ID ${documentId} was not found`);
+        }
+
+        return {
+          connection_id: entry.connection_id,
+          target_document: { id: documentId },
+          document: entry.document,
+        };
+      }
+
+      await syncAllDocuments();
+      const documents = listKnownDocuments();
+
+      if (documents.length === 0) {
+        throw new Error("No connected Draw.io documents");
+      }
+
+      if (documents.length > 1) {
+        throw new Error(
+          "Multiple Draw.io documents are connected. Call `list-documents` and retry with `target_document`.",
+        );
+      }
+
+      const document = documents[0];
+      const entry = findConnectionByDocumentId(document.id);
+
+      if (!entry) {
+        throw new Error(`Document with ID ${document.id} was not found`);
+      }
+
+      return {
+        connection_id: entry.connection_id,
+        target_document: { id: document.id },
+        document,
+      };
+    },
+  };
 
   const context: Context = {
     bus,
     id_generator,
+    request_queue,
+    document_routing,
     get log() {
       return getLog();
     },
   };
+
+  function createDocumentScopedServer(server: McpServer): McpServer {
+    return new Proxy(server, {
+      get(target, prop, receiver) {
+        if (prop !== "tool") {
+          return Reflect.get(target, prop, receiver);
+        }
+
+        return (
+          name: string,
+          description: string,
+          params: Record<string, unknown>,
+          handler: unknown,
+        ) => {
+          const scopedParams =
+            name === "list-documents"
+              ? params
+              : {
+                  ...params,
+                  target_document: target_document_field().optional(),
+                };
+
+          return (
+            target.tool as (
+              ...args: [string, string, Record<string, unknown>, unknown]
+            ) => unknown
+          ).call(target, name, description, scopedParams, handler);
+        };
+      },
+    }) as McpServer;
+  }
 
   /**
    * Factory: creates a new McpServer instance with all tools registered.
@@ -427,7 +665,10 @@ export function createDrawioMcpApp(options?: {
       _serverLoggerBound = true;
     }
 
-    registerTools(createServerWithSchemaStripping(server), context);
+    registerTools(
+      createDocumentScopedServer(createServerWithSchemaStripping(server)),
+      context,
+    );
     mcpServers.add(server);
     return server;
   }
@@ -441,22 +682,77 @@ export function createDrawioMcpApp(options?: {
     mcpServers.delete(server);
   }
 
+  function createDisconnectedDocumentError(event: Record<string, unknown>) {
+    const targetDocumentId =
+      typeof (event.target_document as { id?: unknown } | undefined)?.id ===
+        "string" &&
+      (event.target_document as { id?: string }).id
+        ? (event.target_document as { id: string }).id
+        : null;
+    const targetConnectionId =
+      typeof event.__target_connection_id === "string"
+        ? event.__target_connection_id
+        : null;
+    const targetLabel = targetDocumentId
+      ? `Target document ${targetDocumentId}`
+      : targetConnectionId
+        ? `Target connection ${targetConnectionId}`
+        : "Target Draw.io connection";
+
+    return new Error(`${targetLabel} is no longer connected; call list-documents and retry`);
+  }
+
   const bus_to_ws_forwarder_listener = (event: any) => {
+    const targetConnectionId =
+      typeof event?.__target_connection_id === "string"
+        ? event.__target_connection_id
+        : null;
+
+    if (targetConnectionId) {
+      const entry = conns.get(targetConnectionId);
+      getLog().debug(`[bridge] forwarding message to #${targetConnectionId}`, event);
+
+      if (!entry) {
+        getLog().debug(
+          `[bridge] target connection ${targetConnectionId} not found`,
+        );
+        throw createDisconnectedDocumentError(event);
+      }
+
+      if (entry.ws.readyState !== WebSocket.OPEN) {
+        flushSyncWaiters(entry);
+        conns.delete(targetConnectionId);
+        throw createDisconnectedDocumentError(event);
+      }
+
+      try {
+        entry.ws.send(JSON.stringify(event));
+      } catch (error) {
+        getLog().debug("[bridge] error forwarding request", error);
+        flushSyncWaiters(entry);
+        conns.delete(targetConnectionId);
+        throw createDisconnectedDocumentError(event);
+      }
+      return;
+    }
+
     getLog().debug(
       `[bridge] received; forwarding message to #${conns.size} clients`,
       event,
     );
-    for (const ws of [...conns]) {
-      if (ws.readyState !== WebSocket.OPEN) {
-        conns.delete(ws);
+    for (const [connectionId, entry] of [...conns.entries()]) {
+      if (entry.ws.readyState !== WebSocket.OPEN) {
+        flushSyncWaiters(entry);
+        conns.delete(connectionId);
         continue;
       }
 
       try {
-        ws.send(JSON.stringify(event));
-      } catch (e) {
-        getLog().debug("[bridge] error forwarding request", e);
-        conns.delete(ws);
+        entry.ws.send(JSON.stringify(event));
+      } catch (error) {
+        getLog().debug("[bridge] error forwarding request", error);
+        flushSyncWaiters(entry);
+        conns.delete(connectionId);
       }
     }
   };
@@ -485,16 +781,35 @@ export function createDrawioMcpApp(options?: {
     });
 
     wsServer.on("connection", (ws) => {
+      const connection_id = connectionIdGenerator.generate();
+      const entry: ConnectionEntry = {
+        connection_id,
+        ws,
+        document: null,
+        updated_at: Date.now(),
+        sync_waiters: new Set(),
+      };
+
       getLog().debug(
-        `[ws_handler] A WebSocket client #${conns.size} connected, presumably MCP Extension!`,
+        `[ws_handler] WebSocket client ${connection_id} connected, presumably MCP Extension!`,
       );
-      conns.add(ws);
+      conns.set(connection_id, entry);
+
+      sendControlMessage(entry, "sync-document-state");
 
       ws.on("message", (data) => {
         const str = typeof data === "string" ? data : data.toString();
         try {
           const json = JSON.parse(str);
           getLog().debug(`[ws] received from Extension`, json);
+
+          if (json?.__control === "document-state") {
+            entry.document = normalizeDocumentState(json.document);
+            entry.updated_at = Date.now();
+            flushSyncWaiters(entry);
+            return;
+          }
+
           emitter.emit(bus_reply_stream, json);
         } catch (error) {
           getLog().debug(`[ws] failed to parse message`, error);
@@ -502,15 +817,17 @@ export function createDrawioMcpApp(options?: {
       });
 
       ws.on("close", (code) => {
-        conns.delete(ws);
+        flushSyncWaiters(entry);
+        conns.delete(connection_id);
         getLog().debug(
-          `[ws_handler] WebSocket client closed with code ${code}`,
+          `[ws_handler] WebSocket client ${connection_id} closed with code ${code}`,
         );
       });
 
       ws.on("error", (error) => {
         getLog().debug(`[ws_handler] WebSocket client error`, error);
-        conns.delete(ws);
+        flushSyncWaiters(entry);
+        conns.delete(connection_id);
       });
     });
 
@@ -536,9 +853,10 @@ export function createDrawioMcpApp(options?: {
 
   async function close() {
     emitter.off(bus_request_stream, bus_to_ws_forwarder_listener);
-    for (const ws of [...conns]) {
+    for (const entry of [...conns.values()]) {
       try {
-        ws.close();
+        flushSyncWaiters(entry);
+        entry.ws.close();
       } catch {
         // ignore
       }

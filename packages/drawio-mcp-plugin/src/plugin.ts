@@ -27,31 +27,16 @@ import {
   type SettingsDialogActions,
 } from "./settingsDialog";
 import {
-  add_new_rectangle,
-  delete_cell_by_id,
-  add_edge,
-  edit_cell,
-  edit_edge,
-  add_cell_of_shape,
-  set_cell_shape,
-  set_cell_data,
-  set_cell_parent,
-  get_shape_by_name,
-  get_shape_categories,
-  get_shapes_in_category,
-  list_paged_model,
   remove_circular_dependencies,
-  list_layers,
-  set_active_layer,
-  move_cell_to_layer,
-  get_active_layer,
-  create_layer,
-  export_diagram,
-  import_diagram,
-  import_mermaid,
-  type DrawioCellOptions,
+  serialize_document_info,
+  set_active_document_id,
 } from "./drawio-tools";
-import { type DrawioUI } from "./types";
+import { toolDefinitions } from "./tool-registry";
+import {
+  type DrawioEventListener,
+  type DrawioFile,
+  type DrawioUI,
+} from "./types";
 
 function reply_name(event_name: string, request_id: string) {
   return `${event_name}.${request_id}`;
@@ -85,6 +70,9 @@ const createToolHandler = (
       };
       if (wsManager) {
         wsManager.send(reply);
+      }
+      if (success) {
+        syncDocumentState();
       }
       return reply;
     };
@@ -121,149 +109,114 @@ let settingsDialog: {
   element: HTMLElement;
   update: (state: SettingsDialogState) => void;
 } | null = null;
-
-const toolDefinitions = [
-  {
-    name: "get-selected-cell",
-    params: new Set<string>([]),
-    handler: (ui: DrawioUI, _options: Record<string, unknown>) => {
-      return ui.editor.graph.getSelectionCell() || "no cell selected";
-    },
-  },
-  {
-    name: "add-rectangle",
-    params: new Set(["x", "y", "width", "height", "text", "style", "parent_id"]),
-    handler: add_new_rectangle,
-  },
-  {
-    name: "delete-cell-by-id",
-    params: new Set(["cell_id"]),
-    handler: delete_cell_by_id,
-  },
-  {
-    name: "add-edge",
-    params: new Set(["source_id", "target_id", "style", "text", "parent_id", "points"]),
-    handler: add_edge,
-  },
-  {
-    name: "get-shape-categories",
-    params: new Set([]),
-    handler: get_shape_categories,
-  },
-  {
-    name: "get-shapes-in-category",
-    params: new Set(["category_id"]),
-    handler: get_shapes_in_category,
-  },
-  {
-    name: "get-shape-by-name",
-    params: new Set(["shape_name"]),
-    handler: get_shape_by_name,
-  },
-  {
-    name: "add-cell-of-shape",
-    params: new Set([
-      "shape_name",
-      "x",
-      "y",
-      "width",
-      "height",
-      "text",
-      "style",
-      "parent_id",
-    ]),
-    handler: add_cell_of_shape,
-  },
-  {
-    name: "set-cell-shape",
-    params: new Set(["cell_id", "shape_name"]),
-    handler: set_cell_shape,
-  },
-  {
-    name: "set-cell-data",
-    params: new Set(["cell_id", "key", "value"]),
-    handler: (ui: DrawioUI, options: Record<string, unknown>) => {
-      return set_cell_data(ui, options);
-    },
-  },
-  {
-    name: "list-paged-model",
-    params: new Set(["page", "page_size", "filter"]),
-    handler: list_paged_model,
-  },
-  {
-    name: "edit-cell",
-    params: new Set(["cell_id", "text", "x", "y", "width", "height", "style"]),
-    handler: edit_cell,
-  },
-  {
-    name: "edit-edge",
-    params: new Set(["cell_id", "text", "source_id", "target_id", "style", "points"]),
-    handler: edit_edge,
-  },
-  {
-    name: "list-layers",
-    params: new Set([]),
-    handler: list_layers,
-  },
-  {
-    name: "set-active-layer",
-    params: new Set(["layer_id"]),
-    handler: set_active_layer,
-  },
-  {
-    name: "move-cell-to-layer",
-    params: new Set(["cell_id", "target_layer_id"]),
-    handler: move_cell_to_layer,
-  },
-  {
-    name: "set-cell-parent",
-    params: new Set(["cell_id", "parent_id"]),
-    handler: set_cell_parent,
-  },
-  {
-    name: "get-active-layer",
-    params: new Set([]),
-    handler: get_active_layer,
-  },
-  {
-    name: "create-layer",
-    params: new Set(["name"]),
-    handler: create_layer,
-  },
-  {
-    name: "export-diagram",
-    params: new Set([
-      "format",
-      "scale",
-      "border",
-      "background",
-      "shadow",
-      "crop",
-      "selection_only",
-      "transparent",
-      "dpi",
-      "embed_xml",
-      "size",
-    ]),
-    handler: export_diagram,
-  },
-  {
-    name: "import-diagram",
-    params: new Set(["data", "format", "mode", "filename"]),
-    handler: import_diagram,
-  },
-  {
-    name: "import-mermaid",
-    params: new Set(["mermaid_source", "mode", "insert_mode"]),
-    handler: import_mermaid,
-  },
-];
+let currentDocumentId: string | null = null;
+let currentFileRef: DrawioFile | null = null;
+let currentFileListenerCleanup: (() => void) | null = null;
 
 const toolHandlers = new Map<string, (request: any) => any>();
 
+function generateDocumentId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  return `document-${Date.now().toString(36)}-${Math.random()
+    .toString(36)
+    .slice(2, 10)}`;
+}
+
+function detachCurrentFileListener() {
+  if (currentFileListenerCleanup) {
+    currentFileListenerCleanup();
+    currentFileListenerCleanup = null;
+  }
+
+  currentFileRef = null;
+}
+
+function syncDocumentState() {
+  if (!wsManager || !ui?.getCurrentFile?.() || !currentDocumentId) {
+    return;
+  }
+
+  wsManager.send({
+    __control: "document-state",
+    document: serialize_document_info(ui, currentDocumentId),
+  });
+}
+
+function bindCurrentFileListener(file: DrawioFile | null) {
+  detachCurrentFileListener();
+  currentFileRef = file;
+
+  if (!file?.addListener || !file?.removeListener) {
+    return;
+  }
+
+  const onDescriptorChanged: DrawioEventListener = () => {
+    syncDocumentState();
+  };
+
+  file.addListener("descriptorChanged", onDescriptorChanged);
+  currentFileListenerCleanup = () => {
+    try {
+      file.removeListener?.("descriptorChanged", onDescriptorChanged);
+    } catch (error) {
+      console.warn("[plugin] Failed to remove file descriptor listener:", error);
+    }
+  };
+}
+
+function refreshActiveDocument(forceNewId: boolean) {
+  const file = ui?.getCurrentFile?.() ?? null;
+
+  if (!file) {
+    currentDocumentId = null;
+    set_active_document_id(null);
+    detachCurrentFileListener();
+    return;
+  }
+
+  if (forceNewId || !currentDocumentId || file !== currentFileRef) {
+    currentDocumentId = generateDocumentId();
+    set_active_document_id(currentDocumentId);
+    bindCurrentFileListener(file);
+    return;
+  }
+
+  if (file !== currentFileRef) {
+    bindCurrentFileListener(file);
+  }
+}
+
+function handleDocumentStateChange(forceNewId: boolean) {
+  refreshActiveDocument(forceNewId);
+  syncDocumentState();
+}
+
+function registerDocumentStateListeners() {
+  const listen = (eventName: string, forceNewId: boolean) => {
+    ui.editor?.addListener?.(eventName, () => {
+      handleDocumentStateChange(forceNewId);
+    });
+  };
+
+  listen("fileLoaded", true);
+  listen("pageSelected", false);
+  listen("pageRenamed", false);
+  listen("pageMoved", false);
+  listen("pagesPatched", false);
+
+  refreshActiveDocument(false);
+}
+
 const handleWebSocketMessage = (message: any): void => {
   console.debug("[plugin] Received WebSocket message:", message);
+
+  if (message.__control === "sync-document-state") {
+    handleDocumentStateChange(false);
+    return;
+  }
 
   if (message.__event && toolHandlers.has(message.__event)) {
     const handler = toolHandlers.get(message.__event);
@@ -466,6 +419,7 @@ function initPlugin() {
           toolHandlers.set(def.name, handler);
         });
 
+        registerDocumentStateListeners();
         initializeWebSocket();
 
         initializeSettingsDialog();

@@ -80,4 +80,14 @@ describe("create_bus", () => {
     expect(mockReply1).toHaveBeenCalledWith(matchingEvent);
     expect(mockReply2).not.toHaveBeenCalled();
   });
+
+  it("should allow callers to unsubscribe pending reply handlers", () => {
+    const mockReply = jest.fn();
+    const unsubscribe = bus.on_reply_from_extension("event1", mockReply);
+
+    unsubscribe();
+    emitter.emit(bus_reply_stream, { __event: "event1", data: "late" });
+
+    expect(mockReply).not.toHaveBeenCalled();
+  });
 });
