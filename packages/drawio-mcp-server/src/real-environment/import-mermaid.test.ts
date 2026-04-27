@@ -22,7 +22,7 @@ describe("real environment/import-mermaid", () => {
     await disposeRealEnvironmentContext(context);
   });
 
-  it("native mode converts a flowchart to native cells", async () => {
+  it("native mode converts a flowchart to native cells on the target page", async () => {
     await resetDiagram(context);
     context.browserMessages.length = 0;
     const logCountBefore = context.logger.entries.length;
@@ -32,6 +32,7 @@ describe("real environment/import-mermaid", () => {
       result?: { mode?: string; cells?: number; xml?: string };
       message?: string;
     }>(context, "import-mermaid", {
+      target_page: { index: 0 },
       mermaid_source: FLOWCHART,
       mode: "native",
       insert_mode: "add",
@@ -46,7 +47,7 @@ describe("real environment/import-mermaid", () => {
       const ui = (window as any).ui;
       const model = ui?.editor?.graph?.getModel?.();
       const cells = Object.values(model?.cells ?? {}) as any[];
-      return cells.some((c) => c?.vertex === true);
+      return cells.some((cell) => cell?.vertex === true);
     });
 
     await expectNoBrowserErrors(context, "import-mermaid:native");
@@ -65,6 +66,7 @@ describe("real environment/import-mermaid", () => {
       result?: { mode?: string; cells?: number; xml?: string };
       message?: string;
     }>(context, "import-mermaid", {
+      target_page: { index: 0 },
       mermaid_source: FLOWCHART,
       mode: "embed",
       insert_mode: "replace",
@@ -74,5 +76,24 @@ describe("real environment/import-mermaid", () => {
     expect(payload.result?.mode).toBe("embed");
     expect(payload.result?.xml ?? "").toContain("mermaidData");
     expect(payload.result?.xml ?? "").toContain("shape=image");
+  }, 180000);
+
+  it("requires target_page for replace and add modes", async () => {
+    await resetDiagram(context);
+
+    const result = await context.client.callTool({
+      name: "import-mermaid",
+      arguments: {
+        mermaid_source: FLOWCHART,
+        mode: "native",
+        insert_mode: "add",
+      },
+    });
+
+    expect(result.isError).toBe(true);
+    const content = result.content as Array<{ type: string; text?: string }>;
+    expect(String(content[0]?.text ?? "")).toContain(
+      "`target_page` is required",
+    );
   }, 180000);
 });

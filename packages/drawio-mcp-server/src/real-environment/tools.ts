@@ -24,6 +24,7 @@ const PAGE_SCOPED_TOOL_NAMES = new Set([
   "set-cell-parent",
   "export-diagram",
   "import-diagram",
+  "import-mermaid",
 ]);
 
 function withDefaultTargetPage(
@@ -35,6 +36,10 @@ function withDefaultTargetPage(
   }
 
   if (name === "import-diagram" && args.mode === "new-page") {
+    return args;
+  }
+
+  if (name === "import-mermaid" && args.insert_mode === "new-page") {
     return args;
   }
 

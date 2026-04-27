@@ -330,3 +330,15 @@ Import a diagram from XML, SVG with embedded XML, or PNG with embedded XML into 
 - `filename`: Optional original filename for context
 
 *Returns*: Import result with success status, message, and optional page/cell counts
+
+### `import-mermaid`
+
+Import a Mermaid diagram into a Draw.io page. The conversion runs inside the Draw.io editor using its bundled Mermaid pipeline. Native mode converts supported Mermaid diagrams into mxGraph cells; embed mode creates a single image cell with Mermaid source preserved for Draw.io re-editing.
+
+*Parameters*:
+- `target_page`: Required for `replace` and `add`; optional for `new-page`
+- `mermaid_source`: Raw Mermaid syntax
+- `mode`: Import mode: native converts to mxGraph cells when supported, embed preserves Mermaid source in an image cell (default: native)
+- `insert_mode`: How to merge the converted XML: replace, add, or new-page (default: add)
+
+*Returns*: Import result with success status, message, converted mode, optional cell count, and converted XML

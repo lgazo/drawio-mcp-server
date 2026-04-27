@@ -18,6 +18,7 @@ import {
   get_shape_categories,
   get_shapes_in_category,
   import_diagram,
+  import_mermaid,
   list_layers,
   list_pages,
   list_paged_model,
@@ -83,6 +84,10 @@ const EXPORT_PAGE_EXECUTION: PageExecutionPolicy = {
 
 function skip_page_execution_for_new_page_import(options: DrawioCellOptions) {
   return options.mode === "new-page";
+}
+
+function skip_page_execution_for_new_page_mermaid(options: DrawioCellOptions) {
+  return options.insert_mode === "new-page";
 }
 
 function with_target_page(
@@ -357,6 +362,13 @@ const rawToolDefinitions: ToolDefinition[] = [
     handler: import_diagram,
     pageExecution: VISIBLE_PAGE_MUTATION_EXECUTION,
     skip: skip_page_execution_for_new_page_import,
+  }),
+  page_tool({
+    name: "import-mermaid",
+    params: new Set(["mermaid_source", "mode", "insert_mode", "target_page"]),
+    handler: import_mermaid,
+    pageExecution: VISIBLE_PAGE_MUTATION_EXECUTION,
+    skip: skip_page_execution_for_new_page_mermaid,
   }),
   {
     name: "list-pages",

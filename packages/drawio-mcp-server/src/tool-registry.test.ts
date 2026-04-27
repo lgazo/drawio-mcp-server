@@ -36,6 +36,7 @@ describe("shared tool registry", () => {
         "create-page",
         "copy-page",
         "rename-page",
+        "import-mermaid",
       ]),
     );
   });
@@ -70,6 +71,10 @@ describe("shared tool registry", () => {
     );
     expect(registry.get("copy-page")?.params.has("page")).toBe(true);
     expect(registry.get("copy-page")?.params.has("target_document")).toBe(true);
+    expect(registry.get("import-mermaid")?.params.has("target_page")).toBe(true);
+    expect(registry.get("import-mermaid")?.params.has("target_document")).toBe(
+      true,
+    );
     expect(registry.get("get-shape-by-name")?.params.has("target_page")).toBe(
       false,
     );
