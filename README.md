@@ -9,7 +9,6 @@ Let's do some Vibe Diagramming with the most wide-spread diagramming tool called
 
 ## Key Highlights
 
-- Import, embed or expand [Mermaid](https://mermaid.js.org/) diagram ![v2.1.0](https://img.shields.io/badge/v2.1.0-blue)
 - Enable Draw.io MCP in IFrames ![v2.1.0](https://img.shields.io/badge/v2.1.0-blue)
 - AWS, GCP, Azure, Cisco19, and CiscoSafe stencils auto-discovered at runtime from drawio's sidebar ![v2.1.0](https://img.shields.io/badge/v2.1.0-blue)
 - Multi-document targeting with `list-documents` and `target_document` selectors for multi-tab workflows
@@ -146,7 +145,7 @@ After restarting your MCP host, open: **http://localhost:3000/**
 
 Example prompts you can try:
 
-> "Create an event-driven architecture diagram showing a message queue with producers, consumers, and three backend services"
+> "Create a three-page event-driven architecture diagram. Use three agents in parallel for service topology, message flow, and retry/failure handling, with each agent assigned to a separate target page."
 
 > "Draw a CRUD API diagram with a database, API gateway, and four microservices with their endpoints"
 
@@ -161,7 +160,7 @@ The server provides MCP tools for:
 - **Document discovery** - list connected Draw.io document instances and route later calls to a specific tab/file instance
 - **Diagram inspection** - read shapes, pages, layers, and cell properties
 - **Diagram modification** - add/edit/delete shapes, edges, and labels on a target page
-- **Page management** - list pages, inspect the current page, create pages, and rename pages without forcing a visible page switch on supported runtimes
+- **Page management** - list pages, inspect the current page, create pages, copy pages, and rename pages without forcing a visible page switch on supported runtimes
 - **Layer management** - create, switch, and organize layers
 - **Vendor shape coverage** - AWS, GCP, Azure, Cisco19, and CiscoSafe stencils auto-discovered at runtime from drawio's sidebar, so agents can place icons like `mxgraph.gcp2.cloud_run` or `mxgraph.cisco19.router` without hand-curated catalogs
 
