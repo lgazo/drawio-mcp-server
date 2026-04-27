@@ -45,7 +45,9 @@ describe("build_channel", () => {
     };
 
     mockRequestQueue = {
-      enqueue: jest.fn((_: string, task: () => Promise<CallToolResult>) => task()),
+      enqueue: jest.fn((_: string, task: () => Promise<CallToolResult>) =>
+        task(),
+      ),
     };
 
     mockDocumentRouting = {
@@ -319,10 +321,7 @@ describe("build_channel", () => {
     const toolFn = build_channel(context, "document-event", mockHandler);
 
     await expect(
-      toolFn(
-        {},
-        {} as RequestHandlerExtra<ServerRequest, ServerNotification>,
-      ),
+      toolFn({}, {} as RequestHandlerExtra<ServerRequest, ServerNotification>),
     ).rejects.toThrow("No connected Draw.io documents");
 
     expect(mockBus.send_to_extension).not.toHaveBeenCalled();
@@ -422,7 +421,9 @@ describe("default_tool", () => {
     };
 
     mockRequestQueue = {
-      enqueue: jest.fn((_: string, task: () => Promise<CallToolResult>) => task()),
+      enqueue: jest.fn((_: string, task: () => Promise<CallToolResult>) =>
+        task(),
+      ),
     };
 
     mockDocumentRouting = {
@@ -498,7 +499,9 @@ describe("default_tool", () => {
       {} as RequestHandlerExtra<ServerRequest, ServerNotification>,
     );
 
-    expect(mockDocumentRouting.resolve_target_document).toHaveBeenCalledWith({});
+    expect(mockDocumentRouting.resolve_target_document).toHaveBeenCalledWith(
+      {},
+    );
     expect(mockBus.send_to_extension).toHaveBeenCalledWith({
       __event: "custom-tool",
       __request_id: "789",

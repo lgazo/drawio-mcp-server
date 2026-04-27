@@ -86,20 +86,23 @@ export function build_channel<S>(
         });
       }, reply_timeout_ms);
 
-      cleanup = bus.on_reply_from_extension(reply_name, (reply: Record<string, any>) => {
-        // bus.on(reply_name, (args) => {
-        finish(() => {
-          log.debug(`[${reply_name}] received response`, reply);
-          const data = strip_internal_fields(reply);
+      cleanup = bus.on_reply_from_extension(
+        reply_name,
+        (reply: Record<string, any>) => {
+          // bus.on(reply_name, (args) => {
+          finish(() => {
+            log.debug(`[${reply_name}] received response`, reply);
+            const data = strip_internal_fields(reply);
 
-          try {
-            const response = handler(data);
-            resolve(response);
-          } catch (error) {
-            reject(error);
-          }
-        });
-      });
+            try {
+              const response = handler(data);
+              resolve(response);
+            } catch (error) {
+              reject(error);
+            }
+          });
+        },
+      );
 
       if (settled) {
         cleanup?.();
@@ -117,9 +120,8 @@ export function build_channel<S>(
     let queue_key = "global";
 
     if (routing === "document") {
-      const resolved = await document_routing.resolve_target_document(
-        request_payload,
-      );
+      const resolved =
+        await document_routing.resolve_target_document(request_payload);
       queue_key = resolved.connection_id;
       request_payload = {
         ...request_payload,
@@ -145,17 +147,22 @@ export function default_tool(
   context: Context,
   options: ToolExecutionOptions = {},
 ) {
-  const fn = build_channel(context, name, (reply) => {
-    const response: CallToolResult = {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify(reply),
-        },
-      ],
-    };
-    return response;
-  }, options);
+  const fn = build_channel(
+    context,
+    name,
+    (reply) => {
+      const response: CallToolResult = {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(reply),
+          },
+        ],
+      };
+      return response;
+    },
+    options,
+  );
 
   return fn;
 }
@@ -165,55 +172,60 @@ export function export_tool_handler(
   context: Context,
   options: ToolExecutionOptions = {},
 ) {
-  const fn = build_channel(context, name, (reply) => {
-    const { success, result, error } = reply;
+  const fn = build_channel(
+    context,
+    name,
+    (reply) => {
+      const { success, result, error } = reply;
 
-    if (!success) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Export failed: ${error || "Unknown error"}`,
-          },
-        ],
+      if (!success) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Export failed: ${error || "Unknown error"}`,
+            },
+          ],
+        };
+      }
+
+      const { format, mimeType, data, width, height, warning } = result;
+
+      const content: any[] = [];
+
+      if (warning) {
+        content.push({
+          type: "text",
+          text: `Warning: ${warning}`,
+        });
+      }
+
+      if (format === "png") {
+        content.push({
+          type: "image",
+          mimeType: "image/png",
+          data: data,
+        });
+      } else {
+        content.push({
+          type: "text",
+          text: data,
+        });
+      }
+
+      const dimensions = width && height ? `, ${width}x${height}` : "";
+      content.push({
+        type: "text",
+        text: `Exported ${format} (${mimeType})${dimensions}`,
+      });
+
+      const response: CallToolResult = {
+        content,
       };
-    }
-
-    const { format, mimeType, data, width, height, warning } = result;
-
-    const content: any[] = [];
-
-    if (warning) {
-      content.push({
-        type: "text",
-        text: `Warning: ${warning}`,
-      });
-    }
-
-    if (format === "png") {
-      content.push({
-        type: "image",
-        mimeType: "image/png",
-        data: data,
-      });
-    } else {
-      content.push({
-        type: "text",
-        text: data,
-      });
-    }
-
-    const dimensions = width && height ? `, ${width}x${height}` : "";
-    content.push({
-      type: "text",
-      text: `Exported ${format} (${mimeType})${dimensions}`,
-    });
-
-    const response: CallToolResult = {
-      content,
-    };
-    return response;
-  }, options);
+      return response;
+    },
+    options,
+  );
 
   return fn;
 }

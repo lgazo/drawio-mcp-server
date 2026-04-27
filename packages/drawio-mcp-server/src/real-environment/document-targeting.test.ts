@@ -7,15 +7,9 @@ import {
   openConnectedDrawioPage,
   resetDiagram,
 } from "./harness.js";
-import {
-  expectNoBrowserErrors,
-  expectNoServerErrors,
-} from "./assertions.js";
+import { expectNoBrowserErrors, expectNoServerErrors } from "./assertions.js";
 import { callToolJson } from "./tools.js";
-import {
-  expectToolSuccess,
-  unwrapToolPayload,
-} from "./test-helpers.js";
+import { expectToolSuccess, unwrapToolPayload } from "./test-helpers.js";
 import type { RealEnvironmentContext } from "./types.js";
 
 type PageInfo = {
@@ -80,8 +74,9 @@ describe("real environment/document targeting", () => {
       name: "Doc One Page B",
     });
     expectToolSuccess(createdDocOnePagePayload);
-    const docOneSecondPage =
-      unwrapToolPayload<PageInfo>(createdDocOnePagePayload);
+    const docOneSecondPage = unwrapToolPayload<PageInfo>(
+      createdDocOnePagePayload,
+    );
     expect(docOneSecondPage.name).toBe("Doc One Page B");
 
     const { payload: singleDocumentPayload } = await callToolJson<{
@@ -115,7 +110,9 @@ describe("real environment/document targeting", () => {
       const documents = unwrapToolPayload<DocumentInfo[]>(twoDocumentsPayload);
       expect(documents).toHaveLength(2);
 
-      const refreshedDocOne = documents.find((document) => document.id === docOne.id);
+      const refreshedDocOne = documents.find(
+        (document) => document.id === docOne.id,
+      );
       const docTwo = documents.find((document) => document.id !== docOne.id);
       expect(refreshedDocOne?.page_count).toBe(2);
       expect(docTwo).toBeDefined();
@@ -180,8 +177,12 @@ describe("real environment/document targeting", () => {
       const finalDocuments = unwrapToolPayload<DocumentInfo[]>(
         finalDocumentsPayload,
       );
-      const finalDocOne = finalDocuments.find((document) => document.id === docOne.id);
-      const finalDocTwo = finalDocuments.find((document) => document.id === docTwo!.id);
+      const finalDocOne = finalDocuments.find(
+        (document) => document.id === docOne.id,
+      );
+      const finalDocTwo = finalDocuments.find(
+        (document) => document.id === docTwo!.id,
+      );
       expect(finalDocOne).toMatchObject({
         page_count: 2,
         current_page: {
@@ -203,10 +204,6 @@ describe("real environment/document targeting", () => {
     }
 
     await expectNoBrowserErrors(context, "document-targeting");
-    await expectNoServerErrors(
-      context,
-      "document-targeting",
-      logCountBefore,
-    );
-  });
+    await expectNoServerErrors(context, "document-targeting", logCountBefore);
+  }, 180000);
 });

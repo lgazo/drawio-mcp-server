@@ -8,20 +8,14 @@ import {
   disposeRealEnvironmentContext,
   resetDiagram,
 } from "./harness.js";
-import {
-  expectNoBrowserErrors,
-  expectNoServerErrors,
-} from "./assertions.js";
+import { expectNoBrowserErrors, expectNoServerErrors } from "./assertions.js";
 import {
   callClientToolRaw,
   callClientToolJson,
   callToolJson,
   callToolRaw,
 } from "./tools.js";
-import {
-  expectToolSuccess,
-  unwrapToolPayload,
-} from "./test-helpers.js";
+import { expectToolSuccess, unwrapToolPayload } from "./test-helpers.js";
 import type { RealEnvironmentContext } from "./types.js";
 
 type PageInfo = {
@@ -436,9 +430,9 @@ describe("real environment/pages and concurrency", () => {
       copiedPage.id,
     ]);
     expect(copiedPage.index).toBe(pagesBeforeCopy.length);
-    expect(
-      pagesAfterCopy.find((page) => page.id === tailPage.id)?.index,
-    ).toBe(tailPage.index);
+    expect(pagesAfterCopy.find((page) => page.id === tailPage.id)?.index).toBe(
+      tailPage.index,
+    );
 
     const { payload: currentAfterCopyPayload } = await callToolJson<{
       success: boolean;
@@ -586,8 +580,12 @@ describe("real environment/pages and concurrency over HTTP", () => {
           }),
         ]);
 
-      const pageOneRect = unwrapToolPayload<{ id: string }>(pageOneRectPayload.payload);
-      const pageTwoRect = unwrapToolPayload<{ id: string }>(pageTwoRectPayload.payload);
+      const pageOneRect = unwrapToolPayload<{ id: string }>(
+        pageOneRectPayload.payload,
+      );
+      const pageTwoRect = unwrapToolPayload<{ id: string }>(
+        pageTwoRectPayload.payload,
+      );
       const pageThreeRect = unwrapToolPayload<{ id: string }>(
         pageThreeRectPayload.payload,
       );
@@ -618,8 +616,8 @@ describe("real environment/pages and concurrency over HTTP", () => {
       const currentPage = unwrapToolPayload<PageInfo>(currentPagePayload);
       expect(currentPage.id).toBe(pageOne.id);
 
-      const [pageOneExport, pageTwoExport, pageThreeExport] =
-        await Promise.all([
+      const [pageOneExport, pageTwoExport, pageThreeExport] = await Promise.all(
+        [
           callClientToolRaw(clientOne, "export-diagram", {
             target_page: { id: pageOne.id },
             format: "xml",
@@ -635,7 +633,8 @@ describe("real environment/pages and concurrency over HTTP", () => {
             format: "xml",
             size: "page",
           }),
-        ]);
+        ],
+      );
 
       const pageOneXml = extractPrimaryText(pageOneExport);
       const pageTwoXml = extractPrimaryText(pageTwoExport);
@@ -658,8 +657,9 @@ describe("real environment/pages and concurrency over HTTP", () => {
         result: PageInfo;
       }>(context, "get-current-page", {});
       expectToolSuccess(currentAfterExportsPayload);
-      const currentAfterExports =
-        unwrapToolPayload<PageInfo>(currentAfterExportsPayload);
+      const currentAfterExports = unwrapToolPayload<PageInfo>(
+        currentAfterExportsPayload,
+      );
       expect(currentAfterExports.id).toBe(pageOne.id);
     } finally {
       await Promise.all(clients.map((client) => client.close()));

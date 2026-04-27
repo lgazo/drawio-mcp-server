@@ -416,7 +416,9 @@ export function createDrawioMcpApp(options?: {
     return String(value);
   }
 
-  function normalizeCurrentPage(value: unknown): CurrentDocumentPageInfo | null {
+  function normalizeCurrentPage(
+    value: unknown,
+  ): CurrentDocumentPageInfo | null {
     if (!value || typeof value !== "object") {
       return null;
     }
@@ -438,7 +440,9 @@ export function createDrawioMcpApp(options?: {
     };
   }
 
-  function normalizeDocumentState(value: unknown): ConnectedDocumentInfo | null {
+  function normalizeDocumentState(
+    value: unknown,
+  ): ConnectedDocumentInfo | null {
     if (!value || typeof value !== "object") {
       return null;
     }
@@ -467,13 +471,17 @@ export function createDrawioMcpApp(options?: {
   function listKnownDocuments(): ConnectedDocumentInfo[] {
     return [...conns.values()]
       .map((entry) => entry.document)
-      .filter((document): document is ConnectedDocumentInfo => document !== null);
+      .filter(
+        (document): document is ConnectedDocumentInfo => document !== null,
+      );
   }
 
   function findConnectionByDocumentId(
     documentId: string,
   ): ConnectionEntry | undefined {
-    return [...conns.values()].find((entry) => entry.document?.id === documentId);
+    return [...conns.values()].find(
+      (entry) => entry.document?.id === documentId,
+    );
   }
 
   function flushSyncWaiters(entry: ConnectionEntry) {
@@ -530,7 +538,9 @@ export function createDrawioMcpApp(options?: {
   }
 
   async function syncAllDocuments() {
-    await Promise.all([...conns.values()].map((entry) => requestDocumentSync(entry)));
+    await Promise.all(
+      [...conns.values()].map((entry) => requestDocumentSync(entry)),
+    );
   }
 
   const document_routing = {
@@ -685,8 +695,7 @@ export function createDrawioMcpApp(options?: {
   function createDisconnectedDocumentError(event: Record<string, unknown>) {
     const targetDocumentId =
       typeof (event.target_document as { id?: unknown } | undefined)?.id ===
-        "string" &&
-      (event.target_document as { id?: string }).id
+        "string" && (event.target_document as { id?: string }).id
         ? (event.target_document as { id: string }).id
         : null;
     const targetConnectionId =
@@ -699,7 +708,9 @@ export function createDrawioMcpApp(options?: {
         ? `Target connection ${targetConnectionId}`
         : "Target Draw.io connection";
 
-    return new Error(`${targetLabel} is no longer connected; call list-documents and retry`);
+    return new Error(
+      `${targetLabel} is no longer connected; call list-documents and retry`,
+    );
   }
 
   const bus_to_ws_forwarder_listener = (event: any) => {
@@ -710,7 +721,10 @@ export function createDrawioMcpApp(options?: {
 
     if (targetConnectionId) {
       const entry = conns.get(targetConnectionId);
-      getLog().debug(`[bridge] forwarding message to #${targetConnectionId}`, event);
+      getLog().debug(
+        `[bridge] forwarding message to #${targetConnectionId}`,
+        event,
+      );
 
       if (!entry) {
         getLog().debug(

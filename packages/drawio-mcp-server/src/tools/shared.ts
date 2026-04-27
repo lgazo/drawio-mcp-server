@@ -38,7 +38,9 @@ const BaseTargetDocumentSchema = z.object({
   id: z
     .string()
     .min(1)
-    .describe("Stable Draw.io document instance identifier from `list-documents`."),
+    .describe(
+      "Stable Draw.io document instance identifier from `list-documents`.",
+    ),
 });
 
 export function target_page_field() {

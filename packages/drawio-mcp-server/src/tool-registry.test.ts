@@ -52,7 +52,9 @@ describe("shared tool registry", () => {
   it("marks page-scoped tools with target_page while preserving global tools", async () => {
     const toolDefinitions = await loadToolDefinitions();
     const registry = new Map(
-      toolDefinitions.map((definition) => [definition.name, definition] as const),
+      toolDefinitions.map(
+        (definition) => [definition.name, definition] as const,
+      ),
     );
 
     expect(registry.get("add-rectangle")?.params.has("target_page")).toBe(true);
@@ -62,31 +64,35 @@ describe("shared tool registry", () => {
     expect(registry.get("list-paged-model")?.params.has("target_page")).toBe(
       true,
     );
-    expect(registry.get("list-paged-model")?.params.has("target_document")).toBe(
-      true,
-    );
+    expect(
+      registry.get("list-paged-model")?.params.has("target_document"),
+    ).toBe(true);
     expect(registry.get("rename-page")?.params.has("page")).toBe(true);
     expect(registry.get("rename-page")?.params.has("target_document")).toBe(
       true,
     );
     expect(registry.get("copy-page")?.params.has("page")).toBe(true);
     expect(registry.get("copy-page")?.params.has("target_document")).toBe(true);
-    expect(registry.get("import-mermaid")?.params.has("target_page")).toBe(true);
+    expect(registry.get("import-mermaid")?.params.has("target_page")).toBe(
+      true,
+    );
     expect(registry.get("import-mermaid")?.params.has("target_document")).toBe(
       true,
     );
     expect(registry.get("get-shape-by-name")?.params.has("target_page")).toBe(
       false,
     );
-    expect(registry.get("get-shape-by-name")?.params.has("target_document")).toBe(
-      true,
-    );
+    expect(
+      registry.get("get-shape-by-name")?.params.has("target_document"),
+    ).toBe(true);
   });
 
   it("classifies background-safe and UI-bound page tools in the shared registry", async () => {
     const toolDefinitions = await loadToolDefinitions();
     const registry = new Map(
-      toolDefinitions.map((definition) => [definition.name, definition] as const),
+      toolDefinitions.map(
+        (definition) => [definition.name, definition] as const,
+      ),
     );
 
     expect(registry.get("add-rectangle")?.pageExecution?.mode).toBe(
@@ -104,22 +110,18 @@ describe("shared tool registry", () => {
         ?.pageExecution?.allow_background?.({ size: "page" }),
     ).toBe(true);
     expect(
-      registry
-        .get("export-diagram")
-        ?.pageExecution?.allow_background?.({
-          format: "svg",
-          size: "page",
-          embed_xml: true,
-        }),
+      registry.get("export-diagram")?.pageExecution?.allow_background?.({
+        format: "svg",
+        size: "page",
+        embed_xml: true,
+      }),
     ).toBe(true);
     expect(
-      registry
-        .get("export-diagram")
-        ?.pageExecution?.allow_background?.({
-          format: "png",
-          size: "page",
-          embed_xml: true,
-        }),
+      registry.get("export-diagram")?.pageExecution?.allow_background?.({
+        format: "png",
+        size: "page",
+        embed_xml: true,
+      }),
     ).toBe(false);
     expect(
       registry
@@ -146,30 +148,32 @@ describe("shared tool registry", () => {
 
   it("creates pages without switching the visible page when low-level page commands are available", async () => {
     const { create_page } = await loadDrawioTools();
-    const originalChangePage = (globalThis as { ChangePage?: unknown }).ChangePage;
+    const originalChangePage = (globalThis as { ChangePage?: unknown })
+      .ChangePage;
 
-    (globalThis as { ChangePage?: unknown }).ChangePage = function FakeChangePage(
-      this: {
-        ui: any;
-        page: any;
-        index: number;
-        noSelect: boolean;
-        execute: () => void;
-      },
-      ui: any,
-      page: any,
-      _selectedPage: any,
-      index: number,
-      noSelect: boolean,
-    ) {
-      this.ui = ui;
-      this.page = page;
-      this.index = index;
-      this.noSelect = noSelect;
-      this.execute = () => {
-        this.ui.pages.splice(this.index, 0, this.page);
-      };
-    } as unknown as typeof originalChangePage;
+    (globalThis as { ChangePage?: unknown }).ChangePage =
+      function FakeChangePage(
+        this: {
+          ui: any;
+          page: any;
+          index: number;
+          noSelect: boolean;
+          execute: () => void;
+        },
+        ui: any,
+        page: any,
+        _selectedPage: any,
+        index: number,
+        noSelect: boolean,
+      ) {
+        this.ui = ui;
+        this.page = page;
+        this.index = index;
+        this.noSelect = noSelect;
+        this.execute = () => {
+          this.ui.pages.splice(this.index, 0, this.page);
+        };
+      } as unknown as typeof originalChangePage;
 
     try {
       let createdName = "Second Page";
@@ -224,20 +228,21 @@ describe("shared tool registry", () => {
       if (originalChangePage === undefined) {
         delete (globalThis as { ChangePage?: unknown }).ChangePage;
       } else {
-        (globalThis as { ChangePage?: unknown }).ChangePage = originalChangePage;
+        (globalThis as { ChangePage?: unknown }).ChangePage =
+          originalChangePage;
       }
     }
   });
 
   it("does not use the create-page fast path when the graph is disabled", async () => {
     const { create_page } = await loadDrawioTools();
-    const originalChangePage = (globalThis as { ChangePage?: unknown }).ChangePage;
+    const originalChangePage = (globalThis as { ChangePage?: unknown })
+      .ChangePage;
 
-    (globalThis as { ChangePage?: unknown }).ChangePage = function FakeChangePage(
-      this: { execute: () => void },
-    ) {
-      this.execute = () => undefined;
-    } as unknown as typeof originalChangePage;
+    (globalThis as { ChangePage?: unknown }).ChangePage =
+      function FakeChangePage(this: { execute: () => void }) {
+        this.execute = () => undefined;
+      } as unknown as typeof originalChangePage;
 
     try {
       const currentPage = {
@@ -276,34 +281,37 @@ describe("shared tool registry", () => {
       if (originalChangePage === undefined) {
         delete (globalThis as { ChangePage?: unknown }).ChangePage;
       } else {
-        (globalThis as { ChangePage?: unknown }).ChangePage = originalChangePage;
+        (globalThis as { ChangePage?: unknown }).ChangePage =
+          originalChangePage;
       }
     }
   });
 
   it("stops active text editing before using the create-page fast path", async () => {
     const { create_page } = await loadDrawioTools();
-    const originalChangePage = (globalThis as { ChangePage?: unknown }).ChangePage;
+    const originalChangePage = (globalThis as { ChangePage?: unknown })
+      .ChangePage;
 
-    (globalThis as { ChangePage?: unknown }).ChangePage = function FakeChangePage(
-      this: {
-        ui: any;
-        page: any;
-        index: number;
-        execute: () => void;
-      },
-      ui: any,
-      page: any,
-      _selectedPage: any,
-      index: number,
-    ) {
-      this.ui = ui;
-      this.page = page;
-      this.index = index;
-      this.execute = () => {
-        this.ui.pages.splice(this.index, 0, this.page);
-      };
-    } as unknown as typeof originalChangePage;
+    (globalThis as { ChangePage?: unknown }).ChangePage =
+      function FakeChangePage(
+        this: {
+          ui: any;
+          page: any;
+          index: number;
+          execute: () => void;
+        },
+        ui: any,
+        page: any,
+        _selectedPage: any,
+        index: number,
+      ) {
+        this.ui = ui;
+        this.page = page;
+        this.index = index;
+        this.execute = () => {
+          this.ui.pages.splice(this.index, 0, this.page);
+        };
+      } as unknown as typeof originalChangePage;
 
     try {
       const currentPage = {
@@ -342,9 +350,9 @@ describe("shared tool registry", () => {
       expect(stopEditing).toHaveBeenCalledWith(false);
       expect(ui.createPage).toHaveBeenCalledWith("Second Page", "page-2");
       expect(execute).toHaveBeenCalledTimes(1);
-      expect((stopEditing as jest.Mock).mock.invocationCallOrder[0]).toBeLessThan(
-        (execute as jest.Mock).mock.invocationCallOrder[0],
-      );
+      expect(
+        (stopEditing as jest.Mock).mock.invocationCallOrder[0],
+      ).toBeLessThan((execute as jest.Mock).mock.invocationCallOrder[0]);
       expect(result).toMatchObject({
         id: "page-2",
         name: "Second Page",
@@ -354,31 +362,34 @@ describe("shared tool registry", () => {
       if (originalChangePage === undefined) {
         delete (globalThis as { ChangePage?: unknown }).ChangePage;
       } else {
-        (globalThis as { ChangePage?: unknown }).ChangePage = originalChangePage;
+        (globalThis as { ChangePage?: unknown }).ChangePage =
+          originalChangePage;
       }
     }
   });
 
   it("renames off-page targets without switching the visible page", async () => {
     const { rename_page } = await loadDrawioTools();
-    const originalRenamePage = (globalThis as { RenamePage?: unknown }).RenamePage;
+    const originalRenamePage = (globalThis as { RenamePage?: unknown })
+      .RenamePage;
 
-    (globalThis as { RenamePage?: unknown }).RenamePage = function FakeRenamePage(
-      this: {
-        page: any;
-        previous: string;
-        execute: () => void;
-      },
-      _ui: any,
-      page: any,
-      nextName: string,
-    ) {
-      this.page = page;
-      this.previous = nextName;
-      this.execute = () => {
-        this.page.setName(this.previous);
-      };
-    } as unknown as typeof originalRenamePage;
+    (globalThis as { RenamePage?: unknown }).RenamePage =
+      function FakeRenamePage(
+        this: {
+          page: any;
+          previous: string;
+          execute: () => void;
+        },
+        _ui: any,
+        page: any,
+        nextName: string,
+      ) {
+        this.page = page;
+        this.previous = nextName;
+        this.execute = () => {
+          this.page.setName(this.previous);
+        };
+      } as unknown as typeof originalRenamePage;
 
     try {
       const currentPage = {
@@ -428,7 +439,8 @@ describe("shared tool registry", () => {
       if (originalRenamePage === undefined) {
         delete (globalThis as { RenamePage?: unknown }).RenamePage;
       } else {
-        (globalThis as { RenamePage?: unknown }).RenamePage = originalRenamePage;
+        (globalThis as { RenamePage?: unknown }).RenamePage =
+          originalRenamePage;
       }
     }
   });
@@ -592,7 +604,9 @@ describe("shared tool registry", () => {
     await activateDocument();
     const toolDefinitions = await loadToolDefinitions();
     const registry = new Map(
-      toolDefinitions.map((definition) => [definition.name, definition] as const),
+      toolDefinitions.map(
+        (definition) => [definition.name, definition] as const,
+      ),
     );
     const handler = registry.get("add-rectangle")?.handler;
     expect(handler).toBeDefined();
@@ -726,7 +740,9 @@ describe("shared tool registry", () => {
     await activateDocument();
     const toolDefinitions = await loadToolDefinitions();
     const registry = new Map(
-      toolDefinitions.map((definition) => [definition.name, definition] as const),
+      toolDefinitions.map(
+        (definition) => [definition.name, definition] as const,
+      ),
     );
     const handler = registry.get("add-rectangle")?.handler;
     expect(handler).toBeDefined();
@@ -772,7 +788,9 @@ describe("shared tool registry", () => {
     await activateDocument();
     const toolDefinitions = await loadToolDefinitions();
     const registry = new Map(
-      toolDefinitions.map((definition) => [definition.name, definition] as const),
+      toolDefinitions.map(
+        (definition) => [definition.name, definition] as const,
+      ),
     );
     const handler = registry.get("add-rectangle")?.handler;
     expect(handler).toBeDefined();
@@ -865,7 +883,9 @@ describe("shared tool registry", () => {
     await activateDocument();
     const toolDefinitions = await loadToolDefinitions();
     const registry = new Map(
-      toolDefinitions.map((definition) => [definition.name, definition] as const),
+      toolDefinitions.map(
+        (definition) => [definition.name, definition] as const,
+      ),
     );
     const handler = registry.get("get-selected-cell")?.handler;
     expect(handler).toBeDefined();

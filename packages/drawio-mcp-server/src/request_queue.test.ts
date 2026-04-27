@@ -5,9 +5,11 @@ import { create_logger } from "./standard_console_logger.js";
 
 describe("request queue", () => {
   function activeTailCount(queue: ReturnType<typeof create_request_queue>) {
-    return (queue as ReturnType<typeof create_request_queue> & {
-      _active_tail_count: () => number;
-    })._active_tail_count();
+    return (
+      queue as ReturnType<typeof create_request_queue> & {
+        _active_tail_count: () => number;
+      }
+    )._active_tail_count();
   }
 
   it("runs enqueued tasks in FIFO order", async () => {
