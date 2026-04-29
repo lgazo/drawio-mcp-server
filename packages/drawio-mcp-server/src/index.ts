@@ -8,7 +8,7 @@ import { cors } from "hono/cors";
 
 import EventEmitter from "node:events";
 import { createServer } from "node:net";
-import { join, dirname } from "node:path";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   readFileSync,
@@ -24,11 +24,13 @@ const VERSION = process.env.npm_package_version ?? "2.1.0";
 import {
   buildConfig,
   defaultConfig,
+  hasFlag,
   shouldShowHelp,
   type ServerConfig,
   getHttpFeatureConfig,
   type HttpFeatureConfig,
 } from "./config.js";
+import { installDesktopPlugin } from "./install-desktop-plugin.js";
 import {
   bus_reply_stream,
   bus_request_stream,
@@ -101,6 +103,7 @@ Options:
   --asset-path <path>            Custom path for downloaded assets
   --host <ip>                    Bind address for all servers (default: OS-assigned, e.g. 127.0.0.1 or ::1)
   --logger <mode>                Logger mode: console (stderr) or mcp-server (MCP notifications/message) (default: console)
+  --install-desktop-plugin       Install mcp-plugin.js into draw.io desktop's plugins directory, then start normally
   --help, -h                     Show this help message
 
 Examples:
@@ -110,6 +113,7 @@ Examples:
   drawio-mcp-server --editor                  # Enable draw.io editor endpoint
   drawio-mcp-server -e --http                 # Enable editor and HTTP transport
   drawio-mcp-server --editor --asset-path /data/assets # Use custom asset path
+  drawio-mcp-server --install-desktop-plugin  # Install plugin into draw.io desktop, then run server
   `,
   );
   process.exit(0);
@@ -936,11 +940,42 @@ export function createDrawioMcpApp(options?: {
   };
 }
 
+async function runInstallDesktopPlugin(): Promise<void> {
+  try {
+    const result = await installDesktopPlugin();
+    fatalLog.log(
+      "info",
+      `Plugin installed at ${result.installedPath}${result.overwrote ? " (overwrote existing)" : ""}.
+
+To enable in draw.io desktop:
+  1. Launch draw.io with: --enable-plugins
+  2. Open: Extras -> Configuration -> Preferences (Configuration JSON dialog)
+  3. Add this entry to the JSON (merge with any existing keys):
+       { "plugins": ["mcp-plugin.js"] }
+  4. Click Save and restart draw.io.
+
+Continuing with normal server startup...`,
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    fatalLog.log("error", `Failed to install desktop plugin: ${message}`);
+    process.exit(1);
+  }
+}
+
 async function main() {
+  const cliArgs = process.argv.slice(2);
+
   // Check if help was requested (before parsing config)
-  if (shouldShowHelp(process.argv.slice(2))) {
+  if (shouldShowHelp(cliArgs)) {
     showHelp();
     // never returns
+  }
+
+  // Run install side-effect before normal startup, so users can keep a single
+  // command in their MCP host config (install once, then run every time).
+  if (hasFlag(cliArgs, "--install-desktop-plugin")) {
+    await runInstallDesktopPlugin();
   }
 
   // Build configuration from command line args

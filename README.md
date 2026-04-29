@@ -41,6 +41,8 @@ Two ways to use:
 1. **Built-in editor** - Server hosts Draw.io directly, accessible in your browser
 2. **Browser extension** - Connect to Draw.io running in your browser via extension
 
+Experimental: integration with the **draw.io desktop (Electron) app** is in progress but currently blocked by an upstream CSP issue — see [DESKTOP.md](./DESKTOP.md).
+
 ## Requirements
 
 - **Node.js** (v20 or higher) - Runtime environment for the MCP server
@@ -196,6 +198,12 @@ Configuration without `--editor`:
 
 See the [extension documentation](./packages/drawio-mcp-extension/README.md) for more details.
 
+## Experimental: Draw.io Desktop
+
+Integration with the [draw.io desktop](https://github.com/jgraph/drawio-desktop) (Electron) app is **experimental** and currently blocked end-to-end by an upstream CSP issue. The plugin loads inside draw.io desktop, but its WebSocket connection back to the MCP server is rejected by draw.io's hard-coded `connect-src 'self'` policy.
+
+See [DESKTOP.md](./DESKTOP.md) for the full setup steps and the current limitation.
+
 ## Related Resources
 
 [Configuration](./CONFIG.md) - CLI flags and advanced options
@@ -211,6 +219,8 @@ See the [extension documentation](./packages/drawio-mcp-extension/README.md) for
 [Architecture](./ARCHITECTURE.md)
 
 [Development](./DEVELOPMENT.md)
+
+[Draw.io Desktop (experimental)](./DESKTOP.md) - install path and known CSP limitation
 
 ## Star History
 

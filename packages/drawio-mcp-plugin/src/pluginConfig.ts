@@ -32,9 +32,23 @@ const PLUGIN_CONFIG_KEY = "drawio-mcp-plugin-config";
 
 let cachedConfig: PluginConfig | null = null;
 
+function isFileOrigin(): boolean {
+  return (
+    typeof window !== "undefined" && window.location.protocol === "file:"
+  );
+}
+
 export async function fetchPluginConfig(): Promise<PluginConfig> {
   if (cachedConfig) {
     return cachedConfig;
+  }
+
+  // Drawio desktop loads pages via file://, so /api/config is unreachable.
+  // Skip the fetch and use stored/default config; user overrides via Settings dialog.
+  if (isFileOrigin()) {
+    const stored = readPluginConfig();
+    cachedConfig = stored;
+    return stored;
   }
 
   try {
@@ -136,8 +150,12 @@ export function buildWebSocketUrl(config: PluginConfig): string {
   if (config.websocketUrl) {
     return config.websocketUrl;
   }
-  const scheme = window.location.protocol === "https:" ? "wss:" : "ws:";
-  const host = window.location.hostname;
+  // file:// origin (drawio desktop) has empty hostname and protocol === "file:".
+  // Fall back to localhost so the plugin can still reach a server on the same machine.
+  const isFile = isFileOrigin();
+  const scheme = !isFile && window.location.protocol === "https:" ? "wss:" : "ws:";
+  const hostname = window.location.hostname;
+  const host = isFile || hostname.length === 0 ? "localhost" : hostname;
   return `${scheme}//${host}:${config.websocketPort}`;
 }
 
