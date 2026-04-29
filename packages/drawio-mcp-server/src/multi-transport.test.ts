@@ -1,4 +1,5 @@
 import { mkdtempSync } from "node:fs";
+import * as https from "node:https";
 import { Socket } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -276,5 +277,72 @@ describe("WebSocket TLS", () => {
       s.on("data", done);
       s.on("end", done);
     });
+  });
+});
+
+describe("HTTP transport — TLS (https)", () => {
+  let app: DrawioMcpApp;
+  let logger: MemoryLogger;
+  let httpServer:
+    | Awaited<ReturnType<DrawioMcpApp["startHttpServer"]>>["server"]
+    | undefined;
+  let port: number;
+  let tlsDir: string;
+
+  beforeEach(async () => {
+    logger = new MemoryLogger();
+    tlsDir = mkdtempSync(join(tmpdir(), "tls-http-"));
+    const cfg: ServerConfig = {
+      ...defaultConfig(),
+      extensionPort: 0,
+      httpPort: 0,
+      transports: ["http"],
+      editorEnabled: false,
+      tlsEnabled: true,
+      tlsAuto: true,
+      tlsDir,
+    };
+
+    app = createDrawioMcpApp({ log: logger, config: cfg });
+    const features: HttpFeatureConfig = {
+      enableMcp: true,
+      enableEditor: false,
+      enableHealth: true,
+      enableConfig: false,
+    };
+    const started = await app.startHttpServer(0, cfg, features);
+    httpServer = started.server;
+    port = started.port;
+  });
+
+  afterEach(async () => {
+    await app.close();
+  });
+
+  it("serves /health over HTTPS", async () => {
+    const body = await new Promise<string>((resolve, reject) => {
+      const req = https.request(
+        {
+          hostname: "localhost",
+          port,
+          path: "/health",
+          method: "GET",
+          rejectUnauthorized: false,
+        },
+        (res) => {
+          expect(res.statusCode).toBe(200);
+          let data = "";
+          res.on("data", (chunk) => { data += chunk; });
+          res.on("end", () => resolve(data));
+        },
+      );
+      req.on("error", reject);
+      req.end();
+    });
+    expect(JSON.parse(body)).toEqual({ status: "ok" });
+  });
+
+  it("rejects plain HTTP", async () => {
+    await expect(fetch(`http://localhost:${port}/health`)).rejects.toThrow();
   });
 });

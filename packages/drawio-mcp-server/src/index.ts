@@ -170,11 +170,15 @@ function registerHealthRoute(app: Hono) {
   app.get("/health", (c) => c.json({ status: "ok" }));
 }
 
-function registerConfigRoute(app: Hono, config: ServerConfig) {
+function registerConfigRoute(
+  app: Hono,
+  config: ServerConfig,
+  scheme: "http" | "https",
+) {
   app.get("/api/config", (c) =>
     c.json({
       websocketPort: config.extensionPort,
-      serverUrl: `http://localhost:${config.httpPort}`,
+      serverUrl: `${scheme}://localhost:${config.httpPort}`,
       websocketUrl: config.webSocketUrl,
     }),
   );
@@ -297,12 +301,14 @@ function createHttpApp(
   features: HttpFeatureConfig,
   createServer: () => McpServer,
   disposeMcpServer: (server: McpServer) => void,
+  tlsMaterial: ResolvedTlsMaterial | null,
 ): { app: Hono } {
   const app = new Hono();
   setupCors(app);
+  const scheme = tlsMaterial ? "https" : "http";
 
   if (features.enableHealth) registerHealthRoute(app);
-  if (features.enableConfig) registerConfigRoute(app, config);
+  if (features.enableConfig) registerConfigRoute(app, config, scheme);
   if (features.enableMcp) registerMcpRoute(app, createServer, disposeMcpServer);
   if (features.enableEditor) registerEditorRoutes(app, config, log);
 
@@ -316,6 +322,7 @@ async function startHttpServer(
   httpPort: number,
   config: ServerConfig,
   features: HttpFeatureConfig,
+  tlsMaterial: ResolvedTlsMaterial | null,
 ): Promise<{
   server: ReturnType<typeof serve>;
   port: number;
@@ -326,12 +333,19 @@ async function startHttpServer(
     features,
     createServer,
     disposeMcpServer,
+    tlsMaterial,
   );
 
   const httpServer = serve({
     fetch: app.fetch,
     port: httpPort,
     ...(config.host !== undefined ? { hostname: config.host } : {}),
+    ...(tlsMaterial
+      ? {
+          createServer: createHttpsServer,
+          serverOptions: { cert: tlsMaterial.cert, key: tlsMaterial.key },
+        }
+      : {}),
   });
 
   const listeningPort =
@@ -339,12 +353,13 @@ async function startHttpServer(
       ? ((httpServer.address() as AddressInfo | null)?.port ?? httpPort)
       : httpPort;
 
-  log.debug(`Draw.io MCP Server HTTP active on port ${listeningPort}`);
+  const scheme = tlsMaterial ? "https" : "http";
+  log.debug(`Draw.io MCP Server HTTP active on port ${listeningPort} (${scheme})`);
   if (features.enableMcp) {
-    log.debug(`MCP endpoint: http://localhost:${listeningPort}/mcp`);
+    log.debug(`MCP endpoint: ${scheme}://localhost:${listeningPort}/mcp`);
   }
   if (features.enableEditor) {
-    log.debug(`Editor: http://localhost:${listeningPort}/`);
+    log.debug(`Editor: ${scheme}://localhost:${listeningPort}/`);
   }
 
   return {
@@ -990,6 +1005,7 @@ export function createDrawioMcpApp(options?: {
         httpPort,
         config,
         features,
+        tlsMaterial,
       );
       httpServer = started.server;
       return started;
