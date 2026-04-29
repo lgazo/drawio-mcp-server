@@ -14,6 +14,11 @@ Every CLI flag has a matching environment variable. CLI flags take precedence ov
 | `--host` | `DRAWIO_MCP_HOST` | Explicit IPv4 or IPv6 bind address for all server endpoints (HTTP, WebSocket) | unset (OS chooses) |
 | `--websocket-url` | `DRAWIO_MCP_WEBSOCKET_URL` | Override WebSocket URL advertised to the editor (must be `ws://` or `wss://`) | derived from page |
 | `--logger` | `DRAWIO_MCP_LOGGER` | Logger mode: `console` (writes to stderr) or `mcp-server` (sends MCP `notifications/message`). The legacy underscore form `mcp_server` is also accepted as a value alias. | `console` |
+| `--tls` | `DRAWIO_MCP_TLS` | Enable TLS on HTTP and WebSocket endpoints (off by default) | disabled |
+| `--tls-cert <path>` | `DRAWIO_MCP_TLS_CERT` | Manual TLS leaf cert PEM (requires `--tls`, mutually exclusive with `--tls-auto`) | - |
+| `--tls-key <path>` | `DRAWIO_MCP_TLS_KEY` | Manual TLS leaf key PEM (requires `--tls`, mutually exclusive with `--tls-auto`) | - |
+| `--tls-auto` | `DRAWIO_MCP_TLS_AUTO` | Auto-generate self-signed leaf cert via a persisted local CA (requires `--tls`) | disabled |
+| `--tls-dir <path>` | `DRAWIO_MCP_TLS_DIR` | Override XDG data directory for auto-generated TLS material | per-OS XDG path |
 
 ## Custom WebSocket URL (reverse proxies, HTTPS)
 
@@ -323,6 +328,64 @@ The `--transport` flag controls which transports are enabled:
 - `--transport stdio,http` - Both transports
 
 When using the built-in editor (`--editor`), HTTP transport is enabled automatically.
+
+## TLS (HTTPS + WSS)
+
+The server can terminate TLS on both endpoints (HTTP transport / built-in editor and WebSocket extension port). Two modes:
+
+### Manual mode
+
+Bring your own cert + key (e.g. via mkcert, Let's Encrypt, or a corporate CA):
+
+```sh
+drawio-mcp-server --transport http --editor \
+  --tls --tls-cert ./server.crt --tls-key ./server.key
+```
+
+Both files must be PEM-encoded. The server does not chain or modify them; supply a complete chain in the cert file if needed.
+
+### Auto mode (self-signed via local CA)
+
+The server generates a per-user CA on first run and a leaf cert signed by it. Material is persisted so subsequent runs reuse it:
+
+```sh
+drawio-mcp-server --transport http --editor --tls --tls-auto
+```
+
+Default storage location (XDG-compliant):
+
+| OS | Path |
+|----|------|
+| Linux | `${XDG_DATA_HOME:-~/.local/share}/drawio-mcp-server/tls/` |
+| macOS | `~/Library/Application Support/drawio-mcp-server/tls/` |
+| Windows | `%LOCALAPPDATA%\drawio-mcp-server\Data\tls\` |
+
+Files:
+
+- `ca.crt` — local CA, install once into your OS / browser trust store
+- `ca.key` — CA private key (mode `0600` on POSIX, never share)
+- `server.crt` — leaf cert (1y validity, regenerated when SAN list changes)
+- `server.key` — leaf private key (mode `0600` on POSIX)
+- `meta.json` — generation timestamps + SAN hash for drift detection
+
+Override the directory with `--tls-dir` or `DRAWIO_MCP_TLS_DIR` (e.g. for Docker volumes).
+
+### Trust store install
+
+On the first auto-mode run the server prints the OS-specific command to install `ca.crt` into your trust store. Without this, browsers will refuse the WSS connection (the browser extension will appear silently disconnected). Quick reference:
+
+- **Linux (Debian/Ubuntu):** `sudo cp <ca.crt> /usr/local/share/ca-certificates/drawio-mcp-ca.crt && sudo update-ca-certificates`
+- **macOS:** `sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain <ca.crt>`
+- **Windows (admin):** `certutil -addstore -f ROOT <ca.crt>`
+- **Firefox:** uses its own NSS store — import via Settings → Privacy & Security → Certificates → Authorities → Import
+
+Restart the browser after installing.
+
+### Renewal
+
+- Leaf cert is renewed automatically when within 30 days of expiry, or when the SAN list changes (e.g. you added `--host`).
+- CA is renewed when within 30 days of its 10-year expiry. After CA renewal you must re-install `ca.crt` into the trust store.
+- To force regeneration, delete the TLS directory.
 
 ## Logging
 
