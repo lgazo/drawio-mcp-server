@@ -43,6 +43,22 @@ describe("buildSanList", () => {
       { type: "ip", value: "::1" },
     ]);
   });
+
+  it("treats :: as an IPv6 wildcard binding, still using loopback SAN set", () => {
+    expect(buildSanList("::")).toEqual([
+      { type: "dns", value: "localhost" },
+      { type: "ip", value: "127.0.0.1" },
+      { type: "ip", value: "::1" },
+    ]);
+  });
+
+  it("silently ignores non-IP hosts (hostname strings are not added as SAN entries)", () => {
+    expect(buildSanList("example.com")).toEqual([
+      { type: "dns", value: "localhost" },
+      { type: "ip", value: "127.0.0.1" },
+      { type: "ip", value: "::1" },
+    ]);
+  });
 });
 
 describe("sanHash", () => {
