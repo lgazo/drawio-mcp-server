@@ -107,6 +107,9 @@ importers:
       nanoid:
         specifier: 5.1.6
         version: 5.1.6
+      node-forge:
+        specifier: '>=1.4.0'
+        version: 1.4.0
       unzipper:
         specifier: 0.12.3
         version: 0.12.3
@@ -132,6 +135,9 @@ importers:
       '@types/node':
         specifier: 25.0.3
         version: 25.0.3
+      '@types/node-forge':
+        specifier: 1.3.11
+        version: 1.3.11
       '@types/unzipper':
         specifier: 0.10.11
         version: 0.10.11
@@ -1210,6 +1216,9 @@ packages:
 
   '@types/minimatch@3.0.5':
     resolution: {integrity: sha512-Klz949h02Gz2uZCMGwDUSDS1YBlTdDDgbWHi+81l29tQALUtvz4rAYi5uoVhE5Lagoq6DeqAUlbrHvW/mXDgdQ==}
+
+  '@types/node-forge@1.3.11':
+    resolution: {integrity: sha512-FQx220y22OKNTqaByeBGqHWYz4cl94tpcxeFdvBo3wjG6XPBuZ0BNgNZRV5J5TFmmcsJ4IzsLkmGRiQbnYsBEQ==}
 
   '@types/node@25.0.3':
     resolution: {integrity: sha512-W609buLVRVmeW693xKfzHeIV6nJGGz98uCPfeXI1ELMLXVeKYZ9m15fAMSaUPBHYLGFsVRcMmSCksQOrZV9BYA==}
@@ -4633,6 +4642,10 @@ snapshots:
       pretty-format: 30.2.0
 
   '@types/minimatch@3.0.5': {}
+
+  '@types/node-forge@1.3.11':
+    dependencies:
+      '@types/node': 25.0.3
 
   '@types/node@25.0.3':
     dependencies:
