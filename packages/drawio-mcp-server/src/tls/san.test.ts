@@ -1,3 +1,4 @@
+import { describe, it, expect } from "@jest/globals";
 import { buildSanList, sanHash } from "./san.js";
 
 describe("buildSanList", () => {

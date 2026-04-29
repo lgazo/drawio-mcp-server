@@ -8,6 +8,8 @@
 
 **Tech Stack:** Node 20+, TypeScript, `node-forge` (CA + leaf cert generation), `node:https`, `node:fs`, `ws`, `@hono/node-server`, Jest.
 
+**Test-file convention:** Every `*.test.ts` in this plan MUST start with `import { describe, it, expect } from "@jest/globals";` (matches existing tests in `packages/drawio-mcp-server/src/`). Add `jest` as a fourth import (`import { describe, it, expect, jest } from "@jest/globals";`) when the test uses `jest.fn`/`jest.spyOn`. The repo runs Jest against the compiled `build/` output, so each `pnpm test` run must be preceded by `pnpm build` (or `pnpm --filter drawio-mcp-server build`).
+
 ---
 
 ## File Structure
