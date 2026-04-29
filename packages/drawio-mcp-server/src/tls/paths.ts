@@ -15,7 +15,13 @@ export function resolveTlsDir(args: ResolveTlsDirArgs): string {
   if (args.override && args.override.length > 0) return args.override;
 
   if (args.platform === "darwin") {
-    return joinPosix(args.home, "Library", "Application Support", APP_NAME, "tls");
+    return joinPosix(
+      args.home,
+      "Library",
+      "Application Support",
+      APP_NAME,
+      "tls",
+    );
   }
 
   if (args.platform === "win32") {
@@ -28,7 +34,8 @@ export function resolveTlsDir(args: ResolveTlsDirArgs): string {
 
   // Linux + other unix
   const xdg = args.env.XDG_DATA_HOME;
-  const base = xdg && xdg.length > 0 ? xdg : joinPosix(args.home, ".local", "share");
+  const base =
+    xdg && xdg.length > 0 ? xdg : joinPosix(args.home, ".local", "share");
   return joinPosix(base, APP_NAME, "tls");
 }
 

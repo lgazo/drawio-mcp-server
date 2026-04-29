@@ -20,7 +20,8 @@ export function evaluateMaterial(args: {
   if (caExpiresAt - args.now.getTime() < RENEWAL_WINDOW_MS) return "ca-expired";
 
   const leafExpiresAt = new Date(args.meta.serverNotAfter).getTime();
-  if (leafExpiresAt - args.now.getTime() < RENEWAL_WINDOW_MS) return "leaf-expired";
+  if (leafExpiresAt - args.now.getTime() < RENEWAL_WINDOW_MS)
+    return "leaf-expired";
 
   if (args.meta.sanHash !== args.currentSanHash) return "san-drift";
 

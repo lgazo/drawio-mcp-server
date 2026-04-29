@@ -838,7 +838,13 @@ describe("TLS configuration", () => {
   });
 
   it("--tls --tls-cert X --tls-key Y configures manual mode", () => {
-    const cfg = parseConfig(["--tls", "--tls-cert", "/c.pem", "--tls-key", "/k.pem"]);
+    const cfg = parseConfig([
+      "--tls",
+      "--tls-cert",
+      "/c.pem",
+      "--tls-key",
+      "/k.pem",
+    ]);
     expect(cfg).not.toBeInstanceOf(Error);
     if (cfg instanceof Error) return;
     expect(cfg.tlsEnabled).toBe(true);
@@ -863,7 +869,9 @@ describe("TLS configuration", () => {
   });
 
   it("--tls-cert without --tls-key is an error", () => {
-    expect(parseConfig(["--tls", "--tls-cert", "/c.pem"])).toBeInstanceOf(Error);
+    expect(parseConfig(["--tls", "--tls-cert", "/c.pem"])).toBeInstanceOf(
+      Error,
+    );
   });
 
   it("--tls-key without --tls-cert is an error", () => {
@@ -872,12 +880,21 @@ describe("TLS configuration", () => {
 
   it("--tls-auto + --tls-cert is an error", () => {
     expect(
-      parseConfig(["--tls", "--tls-auto", "--tls-cert", "/c", "--tls-key", "/k"]),
+      parseConfig([
+        "--tls",
+        "--tls-auto",
+        "--tls-cert",
+        "/c",
+        "--tls-key",
+        "/k",
+      ]),
     ).toBeInstanceOf(Error);
   });
 
   it("--tls-cert without --tls is an error", () => {
-    expect(parseConfig(["--tls-cert", "/c", "--tls-key", "/k"])).toBeInstanceOf(Error);
+    expect(parseConfig(["--tls-cert", "/c", "--tls-key", "/k"])).toBeInstanceOf(
+      Error,
+    );
   });
 
   it("envToArgs maps DRAWIO_MCP_TLS=true to --tls", () => {

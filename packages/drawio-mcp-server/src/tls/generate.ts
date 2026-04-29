@@ -28,7 +28,11 @@ function randomSerialHex(): string {
   return arr.map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-function setValidity(cert: forge.pki.Certificate, from: Date, years: number): void {
+function setValidity(
+  cert: forge.pki.Certificate,
+  from: Date,
+  years: number,
+): void {
   cert.validity.notBefore = from;
   const to = new Date(from);
   to.setUTCFullYear(to.getUTCFullYear() + years);
@@ -129,7 +133,9 @@ export function writeMaterial(args: {
     caNotAfter: args.ca.cert.validity.notAfter.toISOString(),
     serverNotAfter: args.leaf.cert.validity.notAfter.toISOString(),
   };
-  writeFileSync(args.paths.meta, JSON.stringify(meta, null, 2), { mode: 0o644 });
+  writeFileSync(args.paths.meta, JSON.stringify(meta, null, 2), {
+    mode: 0o644,
+  });
 }
 
 export function readMeta(paths: TlsFilePaths): PersistedMeta | null {

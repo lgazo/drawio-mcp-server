@@ -271,7 +271,10 @@ describe("WebSocket TLS", () => {
       // The server sends a TLS alert and destroys the socket.
       // In Jest's ESM VM environment "close" can be slow to propagate,
       // so we also resolve on "data" (the TLS alert bytes) and "end".
-      const done = () => { s.destroy(); resolve(); };
+      const done = () => {
+        s.destroy();
+        resolve();
+      };
       s.on("error", done);
       s.on("close", done);
       s.on("data", done);
@@ -332,7 +335,9 @@ describe("HTTP transport — TLS (https)", () => {
         (res) => {
           expect(res.statusCode).toBe(200);
           let data = "";
-          res.on("data", (chunk) => { data += chunk; });
+          res.on("data", (chunk) => {
+            data += chunk;
+          });
           res.on("end", () => resolve(data));
         },
       );

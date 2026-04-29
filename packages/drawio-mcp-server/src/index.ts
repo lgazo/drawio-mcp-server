@@ -360,7 +360,9 @@ async function startHttpServer(
       : httpPort;
 
   const scheme = tlsMaterial ? "https" : "http";
-  log.debug(`Draw.io MCP Server HTTP active on port ${listeningPort} (${scheme})`);
+  log.debug(
+    `Draw.io MCP Server HTTP active on port ${listeningPort} (${scheme})`,
+  );
   if (features.enableMcp) {
     log.debug(`MCP endpoint: ${scheme}://localhost:${listeningPort}/mcp`);
   }

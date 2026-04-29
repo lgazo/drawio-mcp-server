@@ -4,8 +4,14 @@ import { resolveTlsDir, tlsFilePaths } from "./paths.js";
 
 describe("resolveTlsDir", () => {
   it("uses explicit override when provided", () => {
-    expect(resolveTlsDir({ override: "/tmp/x", platform: "linux", env: {}, home: "/h" }))
-      .toBe("/tmp/x");
+    expect(
+      resolveTlsDir({
+        override: "/tmp/x",
+        platform: "linux",
+        env: {},
+        home: "/h",
+      }),
+    ).toBe("/tmp/x");
   });
 
   it("Linux: honours XDG_DATA_HOME", () => {
@@ -19,9 +25,9 @@ describe("resolveTlsDir", () => {
   });
 
   it("Linux: defaults to ~/.local/share when XDG_DATA_HOME is unset", () => {
-    expect(
-      resolveTlsDir({ platform: "linux", env: {}, home: "/home/u" }),
-    ).toBe("/home/u/.local/share/drawio-mcp-server/tls");
+    expect(resolveTlsDir({ platform: "linux", env: {}, home: "/home/u" })).toBe(
+      "/home/u/.local/share/drawio-mcp-server/tls",
+    );
   });
 
   it("macOS: defaults to ~/Library/Application Support", () => {
@@ -48,7 +54,11 @@ describe("resolveTlsDir", () => {
 
   it("treats empty XDG_DATA_HOME as unset", () => {
     expect(
-      resolveTlsDir({ platform: "linux", env: { XDG_DATA_HOME: "" }, home: "/h" }),
+      resolveTlsDir({
+        platform: "linux",
+        env: { XDG_DATA_HOME: "" },
+        home: "/h",
+      }),
     ).toBe("/h/.local/share/drawio-mcp-server/tls");
   });
 });

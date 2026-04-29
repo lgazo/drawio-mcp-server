@@ -93,12 +93,19 @@ describe("resolveTlsMaterial — auto", () => {
     const leafBefore = readFileSync(tlsFilePaths(dir).serverCert, "utf8");
 
     const m2 = resolveTlsMaterial({
-      config: { tlsEnabled: true, tlsAuto: true, tlsDir: dir, host: "192.168.1.10" },
+      config: {
+        tlsEnabled: true,
+        tlsAuto: true,
+        tlsDir: dir,
+        host: "192.168.1.10",
+      },
       log: () => {},
     });
 
     expect(readFileSync(tlsFilePaths(dir).caCert, "utf8")).toBe(caBefore);
-    expect(readFileSync(tlsFilePaths(dir).serverCert, "utf8")).not.toBe(leafBefore);
+    expect(readFileSync(tlsFilePaths(dir).serverCert, "utf8")).not.toBe(
+      leafBefore,
+    );
     expect(m2?.cert).toContain("BEGIN CERTIFICATE");
   });
 

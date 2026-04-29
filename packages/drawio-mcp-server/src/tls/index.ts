@@ -51,9 +51,7 @@ export function resolveTlsMaterial(args: {
     );
   }
   if (!hasManual && !hasAuto) {
-    throw new Error(
-      "--tls requires either --tls-auto or --tls-cert/--tls-key",
-    );
+    throw new Error("--tls requires either --tls-auto or --tls-cert/--tls-key");
   }
 
   if (hasManual) {
@@ -107,9 +105,7 @@ export function resolveTlsMaterial(args: {
   writeMaterial({ paths, ca, leaf, sanHash: currentSanHash, generatedAt: now });
 
   if (state !== "san-drift" && state !== "leaf-expired") {
-    args.log(
-      `\n${caInstallHint({ platform, caPath: paths.caCert })}\n`,
-    );
+    args.log(`\n${caInstallHint({ platform, caPath: paths.caCert })}\n`);
   } else {
     args.log(
       `Renewed TLS leaf certificate (state: ${state}). CA at ${paths.caCert} unchanged.`,
@@ -134,7 +130,9 @@ function loadCaMaterialFromDisk(
   const certPem = readFileSync(paths.caCert, "utf8");
   const keyPem = readFileSync(paths.caKey, "utf8");
   const cert = forge.pki.certificateFromPem(certPem);
-  const privateKey = forge.pki.privateKeyFromPem(keyPem) as forge.pki.rsa.PrivateKey;
+  const privateKey = forge.pki.privateKeyFromPem(
+    keyPem,
+  ) as forge.pki.rsa.PrivateKey;
   return {
     certPem,
     keyPem,
