@@ -58,4 +58,10 @@ COPY --from=build /app/packages/drawio-mcp-server/build ./packages/drawio-mcp-se
 
 EXPOSE 3333 3000
 
+# TLS material (auto-generated when --tls --tls-auto is set).
+# Mount a host volume here to persist the local CA across container recreations:
+#   docker run -v drawio-mcp-tls:/data/drawio-mcp-server/tls drawio-mcp-server ...
+ENV XDG_DATA_HOME=/data
+VOLUME ["/data/drawio-mcp-server/tls"]
+
 CMD ["node", "packages/drawio-mcp-server/build/index.js", "--editor"]
