@@ -1,3 +1,8 @@
+import { mkdtempSync } from "node:fs";
+import { Socket } from "node:net";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { connect as tlsConnect } from "node:tls";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
@@ -5,6 +10,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createDrawioMcpApp, type DrawioMcpApp } from "./index.js";
 import type { HttpFeatureConfig, ServerConfig } from "./config.js";
 import { MemoryLogger } from "./real-environment/logger.js";
+import { defaultConfig } from "./config.js";
 
 describe("multi-transport support", () => {
   let app: DrawioMcpApp;
@@ -216,5 +222,59 @@ describe("HTTP transport (stateless per-request)", () => {
     // close() should not hang or throw — the per-request McpServer
     // was already disposed and removed from the tracking set.
     await expect(app.close()).resolves.not.toThrow();
+  });
+});
+
+describe("WebSocket TLS", () => {
+  let app: DrawioMcpApp;
+  let logger: MemoryLogger;
+  let wsPort: number;
+  let tlsDir: string;
+
+  beforeEach(async () => {
+    logger = new MemoryLogger();
+    tlsDir = mkdtempSync(join(tmpdir(), "tls-ws-"));
+    const baseCfg = defaultConfig();
+    app = createDrawioMcpApp({
+      log: logger,
+      config: { ...baseCfg, tlsEnabled: true, tlsAuto: true, tlsDir },
+    });
+    const wsServer = await app.startWebSocketServer(0);
+    wsPort = (wsServer.address() as { port: number }).port;
+  });
+
+  afterEach(async () => {
+    await app.close();
+  });
+
+  it("accepts TLS handshakes (wss)", async () => {
+    await new Promise<void>((resolve, reject) => {
+      const socket = tlsConnect(
+        { port: wsPort, host: "127.0.0.1", rejectUnauthorized: false },
+        () => {
+          expect(socket.authorized || !socket.authorized).toBe(true);
+          socket.end();
+          resolve();
+        },
+      );
+      socket.on("error", reject);
+    });
+  });
+
+  it("rejects plain TCP traffic", async () => {
+    await new Promise<void>((resolve) => {
+      const s = new Socket();
+      s.connect(wsPort, "127.0.0.1", () => {
+        s.write("plain text\r\n");
+      });
+      // The server sends a TLS alert and destroys the socket.
+      // In Jest's ESM VM environment "close" can be slow to propagate,
+      // so we also resolve on "data" (the TLS alert bytes) and "end".
+      const done = () => { s.destroy(); resolve(); };
+      s.on("error", done);
+      s.on("close", done);
+      s.on("data", done);
+      s.on("end", done);
+    });
   });
 });

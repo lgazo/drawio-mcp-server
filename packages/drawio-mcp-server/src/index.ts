@@ -8,6 +8,7 @@ import { cors } from "hono/cors";
 
 import EventEmitter from "node:events";
 import { createServer } from "node:net";
+import { createServer as createHttpsServer } from "node:https";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -58,6 +59,7 @@ import {
 import { registerTools } from "./tools/index.js";
 import { createServerWithSchemaStripping } from "./register-tool.js";
 import { target_document_field } from "./tools/shared.js";
+import { resolveTlsMaterial, type ResolvedTlsMaterial } from "./tls/index.js";
 
 const fatalLog = create_console_logger();
 
@@ -776,12 +778,25 @@ export function createDrawioMcpApp(options?: {
   };
   emitter.on(bus_request_stream, bus_to_ws_forwarder_listener);
 
+  const tlsMaterial: ResolvedTlsMaterial | null = resolveTlsMaterial({
+    config: {
+      tlsEnabled: config.tlsEnabled,
+      tlsAuto: config.tlsAuto,
+      tlsCert: config.tlsCert,
+      tlsKey: config.tlsKey,
+      tlsDir: config.tlsDir,
+      host: config.host,
+    },
+    log: (msg) => getLog().log("info", msg),
+  });
+
   let wsServer: WebSocketServer | undefined;
+  let wssHttpsServer: ReturnType<typeof createHttpsServer> | undefined;
   let httpServer: ReturnType<typeof serve> | undefined;
 
   async function startWebSocketServer(extensionPort = 3333, host?: string) {
     getLog().debug(
-      `Draw.io MCP Server (${VERSION}) starting (WebSocket extension port: ${extensionPort})`,
+      `Draw.io MCP Server (${VERSION}) starting (${tlsMaterial ? "WSS" : "WebSocket"} extension port: ${extensionPort})`,
     );
 
     if (extensionPort !== 0) {
@@ -793,10 +808,37 @@ export function createDrawioMcpApp(options?: {
       }
     }
 
-    wsServer = new WebSocketServer({
-      port: extensionPort,
-      ...(host !== undefined ? { host } : {}),
-    });
+    if (tlsMaterial) {
+      const httpsServer = createHttpsServer({
+        cert: tlsMaterial.cert,
+        key: tlsMaterial.key,
+      });
+      // Destroy sockets that send plain-text to the TLS port so clients get
+      // a prompt close rather than a half-open connection.
+      httpsServer.on("tlsClientError", (_err, tlsSocket) => {
+        tlsSocket.destroy();
+      });
+      await new Promise<void>((resolve, reject) => {
+        httpsServer.once("error", reject);
+        httpsServer.listen(
+          {
+            port: extensionPort,
+            ...(host !== undefined ? { host } : {}),
+          },
+          () => {
+            httpsServer.off("error", reject);
+            resolve();
+          },
+        );
+      });
+      wssHttpsServer = httpsServer;
+      wsServer = new WebSocketServer({ server: httpsServer });
+    } else {
+      wsServer = new WebSocketServer({
+        port: extensionPort,
+        ...(host !== undefined ? { host } : {}),
+      });
+    }
 
     wsServer.on("connection", (ws) => {
       const connection_id = connectionIdGenerator.generate();
@@ -849,24 +891,29 @@ export function createDrawioMcpApp(options?: {
       });
     });
 
-    await new Promise<void>((resolve, reject) => {
-      const onListening = () => {
-        wsServer?.off("error", onError);
-        const address = wsServer?.address() as AddressInfo | null;
-        getLog().debug(
-          `[start_websocket_server] Listening to port ${address?.port ?? extensionPort}`,
-        );
-        resolve();
-      };
-      const onError = (error: Error) => {
-        wsServer?.off("listening", onListening);
-        reject(error);
-      };
-      wsServer?.once("listening", onListening);
-      wsServer?.once("error", onError);
-    });
+    if (!tlsMaterial) {
+      await new Promise<void>((resolve, reject) => {
+        const onListening = () => {
+          wsServer?.off("error", onError);
+          resolve();
+        };
+        const onError = (error: Error) => {
+          wsServer?.off("listening", onListening);
+          reject(error);
+        };
+        wsServer?.once("listening", onListening);
+        wsServer?.once("error", onError);
+      });
+    }
 
-    return wsServer;
+    const address = wsServer?.address() as AddressInfo | null;
+    getLog().debug(
+      `[start_websocket_server] Listening to port ${address?.port ?? extensionPort}`,
+    );
+
+    // wsServer is always set by one of the two branches above
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    return wsServer!;
   }
 
   async function close() {
@@ -897,6 +944,16 @@ export function createDrawioMcpApp(options?: {
         });
       });
       wsServer = undefined;
+    }
+
+    if (wssHttpsServer) {
+      const hs = wssHttpsServer;
+      wssHttpsServer = undefined;
+      // Forcefully terminate all connections (including half-open TLS
+      // connections from clients that called socket.end() before the
+      // WebSocket upgrade) so the server closes immediately.
+      hs.closeAllConnections?.();
+      await new Promise<void>((resolve) => hs.close(() => resolve()));
     }
 
     if (httpServer) {
