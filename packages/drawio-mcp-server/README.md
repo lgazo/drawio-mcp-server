@@ -11,12 +11,13 @@ Let's do some Vibe Diagramming with the most wide-spread diagramming tool called
 
 - Enable Draw.io MCP in IFrames ![v2.1.0](https://img.shields.io/badge/v2.1.0-blue)
 - AWS, GCP, Azure, Cisco19, and CiscoSafe stencils auto-discovered at runtime from drawio's sidebar ![v2.1.0](https://img.shields.io/badge/v2.1.0-blue)
-- Multi-document targeting with `list-documents` and `target_document` selectors for multi-tab workflows
-- Multi-page targeting with required `target_page` selectors for page-scoped tools
-- Per-document FIFO serialization for live operations, so multiple agents can work on different files safely
-- Page management tools: `list-pages`, `get-current-page`, `create-page`, `copy-page`, `rename-page`
+- Multi-document targeting with `list-documents` and `target_document` selectors for multi-tab workflows ![v2.1.0](https://img.shields.io/badge/v2.1.0-blue)
+- Multi-page targeting with required `target_page` selectors for page-scoped tools ![v2.1.0](https://img.shields.io/badge/v2.1.0-blue)
+- Per-document FIFO serialization for live operations, so multiple agents can work on different files safely ![v2.1.0](https://img.shields.io/badge/v2.1.0-blue)
+- Page management tools: `list-pages`, `get-current-page`, `create-page`, `copy-page`, `rename-page` ![v2.1.0](https://img.shields.io/badge/v2.1.0-blue)
 - Import, embed, or expand [Mermaid](https://mermaid.js.org/) diagrams ![v2.1.0](https://img.shields.io/badge/v2.1.0-blue)
 - Firefox support is back ![v2.1.0](https://img.shields.io/badge/v2.1.0-blue)
+
 - Import and export diagrams from/to XML, SVG (with embedded XML), or PNG (with embedded XML) ![v2.0.0](https://img.shields.io/badge/v2.0.0-blue)
 - Edge geometry control with waypoints and automatic self-connector routing ![v2.0.0](https://img.shields.io/badge/v2.0.0-blue)
 - Parent-child relationships for nested shapes and grouping ![v2.0.0](https://img.shields.io/badge/v2.0.0-blue)
@@ -31,15 +32,11 @@ Let's do some Vibe Diagramming with the most wide-spread diagramming tool called
 
 The Draw.io MCP server brings Draw.io diagramming capabilities to AI agents. It provides MCP tools that can create, read, update, and delete diagram elements - letting AI assistants build architectural diagrams, flowcharts, and visual documentation automatically.
 
-For multi-agent usage inside a single Draw.io document, page-scoped tools now require a `target_page` selector (`{ index }` or `{ id }`). The server serializes live operations in FIFO order per connected document, so concurrent agents can safely work on different pages and different files without interleaving page switches and writes inside the same tab.
-
-Most page model tools now execute against off-page models without switching the visible browser page. UI-bound tools such as selection, active-layer inspection/changes, selection-only exports, and embedded-XML PNG exports may still switch the visible page to preserve Draw.io semantics.
-
-For multi-tab usage across different Draw.io files, call `list-documents` first. If the server sees exactly one connected document, live tools auto-target it. If it sees multiple connected documents, every live tool must receive `target_document: { id }` from `list-documents`. The server only talks to already-open Draw.io tabs; it does not open files, open browser tabs, or switch tabs on your behalf.
-
 Two ways to use:
 1. **Built-in editor** - Server hosts Draw.io directly, accessible in your browser
 2. **Browser extension** - Connect to Draw.io running in your browser via extension
+
+Experimental: integration with the **draw.io desktop (Electron) app** is in progress but currently blocked by an upstream CSP issue — see [DESKTOP.md](./DESKTOP.md).
 
 ## Requirements
 
@@ -146,6 +143,8 @@ After restarting your MCP host, open: **http://localhost:3000/**
 
 Example prompts you can try:
 
+> "Create an event-driven architecture diagram showing a message queue with producers, consumers, and three backend services"
+
 > "Create a three-page event-driven architecture diagram. Use three agents in parallel for service topology, message flow, and retry/failure handling, with each agent assigned to a separate target page."
 
 > "Draw a CRUD API diagram with a database, API gateway, and four microservices with their endpoints"
@@ -196,6 +195,12 @@ Configuration without `--editor`:
 
 See the [extension documentation](./packages/drawio-mcp-extension/README.md) for more details.
 
+## Experimental: Draw.io Desktop
+
+Integration with the [draw.io desktop](https://github.com/jgraph/drawio-desktop) (Electron) app is **experimental** and currently blocked end-to-end by an upstream CSP issue. The plugin loads inside draw.io desktop, but its WebSocket connection back to the MCP server is rejected by draw.io's hard-coded `connect-src 'self'` policy.
+
+See [DESKTOP.md](./DESKTOP.md) for the full setup steps and the current limitation.
+
 ## Related Resources
 
 [Configuration](./CONFIG.md) - CLI flags and advanced options
@@ -211,6 +216,8 @@ See the [extension documentation](./packages/drawio-mcp-extension/README.md) for
 [Architecture](./ARCHITECTURE.md)
 
 [Development](./DEVELOPMENT.md)
+
+[Draw.io Desktop (experimental)](./DESKTOP.md) - install path and known CSP limitation
 
 ## Star History
 

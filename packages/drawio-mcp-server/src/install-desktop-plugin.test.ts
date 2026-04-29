@@ -1,5 +1,11 @@
 import { describe, test, expect, beforeAll } from "@jest/globals";
-import { mkdtempSync, writeFileSync, mkdirSync, readFileSync, existsSync } from "node:fs";
+import {
+  mkdtempSync,
+  writeFileSync,
+  mkdirSync,
+  readFileSync,
+  existsSync,
+} from "node:fs";
 import { tmpdir, homedir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -26,13 +32,7 @@ describe("resolveDrawioPluginsDir", () => {
   test("darwin uses Library/Application Support", () => {
     const result = resolveDrawioPluginsDir("darwin", {});
     expect(result).toBe(
-      join(
-        homedir(),
-        "Library",
-        "Application Support",
-        "draw.io",
-        "plugins",
-      ),
+      join(homedir(), "Library", "Application Support", "draw.io", "plugins"),
     );
   });
 
@@ -54,7 +54,13 @@ describe("installDesktopPlugin", () => {
   // The compiled tests live in build/, so __dirname is .../build, which makes
   // getBundledPluginPath() resolve to .../build/../build/plugin/mcp-plugin.js
   // i.e. .../build/plugin/mcp-plugin.js — same path the build script populates.
-  const expectedSource = join(__dirname, "..", "build", "plugin", "mcp-plugin.js");
+  const expectedSource = join(
+    __dirname,
+    "..",
+    "build",
+    "plugin",
+    "mcp-plugin.js",
+  );
 
   beforeAll(() => {
     if (!existsSync(expectedSource)) {

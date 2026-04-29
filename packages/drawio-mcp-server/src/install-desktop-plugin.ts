@@ -46,8 +46,7 @@ export function resolveDrawioPluginsDir(
 
   // linux + everything else: XDG
   const xdg = env.XDG_CONFIG_HOME;
-  const base =
-    xdg && xdg.length > 0 ? xdg : join(homedir(), ".config");
+  const base = xdg && xdg.length > 0 ? xdg : join(homedir(), ".config");
   return join(base, "draw.io", "plugins");
 }
 
