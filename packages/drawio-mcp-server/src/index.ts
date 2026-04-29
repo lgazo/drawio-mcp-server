@@ -105,6 +105,11 @@ Options:
   --asset-path <path>            Custom path for downloaded assets
   --host <ip>                    Bind address for all servers (default: OS-assigned, e.g. 127.0.0.1 or ::1)
   --logger <mode>                Logger mode: console (stderr) or mcp-server (MCP notifications/message) (default: console)
+  --tls                          Enable TLS (HTTPS + WSS) on HTTP and WebSocket endpoints
+  --tls-cert <path>              Manual TLS cert PEM (requires --tls and --tls-key)
+  --tls-key <path>               Manual TLS key PEM (requires --tls and --tls-cert)
+  --tls-auto                     Auto-generate self-signed cert via local CA (requires --tls)
+  --tls-dir <path>               Override XDG data dir for TLS material (default: per-OS)
   --install-desktop-plugin       Install mcp-plugin.js into draw.io desktop's plugins directory, then start normally
   --help, -h                     Show this help message
 
@@ -115,6 +120,7 @@ Examples:
   drawio-mcp-server --editor                  # Enable draw.io editor endpoint
   drawio-mcp-server -e --http                 # Enable editor and HTTP transport
   drawio-mcp-server --editor --asset-path /data/assets # Use custom asset path
+  drawio-mcp-server --editor --tls --tls-auto    # HTTPS editor with auto self-signed cert
   drawio-mcp-server --install-desktop-plugin  # Install plugin into draw.io desktop, then run server
   `,
   );
