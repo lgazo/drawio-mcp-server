@@ -134,8 +134,13 @@ export function writeMaterial(args: {
 
 export function readMeta(paths: TlsFilePaths): PersistedMeta | null {
   if (!existsSync(paths.meta)) return null;
-  const raw = readFileSync(paths.meta, "utf8");
-  const parsed = JSON.parse(raw) as PersistedMeta;
-  if (parsed.version !== 1) return null;
+  let parsed: PersistedMeta;
+  try {
+    const raw = readFileSync(paths.meta, "utf8");
+    parsed = JSON.parse(raw) as PersistedMeta;
+  } catch {
+    return null;
+  }
+  if (parsed?.version !== 1) return null;
   return parsed;
 }

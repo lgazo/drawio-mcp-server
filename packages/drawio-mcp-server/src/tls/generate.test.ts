@@ -1,5 +1,5 @@
 import { describe, it, expect } from "@jest/globals";
-import { mkdtempSync, readFileSync, statSync } from "node:fs";
+import { mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import forge from "node-forge";
@@ -97,6 +97,9 @@ describe("writeMaterial / readMeta", () => {
     if (process.platform !== "win32") {
       expect(statSync(paths.caKey).mode & 0o777).toBe(0o600);
       expect(statSync(paths.serverKey).mode & 0o777).toBe(0o600);
+      expect(statSync(paths.caCert).mode & 0o777).toBe(0o644);
+      expect(statSync(paths.serverCert).mode & 0o777).toBe(0o644);
+      expect(statSync(paths.meta).mode & 0o777).toBe(0o644);
     }
 
     const meta = readMeta(paths);
@@ -108,5 +111,19 @@ describe("writeMaterial / readMeta", () => {
   it("readMeta returns null when meta.json missing", () => {
     const dir = mkdtempSync(join(tmpdir(), "tls-test-"));
     expect(readMeta(tlsFilePaths(dir))).toBeNull();
+  });
+
+  it("readMeta returns null when meta.json has unknown version", () => {
+    const dir = mkdtempSync(join(tmpdir(), "tls-test-"));
+    const paths = tlsFilePaths(dir);
+    writeFileSync(paths.meta, JSON.stringify({ version: 99, sanHash: "x" }));
+    expect(readMeta(paths)).toBeNull();
+  });
+
+  it("readMeta returns null when meta.json is malformed", () => {
+    const dir = mkdtempSync(join(tmpdir(), "tls-test-"));
+    const paths = tlsFilePaths(dir);
+    writeFileSync(paths.meta, "{not json");
+    expect(readMeta(paths)).toBeNull();
   });
 });
