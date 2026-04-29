@@ -143,6 +143,8 @@ describe("HTTP transport (stateless per-request)", () => {
     transports: ["http"],
     editorEnabled: false,
     logger: "console",
+    tlsEnabled: false,
+    tlsAuto: false,
   };
 
   const features: HttpFeatureConfig = {

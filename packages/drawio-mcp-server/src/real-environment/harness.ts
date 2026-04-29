@@ -77,6 +77,8 @@ export async function createRealEnvironmentContext(): Promise<RealEnvironmentCon
       editorEnabled: true,
       webSocketUrl,
       logger: "console",
+      tlsEnabled: false,
+      tlsAuto: false,
     };
 
     await app.startHttpServer(
@@ -92,6 +94,8 @@ export async function createRealEnvironmentContext(): Promise<RealEnvironmentCon
       transports: ["http"],
       editorEnabled: true,
       logger: "console",
+      tlsEnabled: false,
+      tlsAuto: false,
     };
 
     const startedHttp = await app.startHttpServer(

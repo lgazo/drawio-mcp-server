@@ -13,6 +13,11 @@ export interface ServerConfig {
   readonly webSocketUrl?: string;
   readonly host?: string;
   readonly logger: LoggerMode;
+  readonly tlsEnabled: boolean;
+  readonly tlsAuto: boolean;
+  readonly tlsCert?: string;
+  readonly tlsKey?: string;
+  readonly tlsDir?: string;
 }
 
 export type TransportType = "stdio" | "http";
@@ -27,6 +32,8 @@ const DEFAULT_CONFIG: ServerConfig = {
   transports: ["stdio"],
   editorEnabled: false,
   logger: "console",
+  tlsEnabled: false,
+  tlsAuto: false,
 } as const;
 
 /**
@@ -230,6 +237,11 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
   let webSocketUrlValue: string | undefined;
   let hostValue: string | undefined;
   let loggerValue: string | undefined;
+  let tlsEnabled = false;
+  let tlsAuto = false;
+  let tlsCert: string | undefined;
+  let tlsKey: string | undefined;
+  let tlsDir: string | undefined;
 
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
@@ -312,6 +324,31 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
 
       loggerValue = nextValue;
       i += 1;
+    } else if (arg === "--tls") {
+      tlsEnabled = true;
+    } else if (arg === "--tls-auto") {
+      tlsAuto = true;
+    } else if (arg === "--tls-cert") {
+      const nextValue = args[i + 1];
+      if (nextValue === undefined) {
+        return new Error("--tls-cert flag requires a path");
+      }
+      tlsCert = nextValue;
+      i += 1;
+    } else if (arg === "--tls-key") {
+      const nextValue = args[i + 1];
+      if (nextValue === undefined) {
+        return new Error("--tls-key flag requires a path");
+      }
+      tlsKey = nextValue;
+      i += 1;
+    } else if (arg === "--tls-dir") {
+      const nextValue = args[i + 1];
+      if (nextValue === undefined) {
+        return new Error("--tls-dir flag requires a directory path");
+      }
+      tlsDir = nextValue;
+      i += 1;
     }
   }
 
@@ -350,6 +387,26 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
     parsedHttpPort = httpPort;
   }
 
+  // TLS validation
+  if ((tlsCert || tlsKey || tlsAuto || tlsDir) && !tlsEnabled) {
+    return new Error(
+      "TLS sub-flags (--tls-cert, --tls-key, --tls-auto, --tls-dir) require --tls",
+    );
+  }
+  if (tlsEnabled) {
+    if (tlsCert && !tlsKey) {
+      return new Error("--tls-cert requires --tls-key");
+    }
+    if (tlsKey && !tlsCert) {
+      return new Error("--tls-key requires --tls-cert");
+    }
+    if (tlsAuto && (tlsCert || tlsKey)) {
+      return new Error(
+        "Cannot combine --tls-auto with --tls-cert/--tls-key. Pick one mode.",
+      );
+    }
+  }
+
   if (portValue !== undefined) {
     const extensionPort = parseExtensionPortValue(portValue);
 
@@ -373,6 +430,11 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
       webSocketUrl,
       host,
       logger,
+      tlsEnabled,
+      tlsAuto,
+      tlsCert,
+      tlsKey,
+      tlsDir,
     };
   }
 
@@ -391,6 +453,11 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
       webSocketUrl,
       host,
       logger,
+      tlsEnabled,
+      tlsAuto,
+      tlsCert,
+      tlsKey,
+      tlsDir,
     };
   }
 
@@ -408,6 +475,11 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
     webSocketUrl,
     host,
     logger,
+    tlsEnabled,
+    tlsAuto,
+    tlsCert,
+    tlsKey,
+    tlsDir,
   };
 };
 
@@ -463,6 +535,21 @@ export const envToArgs = (env: NodeJS.ProcessEnv): string[] => {
   if (logger && logger.length > 0) {
     out.push("--logger", logger);
   }
+
+  const tls = env.DRAWIO_MCP_TLS;
+  if (tls && tls.toLowerCase() === "true") out.push("--tls");
+
+  const tlsAuto = env.DRAWIO_MCP_TLS_AUTO;
+  if (tlsAuto && tlsAuto.toLowerCase() === "true") out.push("--tls-auto");
+
+  const tlsCert = env.DRAWIO_MCP_TLS_CERT;
+  if (tlsCert && tlsCert.length > 0) out.push("--tls-cert", tlsCert);
+
+  const tlsKey = env.DRAWIO_MCP_TLS_KEY;
+  if (tlsKey && tlsKey.length > 0) out.push("--tls-key", tlsKey);
+
+  const tlsDir = env.DRAWIO_MCP_TLS_DIR;
+  if (tlsDir && tlsDir.length > 0) out.push("--tls-dir", tlsDir);
 
   return out;
 };

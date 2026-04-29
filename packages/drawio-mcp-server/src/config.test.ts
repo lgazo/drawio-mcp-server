@@ -163,6 +163,8 @@ describe("parseConfig", () => {
       transports: ["stdio"],
       editorEnabled: false,
       logger: "console",
+      tlsEnabled: false,
+      tlsAuto: false,
     });
   });
 
@@ -173,6 +175,8 @@ describe("parseConfig", () => {
       transports: ["stdio"],
       editorEnabled: false,
       logger: "console",
+      tlsEnabled: false,
+      tlsAuto: false,
     });
   });
 
@@ -183,6 +187,8 @@ describe("parseConfig", () => {
       transports: ["stdio"],
       editorEnabled: false,
       logger: "console",
+      tlsEnabled: false,
+      tlsAuto: false,
     });
   });
 
@@ -193,6 +199,8 @@ describe("parseConfig", () => {
       transports: ["stdio"],
       editorEnabled: false,
       logger: "console",
+      tlsEnabled: false,
+      tlsAuto: false,
     });
   });
 
@@ -205,6 +213,8 @@ describe("parseConfig", () => {
       transports: ["stdio"],
       editorEnabled: false,
       logger: "console",
+      tlsEnabled: false,
+      tlsAuto: false,
     });
   });
 
@@ -215,6 +225,8 @@ describe("parseConfig", () => {
       transports: ["stdio"],
       editorEnabled: false,
       logger: "console",
+      tlsEnabled: false,
+      tlsAuto: false,
     });
   });
 
@@ -255,6 +267,8 @@ describe("parseConfig", () => {
       transports: ["stdio"],
       editorEnabled: false,
       logger: "console",
+      tlsEnabled: false,
+      tlsAuto: false,
     });
   });
 
@@ -265,6 +279,8 @@ describe("parseConfig", () => {
       transports: ["stdio"],
       editorEnabled: false,
       logger: "console",
+      tlsEnabled: false,
+      tlsAuto: false,
     });
   });
 
@@ -276,6 +292,8 @@ describe("parseConfig", () => {
         transports: ["stdio"],
         editorEnabled: false,
         logger: "console",
+        tlsEnabled: false,
+        tlsAuto: false,
       },
     );
   });
@@ -287,6 +305,8 @@ describe("parseConfig", () => {
       transports: ["stdio"],
       editorEnabled: false,
       logger: "console",
+      tlsEnabled: false,
+      tlsAuto: false,
     });
   });
 
@@ -297,6 +317,8 @@ describe("parseConfig", () => {
       transports: ["stdio", "http"],
       editorEnabled: false,
       logger: "console",
+      tlsEnabled: false,
+      tlsAuto: false,
     });
   });
 
@@ -312,6 +334,8 @@ describe("parseConfig", () => {
       transports: ["stdio"],
       editorEnabled: true,
       logger: "console",
+      tlsEnabled: false,
+      tlsAuto: false,
     });
   });
 
@@ -322,6 +346,8 @@ describe("parseConfig", () => {
       transports: ["stdio"],
       editorEnabled: true,
       logger: "console",
+      tlsEnabled: false,
+      tlsAuto: false,
     });
   });
 
@@ -332,6 +358,8 @@ describe("parseConfig", () => {
       transports: ["stdio"],
       editorEnabled: false,
       logger: "console",
+      tlsEnabled: false,
+      tlsAuto: false,
     });
   });
 
@@ -342,6 +370,8 @@ describe("parseConfig", () => {
       transports: ["stdio"],
       editorEnabled: true,
       logger: "console",
+      tlsEnabled: false,
+      tlsAuto: false,
     });
   });
 
@@ -352,6 +382,8 @@ describe("parseConfig", () => {
       transports: ["stdio"],
       editorEnabled: false,
       logger: "console",
+      tlsEnabled: false,
+      tlsAuto: false,
     });
   });
 });
@@ -701,6 +733,8 @@ describe("buildConfig", () => {
       transports: ["stdio"],
       editorEnabled: false,
       logger: "console",
+      tlsEnabled: false,
+      tlsAuto: false,
     });
   });
 
@@ -713,6 +747,8 @@ describe("buildConfig", () => {
       transports: ["stdio"],
       editorEnabled: false,
       logger: "console",
+      tlsEnabled: false,
+      tlsAuto: false,
     });
   });
 
@@ -725,6 +761,8 @@ describe("buildConfig", () => {
       transports: ["stdio"],
       editorEnabled: false,
       logger: "console",
+      tlsEnabled: false,
+      tlsAuto: false,
     });
   });
 
@@ -785,5 +823,85 @@ describe("buildConfig", () => {
     process.env = { ...originalEnv, DRAWIO_MCP_LOGGER: "mcp-server" };
     const result = buildConfig();
     expect((result as ServerConfig).logger).toBe("console");
+  });
+});
+
+describe("TLS configuration", () => {
+  it("--tls alone sets tlsEnabled with no mode", () => {
+    const cfg = parseConfig(["--tls"]);
+    expect(cfg).not.toBeInstanceOf(Error);
+    if (cfg instanceof Error) return;
+    expect(cfg.tlsEnabled).toBe(true);
+    expect(cfg.tlsAuto).toBe(false);
+    expect(cfg.tlsCert).toBeUndefined();
+    expect(cfg.tlsKey).toBeUndefined();
+  });
+
+  it("--tls --tls-cert X --tls-key Y configures manual mode", () => {
+    const cfg = parseConfig(["--tls", "--tls-cert", "/c.pem", "--tls-key", "/k.pem"]);
+    expect(cfg).not.toBeInstanceOf(Error);
+    if (cfg instanceof Error) return;
+    expect(cfg.tlsEnabled).toBe(true);
+    expect(cfg.tlsCert).toBe("/c.pem");
+    expect(cfg.tlsKey).toBe("/k.pem");
+    expect(cfg.tlsAuto).toBe(false);
+  });
+
+  it("--tls --tls-auto configures auto mode", () => {
+    const cfg = parseConfig(["--tls", "--tls-auto"]);
+    expect(cfg).not.toBeInstanceOf(Error);
+    if (cfg instanceof Error) return;
+    expect(cfg.tlsEnabled).toBe(true);
+    expect(cfg.tlsAuto).toBe(true);
+  });
+
+  it("--tls-dir captures override path", () => {
+    const cfg = parseConfig(["--tls", "--tls-auto", "--tls-dir", "/data/tls"]);
+    expect(cfg).not.toBeInstanceOf(Error);
+    if (cfg instanceof Error) return;
+    expect(cfg.tlsDir).toBe("/data/tls");
+  });
+
+  it("--tls-cert without --tls-key is an error", () => {
+    expect(parseConfig(["--tls", "--tls-cert", "/c.pem"])).toBeInstanceOf(Error);
+  });
+
+  it("--tls-key without --tls-cert is an error", () => {
+    expect(parseConfig(["--tls", "--tls-key", "/k.pem"])).toBeInstanceOf(Error);
+  });
+
+  it("--tls-auto + --tls-cert is an error", () => {
+    expect(
+      parseConfig(["--tls", "--tls-auto", "--tls-cert", "/c", "--tls-key", "/k"]),
+    ).toBeInstanceOf(Error);
+  });
+
+  it("--tls-cert without --tls is an error", () => {
+    expect(parseConfig(["--tls-cert", "/c", "--tls-key", "/k"])).toBeInstanceOf(Error);
+  });
+
+  it("envToArgs maps DRAWIO_MCP_TLS=true to --tls", () => {
+    expect(envToArgs({ DRAWIO_MCP_TLS: "true" })).toEqual(["--tls"]);
+  });
+
+  it("envToArgs maps DRAWIO_MCP_TLS_AUTO=true to --tls-auto", () => {
+    expect(envToArgs({ DRAWIO_MCP_TLS_AUTO: "true" })).toEqual(["--tls-auto"]);
+  });
+
+  it("envToArgs maps cert/key/dir env vars to flags", () => {
+    expect(
+      envToArgs({
+        DRAWIO_MCP_TLS_CERT: "/c.pem",
+        DRAWIO_MCP_TLS_KEY: "/k.pem",
+        DRAWIO_MCP_TLS_DIR: "/data/tls",
+      }),
+    ).toEqual([
+      "--tls-cert",
+      "/c.pem",
+      "--tls-key",
+      "/k.pem",
+      "--tls-dir",
+      "/data/tls",
+    ]);
   });
 });
