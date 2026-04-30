@@ -9,3 +9,4 @@ export * from "./pluginConfig";
 export * from "./settingsDialog";
 export * from "./drawio-tools";
 export * from "./tool-registry";
+export * from "./bootstrap";

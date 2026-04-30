@@ -1,6 +1,19 @@
-import { toolDefinitions } from "drawio-mcp-plugin";
-import { on_standard_tool_request_from_server } from "../bus";
+import { bootstrapPlugin, type Transport } from "drawio-mcp-plugin";
+import { bus_reply_stream, bus_request_stream } from "../types";
 import type { DrawioUI } from "../types";
+
+const transport: Transport = {
+  send: (message) => {
+    window.dispatchEvent(
+      new CustomEvent(bus_reply_stream, { detail: message }),
+    );
+  },
+  onMessage: (listener) => {
+    window.addEventListener(bus_request_stream, (event: any) => {
+      listener(event?.detail);
+    });
+  },
+};
 
 export default defineUnlistedScript(() => {
   console.log("Hello from the main world");
@@ -9,20 +22,7 @@ export default defineUnlistedScript(() => {
       clearInterval(checkInterval);
       window.Draw.loadPlugin((ui: DrawioUI) => {
         console.log("plugin loaded", ui);
-
-        //TODO: just for testing / exploring Draw.io
-        // window.ui = ui;
-        // window.editor = editor;
-        // window.graph = graph;
-
-        toolDefinitions.forEach((definition) => {
-          on_standard_tool_request_from_server(
-            definition.name,
-            ui,
-            definition.params,
-            definition.handler,
-          );
-        });
+        bootstrapPlugin({ ui, transport });
       });
     } else {
       const el = document.querySelector(

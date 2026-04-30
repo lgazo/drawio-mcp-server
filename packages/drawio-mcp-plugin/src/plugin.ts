@@ -1,13 +1,13 @@
 /**
  * Draw.io MCP Plugin
  *
- * Main entry point for the plugin that runs inside Draw.io
- * Creates WebSocket connection and handles MCP tool requests
+ * Main entry point for the bundled plugin (mcp-plugin.js) that ships
+ * inside Draw.io. Responsible only for the host-specific concerns:
+ * WebSocket transport, settings dialog, and menu wiring. The runtime
+ * tool dispatch and document-state plumbing live in `bootstrapPlugin`.
  */
 
-import { setRuntimeCatalog } from "./shape-library";
-import { extractShapesFromSidebar } from "./shape-extractor";
-
+import { bootstrapPlugin, type Transport } from "./bootstrap";
 import {
   createWebSocketManager,
   type WebSocketManager,
@@ -17,7 +17,6 @@ import {
   readPluginConfig,
   writePluginConfig,
   buildWebSocketUrl,
-  type PluginConfig,
 } from "./pluginConfig";
 import {
   createSettingsDialog,
@@ -26,204 +25,22 @@ import {
   type SettingsDialogState,
   type SettingsDialogActions,
 } from "./settingsDialog";
-import {
-  remove_circular_dependencies,
-  serialize_document_info,
-  set_active_document_id,
-} from "./drawio-tools";
-import { toolDefinitions } from "./tool-registry";
-import {
-  type DrawioEventListener,
-  type DrawioFile,
-  type DrawioUI,
-} from "./types";
-
-function reply_name(event_name: string, request_id: string) {
-  return `${event_name}.${request_id}`;
-}
-
-const createToolHandler = (
-  toolName: string,
-  parameterKeys: Set<string>,
-  executeFunction: (ui: DrawioUI, options: Record<string, unknown>) => unknown,
-) => {
-  return (request: any): any => {
-    const optionEntries = Object.entries(request).filter(([key, _value]) => {
-      return parameterKeys.has(key);
-    });
-
-    const options = optionEntries.reduce(
-      (acc, [key, value]) => {
-        acc[key] = value;
-        return acc;
-      },
-      {} as Record<string, unknown>,
-    );
-
-    const sendReply = (result: any, success: boolean, error?: any) => {
-      const reply = {
-        __event: reply_name(toolName, request.__request_id),
-        __request_id: request.__request_id,
-        success,
-        result: success ? remove_circular_dependencies(result) : undefined,
-        error: !success ? remove_circular_dependencies(error) : undefined,
-      };
-      if (wsManager) {
-        wsManager.send(reply);
-      }
-      if (success) {
-        syncDocumentState();
-      }
-      return reply;
-    };
-
-    try {
-      const result = executeFunction(ui, options);
-      if (result instanceof Promise) {
-        result.then(
-          (resolved) => sendReply(resolved, true),
-          (err) => {
-            console.error(
-              `[plugin] Tool ${toolName} failed for request ID ${request.__request_id}:`,
-              err,
-            );
-            sendReply(undefined, false, err);
-          },
-        );
-        return undefined;
-      }
-      return sendReply(result, true);
-    } catch (error) {
-      console.error(
-        `[plugin] Tool ${toolName} failed for request ID ${request.__request_id}:`,
-        error,
-      );
-      return sendReply(undefined, false, error);
-    }
-  };
-};
+import { type DrawioUI } from "./types";
 
 let ui: DrawioUI;
 let wsManager: WebSocketManager | null = null;
+let bootstrapListener: ((message: any) => void) | null = null;
 let settingsDialog: {
   element: HTMLElement;
   update: (state: SettingsDialogState) => void;
 } | null = null;
-let currentDocumentId: string | null = null;
-let currentFileRef: DrawioFile | null = null;
-let currentFileListenerCleanup: (() => void) | null = null;
 
-const toolHandlers = new Map<string, (request: any) => any>();
-
-function generateDocumentId(): string {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-
-  return `document-${Date.now().toString(36)}-${Math.random()
-    .toString(36)
-    .slice(2, 10)}`;
-}
-
-function detachCurrentFileListener() {
-  if (currentFileListenerCleanup) {
-    currentFileListenerCleanup();
-    currentFileListenerCleanup = null;
-  }
-
-  currentFileRef = null;
-}
-
-function syncDocumentState() {
-  if (!wsManager || !ui?.getCurrentFile?.() || !currentDocumentId) {
-    return;
-  }
-
-  wsManager.send({
-    __control: "document-state",
-    document: serialize_document_info(ui, currentDocumentId),
-  });
-}
-
-function bindCurrentFileListener(file: DrawioFile | null) {
-  detachCurrentFileListener();
-  currentFileRef = file;
-
-  if (!file?.addListener || !file?.removeListener) {
-    return;
-  }
-
-  const onDescriptorChanged: DrawioEventListener = () => {
-    syncDocumentState();
-  };
-
-  file.addListener("descriptorChanged", onDescriptorChanged);
-  currentFileListenerCleanup = () => {
-    try {
-      file.removeListener?.("descriptorChanged", onDescriptorChanged);
-    } catch (error) {
-      console.warn("[plugin] Failed to remove file descriptor listener:", error);
-    }
-  };
-}
-
-function refreshActiveDocument(forceNewId: boolean) {
-  const file = ui?.getCurrentFile?.() ?? null;
-
-  if (!file) {
-    currentDocumentId = null;
-    set_active_document_id(null);
-    detachCurrentFileListener();
-    return;
-  }
-
-  if (forceNewId || !currentDocumentId || file !== currentFileRef) {
-    currentDocumentId = generateDocumentId();
-    set_active_document_id(currentDocumentId);
-    bindCurrentFileListener(file);
-    return;
-  }
-
-  if (file !== currentFileRef) {
-    bindCurrentFileListener(file);
-  }
-}
-
-function handleDocumentStateChange(forceNewId: boolean) {
-  refreshActiveDocument(forceNewId);
-  syncDocumentState();
-}
-
-function registerDocumentStateListeners() {
-  const listen = (eventName: string, forceNewId: boolean) => {
-    ui.editor?.addListener?.(eventName, () => {
-      handleDocumentStateChange(forceNewId);
-    });
-  };
-
-  listen("fileLoaded", true);
-  listen("pageSelected", false);
-  listen("pageRenamed", false);
-  listen("pageMoved", false);
-  listen("pagesPatched", false);
-
-  refreshActiveDocument(false);
-}
-
-const handleWebSocketMessage = (message: any): void => {
-  console.debug("[plugin] Received WebSocket message:", message);
-
-  if (message.__control === "sync-document-state") {
-    handleDocumentStateChange(false);
-    return;
-  }
-
-  if (message.__event && toolHandlers.has(message.__event)) {
-    const handler = toolHandlers.get(message.__event);
-    if (handler) {
-      handler(message);
-    }
-  }
+const transport: Transport = {
+  send: (message) => wsManager?.send(message),
+  onMessage: (listener) => {
+    bootstrapListener = listener;
+    wsManager?.onMessage(listener);
+  },
 };
 
 const initializeWebSocket = async (): Promise<void> => {
@@ -237,7 +54,9 @@ const initializeWebSocket = async (): Promise<void> => {
     pingInterval: 30000,
   });
 
-  wsManager.onMessage(handleWebSocketMessage);
+  if (bootstrapListener) {
+    wsManager.onMessage(bootstrapListener);
+  }
   wsManager.connect();
 
   console.log(`[plugin] WebSocket initialized with URL: ${wsUrl}`);
@@ -264,7 +83,7 @@ const initializeSettingsDialog = (): void => {
       if (wsManager) {
         wsManager.disconnect();
       }
-      initializeWebSocket();
+      void initializeWebSocket();
 
       if (settingsDialog) {
         settingsDialog.update({
@@ -360,45 +179,6 @@ const addMenuItem = (ui: DrawioUI): void => {
   }
 };
 
-function tryExtractShapes(): boolean {
-  try {
-    if (!ui?.sidebar) return false;
-    const map = extractShapesFromSidebar(ui);
-    if (map.size === 0) return false;
-    const runtime = new Map(
-      [...map].map(
-        ([k, v]) =>
-          [k, { style: v.style, category: v.category, name: v.name }] as const,
-      ),
-    );
-    setRuntimeCatalog(runtime);
-    console.info(
-      `[plugin] extracted ${map.size} vendor shapes from drawio sidebar`,
-    );
-    return true;
-  } catch (err) {
-    console.warn("[plugin] shape extraction attempt failed", err);
-    return false;
-  }
-}
-
-function scheduleShapeExtraction(): void {
-  if (tryExtractShapes()) return;
-  let attempts = 0;
-  const maxAttempts = 10;
-  const interval = setInterval(() => {
-    attempts += 1;
-    if (tryExtractShapes() || attempts >= maxAttempts) {
-      clearInterval(interval);
-      if (attempts >= maxAttempts) {
-        console.error(
-          "[plugin] shape extraction gave up after retries; vendor shapes unavailable",
-        );
-      }
-    }
-  }, 1000);
-}
-
 function initPlugin() {
   console.debug("[plugin] Loading Draw.io MCP Plugin...");
 
@@ -414,19 +194,12 @@ function initPlugin() {
           (window as any).ui = drawioUI;
         }
 
-        toolDefinitions.forEach((def) => {
-          const handler = createToolHandler(def.name, def.params, def.handler);
-          toolHandlers.set(def.name, handler);
-        });
+        bootstrapPlugin({ ui, transport });
 
-        registerDocumentStateListeners();
-        initializeWebSocket();
+        void initializeWebSocket();
 
         initializeSettingsDialog();
-
         addMenuItem(ui);
-
-        scheduleShapeExtraction();
 
         console.info("[plugin] MCP Plugin fully initialized");
       });
