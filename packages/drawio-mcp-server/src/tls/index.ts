@@ -85,19 +85,23 @@ export function resolveTlsMaterial(args: {
   const state = evaluateMaterial({ meta, currentSanHash, now });
 
   if (state === "valid") {
-    return {
-      cert: readFileSync(paths.serverCert, "utf8"),
-      key: readFileSync(paths.serverKey, "utf8"),
-      caPath: paths.caCert,
-    };
+    if (existsSync(paths.serverCert) && existsSync(paths.serverKey)) {
+      return {
+        cert: readFileSync(paths.serverCert, "utf8"),
+        key: readFileSync(paths.serverKey, "utf8"),
+        caPath: paths.caCert,
+      };
+    }
+    // meta said valid but files vanished — treat as missing
   }
 
   let ca: CertMaterial;
-  if (state === "san-drift" || state === "leaf-expired") {
+  const cacheLost = state === "valid"; // we already returned if cache existed
+  if (!cacheLost && (state === "san-drift" || state === "leaf-expired")) {
     // CA still valid — keep it, regen leaf only
     ca = loadCaMaterial(paths);
   } else {
-    // missing or ca-expired — full regen
+    // missing, ca-expired, or vanished cache — full regen
     ca = generateCa({ now });
   }
 
