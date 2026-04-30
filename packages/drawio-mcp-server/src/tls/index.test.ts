@@ -128,4 +128,48 @@ describe("resolveTlsMaterial — auto", () => {
       resolveTlsMaterial({ config: { tlsEnabled: true }, log: () => {} }),
     ).toThrow(/--tls requires either --tls-auto or --tls-cert\/--tls-key/i);
   });
+
+  it("renews leaf only (CA preserved) when leaf is within 30-day window", () => {
+    const dir = tmpDir();
+    resolveTlsMaterial({
+      config: { tlsEnabled: true, tlsAuto: true, tlsDir: dir, host: undefined },
+      log: () => {},
+      now: new Date("2024-01-01T00:00:00Z"),
+    });
+    const caBefore = readFileSync(tlsFilePaths(dir).caCert, "utf8");
+    const leafBefore = readFileSync(tlsFilePaths(dir).serverCert, "utf8");
+
+    const messages: string[] = [];
+    resolveTlsMaterial({
+      config: { tlsEnabled: true, tlsAuto: true, tlsDir: dir, host: undefined },
+      log: (msg) => messages.push(msg),
+      now: new Date("2024-12-10T00:00:00Z"),
+    });
+
+    expect(readFileSync(tlsFilePaths(dir).caCert, "utf8")).toBe(caBefore);
+    expect(readFileSync(tlsFilePaths(dir).serverCert, "utf8")).not.toBe(
+      leafBefore,
+    );
+    expect(messages.some((m) => m.includes("Renewed TLS leaf"))).toBe(true);
+  });
+
+  it("regenerates CA + leaf when CA is within 30-day window", () => {
+    const dir = tmpDir();
+    resolveTlsMaterial({
+      config: { tlsEnabled: true, tlsAuto: true, tlsDir: dir, host: undefined },
+      log: () => {},
+      now: new Date("2024-01-01T00:00:00Z"),
+    });
+    const caBefore = readFileSync(tlsFilePaths(dir).caCert, "utf8");
+
+    const messages: string[] = [];
+    resolveTlsMaterial({
+      config: { tlsEnabled: true, tlsAuto: true, tlsDir: dir, host: undefined },
+      log: (msg) => messages.push(msg),
+      now: new Date("2033-12-10T00:00:00Z"),
+    });
+
+    expect(readFileSync(tlsFilePaths(dir).caCert, "utf8")).not.toBe(caBefore);
+    expect(messages.some((m) => m.includes("Install the local CA"))).toBe(true);
+  });
 });
