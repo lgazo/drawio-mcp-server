@@ -210,6 +210,7 @@ export function bootstrapPlugin(opts: BootstrapOptions): BootstrapHandle {
       def.name,
       buildToolHandler(def.name, def.params, def.handler),
     );
+    console.debug(`[plugin] registered tool ${def.name}`);
   });
 
   transport.onMessage((message: any) => {

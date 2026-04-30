@@ -59,7 +59,7 @@ const initializeSettingsDialog = (): void => {
     connectionState,
     isSaving: false,
     formData: {
-      port: config.websocketPort.toString(),
+      url: config.websocketUrl ?? "",
     },
     errors: {},
   };
@@ -123,7 +123,7 @@ const showSettings = (): void => {
       connectionState,
       isSaving: false,
       formData: {
-        port: config.websocketPort.toString(),
+        url: config.websocketUrl ?? "",
       },
       errors: {},
     });

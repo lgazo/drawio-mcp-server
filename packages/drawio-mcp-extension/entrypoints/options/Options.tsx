@@ -1,13 +1,14 @@
 import { useState, useEffect, useMemo } from "react";
-import { getConfig, saveConfig, resetConfigToDefaults, isValidExtensionWebSocketUrl, type ExtensionConfig } from "../../config";
+import { getConfig, saveConfig, resetConfigToDefaults, isValidExtensionWebSocketUrl, DEFAULT_CONFIG, type ExtensionConfig } from "../../config";
 import { validateMV3Pattern, isValidPatternList, deduplicatePatterns, patternsAreEquivalent } from "../../utils/urlPatternValidator";
 
+const DEFAULT_WS_URL = `ws://localhost:${DEFAULT_CONFIG.websocketPort}`;
+
 function Options() {
-  const [config, setConfig] = useState<ExtensionConfig>({ websocketPort: 3333, urlPatterns: ["*://app.diagrams.net/*"], injectIntoIframes: false });
+  const [config, setConfig] = useState<ExtensionConfig>({ websocketPort: DEFAULT_CONFIG.websocketPort, urlPatterns: ["*://app.diagrams.net/*"], injectIntoIframes: false });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-  const [portInput, setPortInput] = useState('');
   const [urlInput, setUrlInput] = useState('');
   const [urlError, setUrlError] = useState<string>('');
   const [patterns, setPatterns] = useState<string[]>([]);
@@ -24,7 +25,6 @@ function Options() {
     try {
       const currentConfig = await getConfig();
       setConfig(currentConfig);
-      setPortInput(currentConfig.websocketPort.toString());
       setUrlInput(currentConfig.websocketUrl ?? '');
       setPatterns(currentConfig.urlPatterns);
       setInjectIntoIframes(currentConfig.injectIntoIframes);
@@ -36,24 +36,7 @@ function Options() {
     }
   };
 
-  const validatePort = (port: string): { isValid: boolean; error?: string } => {
-    const portNum = parseInt(port, 10);
-    if (isNaN(portNum)) {
-      return { isValid: false, error: 'Port must be a number' };
-    }
-    if (portNum < 1024 || portNum > 65535) {
-      return { isValid: false, error: 'Port must be between 1024 and 65535' };
-    }
-    return { isValid: true };
-  };
-
   const handleSave = async () => {
-    const validation = validatePort(portInput);
-    if (!validation.isValid) {
-      setMessage({ type: 'error', text: validation.error || 'Invalid port' });
-      return;
-    }
-
     const trimmedUrl = urlInput.trim();
     if (trimmedUrl.length > 0 && !isValidExtensionWebSocketUrl(trimmedUrl)) {
       setUrlError('URL must start with ws:// or wss://');
@@ -72,7 +55,7 @@ function Options() {
     try {
       const uniquePatterns = deduplicatePatterns(patterns);
       const newConfig: ExtensionConfig = {
-        websocketPort: parseInt(portInput, 10),
+        websocketPort: config.websocketPort,
         urlPatterns: uniquePatterns,
         websocketUrl: trimmedUrl.length > 0 ? trimmedUrl : undefined,
         injectIntoIframes
@@ -95,7 +78,6 @@ function Options() {
       await resetConfigToDefaults();
       const defaultConfig = await getConfig(); // Reload from defaults
       setConfig(defaultConfig);
-      setPortInput(defaultConfig.websocketPort.toString());
       setUrlInput(defaultConfig.websocketUrl ?? '');
       setUrlError('');
       setPatterns(defaultConfig.urlPatterns);
@@ -154,13 +136,6 @@ function Options() {
       ...validateMV3Pattern(pattern)
     })), [patterns]);
 
-  const handleInputChange = (value: string) => {
-    setPortInput(value);
-    if (message) {
-      setMessage(null);
-    }
-  };
-
   if (loading) {
     return (
       <div className="options-container">
@@ -187,24 +162,7 @@ function Options() {
             <h3>WebSocket Server Configuration</h3>
 
             <div className="form-group">
-              <label htmlFor="port-input">Port Number:</label>
-              <input
-                id="port-input"
-                type="number"
-                value={portInput}
-                onChange={(e) => handleInputChange(e.target.value)}
-                min={1024}
-                max={65535}
-                className="port-input"
-                disabled={saving}
-                placeholder="3333"
-                required
-              />
-              <span className="input-hint">(1024-65535)</span>
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="url-input">Custom WebSocket URL (optional):</label>
+              <label htmlFor="url-input">WebSocket URL:</label>
               <input
                 id="url-input"
                 type="text"
@@ -216,9 +174,12 @@ function Options() {
                 }}
                 className="port-input"
                 disabled={saving}
-                placeholder="wss://example.com/drawio-ws"
+                placeholder={DEFAULT_WS_URL}
               />
-              <span className="input-hint">Overrides host/port. Use wss:// behind HTTPS proxies.</span>
+              <span className="input-hint">
+                Leave blank to use the default ({DEFAULT_WS_URL}). Must start with ws:// or wss://.
+                Use wss:// when the MCP server sits behind an HTTPS reverse proxy.
+              </span>
               {urlError && <span className="error-text">{urlError}</span>}
             </div>
           </div>

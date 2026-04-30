@@ -181,13 +181,14 @@ function registerConfigRoute(
   config: ServerConfig,
   scheme: "http" | "https",
 ) {
-  app.get("/api/config", (c) =>
-    c.json({
-      websocketPort: config.extensionPort,
-      serverUrl: `${scheme}://localhost:${config.httpPort}`,
-      websocketUrl: config.webSocketUrl,
-    }),
-  );
+  app.get("/api/config", (c) => {
+    const serverUrl = `${scheme}://localhost:${config.httpPort}`;
+    return c.json(
+      config.webSocketUrl
+        ? { serverUrl, websocketUrl: config.webSocketUrl }
+        : { serverUrl, websocketPort: config.extensionPort },
+    );
+  });
 }
 
 function registerEditorRoutes(app: Hono, config: ServerConfig, log: AppLogger) {

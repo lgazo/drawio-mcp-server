@@ -394,6 +394,8 @@ Override the directory with `--tls-dir` or `DRAWIO_MCP_TLS_DIR` (e.g. for Docker
 On the first auto-mode run the server prints the OS-specific command to install `ca.crt` into your trust store. Without this, browsers will refuse the WSS connection (the browser extension will appear silently disconnected). Quick reference:
 
 - **Linux (Debian/Ubuntu):** `sudo cp <ca.crt> /usr/local/share/ca-certificates/drawio-mcp-ca.crt && sudo update-ca-certificates`
+- **Linux (Fedora/RHEL):** `sudo cp <ca.crt> /etc/pki/ca-trust/source/anchors/drawio-mcp-ca.crt && sudo update-ca-trust extract`
+- **Linux (Arch/Manjaro):** `sudo trust anchor --store <ca.crt>`
 - **macOS:** `sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain <ca.crt>`
 - **Windows (admin):** `certutil -addstore -f ROOT <ca.crt>`
 - **Firefox:** uses its own NSS store — import via Settings → Privacy & Security → Certificates → Authorities → Import
