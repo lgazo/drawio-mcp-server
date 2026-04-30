@@ -98,7 +98,7 @@ export function generateLeaf(args: {
       keyEncipherment: true,
       critical: true,
     },
-    { name: "extKeyUsage", serverAuth: true, clientAuth: true },
+    { name: "extKeyUsage", serverAuth: true },
     { name: "subjectAltName", altNames: sanListToAltNames(args.sanList) },
     { name: "subjectKeyIdentifier" },
   ]);
