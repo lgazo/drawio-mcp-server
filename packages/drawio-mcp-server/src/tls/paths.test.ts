@@ -43,13 +43,13 @@ describe("resolveTlsDir", () => {
         env: { LOCALAPPDATA: "C:\\Users\\u\\AppData\\Local" },
         home: "C:\\Users\\u",
       }),
-    ).toBe("C:\\Users\\u\\AppData\\Local\\drawio-mcp-server\\Data\\tls");
+    ).toBe("C:\\Users\\u\\AppData\\Local\\drawio-mcp-server\\tls");
   });
 
   it("Windows: falls back to ~/AppData/Local when LOCALAPPDATA unset", () => {
     expect(
       resolveTlsDir({ platform: "win32", env: {}, home: "C:\\Users\\u" }),
-    ).toBe("C:\\Users\\u\\AppData\\Local\\drawio-mcp-server\\Data\\tls");
+    ).toBe("C:\\Users\\u\\AppData\\Local\\drawio-mcp-server\\tls");
   });
 
   it("treats empty XDG_DATA_HOME as unset", () => {

@@ -29,7 +29,7 @@ export function resolveTlsDir(args: ResolveTlsDirArgs): string {
       args.env.LOCALAPPDATA && args.env.LOCALAPPDATA.length > 0
         ? args.env.LOCALAPPDATA
         : joinWin32(args.home, "AppData", "Local");
-    return joinWin32(base, APP_NAME, "Data", "tls");
+    return joinWin32(base, APP_NAME, "tls");
   }
 
   // Linux + other unix

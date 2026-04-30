@@ -358,7 +358,7 @@ Default storage location (XDG-compliant):
 |----|------|
 | Linux | `${XDG_DATA_HOME:-~/.local/share}/drawio-mcp-server/tls/` |
 | macOS | `~/Library/Application Support/drawio-mcp-server/tls/` |
-| Windows | `%LOCALAPPDATA%\drawio-mcp-server\Data\tls\` |
+| Windows | `%LOCALAPPDATA%\drawio-mcp-server\tls\` |
 
 Files:
 
