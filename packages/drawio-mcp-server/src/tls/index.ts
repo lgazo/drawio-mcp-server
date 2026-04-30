@@ -5,6 +5,7 @@ import {
   generateLeaf,
   readMeta,
   writeMaterial,
+  loadCaMaterial,
   type CertMaterial,
 } from "./generate.js";
 import { caInstallHint } from "./install-hint.js";
@@ -12,7 +13,6 @@ import { evaluateMaterial } from "./expiry.js";
 import { loadManualMaterial } from "./load.js";
 import { resolveTlsDir, tlsFilePaths } from "./paths.js";
 import { buildSanList, sanHash } from "./san.js";
-import forge from "node-forge";
 
 export interface ResolveTlsConfig {
   readonly tlsEnabled: boolean;
@@ -95,7 +95,7 @@ export function resolveTlsMaterial(args: {
   let ca: CertMaterial;
   if (state === "san-drift" || state === "leaf-expired") {
     // CA still valid — keep it, regen leaf only
-    ca = loadCaMaterialFromDisk(paths);
+    ca = loadCaMaterial(paths);
   } else {
     // missing or ca-expired — full regen
     ca = generateCa({ now });
@@ -116,27 +116,5 @@ export function resolveTlsMaterial(args: {
     cert: leaf.certPem,
     key: leaf.keyPem,
     caPath: paths.caCert,
-  };
-}
-
-function loadCaMaterialFromDisk(
-  paths: ReturnType<typeof tlsFilePaths>,
-): CertMaterial {
-  if (!existsSync(paths.caCert) || !existsSync(paths.caKey)) {
-    throw new Error(
-      `TLS material directory ${paths.caCert} is in an inconsistent state. Delete it and restart.`,
-    );
-  }
-  const certPem = readFileSync(paths.caCert, "utf8");
-  const keyPem = readFileSync(paths.caKey, "utf8");
-  const cert = forge.pki.certificateFromPem(certPem);
-  const privateKey = forge.pki.privateKeyFromPem(
-    keyPem,
-  ) as forge.pki.rsa.PrivateKey;
-  return {
-    certPem,
-    keyPem,
-    cert,
-    keys: { privateKey, publicKey: cert.publicKey as forge.pki.rsa.PublicKey },
   };
 }

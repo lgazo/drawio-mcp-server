@@ -150,3 +150,23 @@ export function readMeta(paths: TlsFilePaths): PersistedMeta | null {
   if (parsed?.version !== 1) return null;
   return parsed;
 }
+
+export function loadCaMaterial(paths: TlsFilePaths): CertMaterial {
+  if (!existsSync(paths.caCert) || !existsSync(paths.caKey)) {
+    throw new Error(
+      `TLS material directory is in an inconsistent state: ${dirname(paths.caCert)}. Delete it and restart.`,
+    );
+  }
+  const certPem = readFileSync(paths.caCert, "utf8");
+  const keyPem = readFileSync(paths.caKey, "utf8");
+  const cert = forge.pki.certificateFromPem(certPem);
+  const privateKey = forge.pki.privateKeyFromPem(
+    keyPem,
+  ) as forge.pki.rsa.PrivateKey;
+  return {
+    certPem,
+    keyPem,
+    cert,
+    keys: { privateKey, publicKey: cert.publicKey as forge.pki.rsa.PublicKey },
+  };
+}
