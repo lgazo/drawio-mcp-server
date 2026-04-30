@@ -23,5 +23,10 @@ export default defineConfig({
         matches: ["<all_urls>"],
       },
     ],
+    browser_specific_settings: {
+      gecko: {
+        id: "drawio-mcp@gazo.dev",
+      },
+    },
   },
 });
