@@ -378,6 +378,7 @@ On the first auto-mode run the server prints the OS-specific command to install 
 - **macOS:** `sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain <ca.crt>`
 - **Windows (admin):** `certutil -addstore -f ROOT <ca.crt>`
 - **Firefox:** uses its own NSS store — import via Settings → Privacy & Security → Certificates → Authorities → Import
+- **Chrome/Chromium on Linux:** reads the system trust store on most distributions but may require logout/login (or `nss-certutil -d sql:$HOME/.pki/nssdb -A -t "C,," -n drawio-mcp -i <ca.crt>`) to pick up new certs. As a temporary diagnostic, launch with `google-chrome --ignore-certificate-errors`.
 
 Restart the browser after installing.
 
