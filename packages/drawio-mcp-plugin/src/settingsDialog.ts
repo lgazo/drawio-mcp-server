@@ -5,18 +5,21 @@
  * Creates plain DOM modal dialog for Draw.io integration
  */
 
-import type { WebSocketManager } from "./websocketManager";
-import type { PluginConfig } from "./pluginConfig";
+import {
+  buildWebSocketUrl,
+  isValidWebSocketUrl,
+  type PluginConfig,
+} from "./pluginConfig";
 
 export interface SettingsDialogState {
   config: PluginConfig;
   connectionState: "connecting" | "connected" | "disconnected";
   isSaving: boolean;
   formData: {
-    port: string;
+    url: string;
   };
   errors: {
-    port?: string;
+    url?: string;
   };
 }
 
@@ -28,7 +31,7 @@ export type SettingsMessage =
       type: "UPDATE_CONNECTION_STATE";
       state: "connecting" | "connected" | "disconnected";
     }
-  | { type: "UPDATE_PORT"; port: string }
+  | { type: "UPDATE_URL"; url: string }
   | { type: "SAVE" }
   | { type: "RESET" };
 
@@ -37,6 +40,14 @@ export interface SettingsDialogActions {
   onClose: () => void;
   onPing: () => Promise<boolean>;
   onReconnect: () => void;
+}
+
+function defaultUrlFor(config: PluginConfig): string {
+  return buildWebSocketUrl({ ...config, websocketUrl: undefined });
+}
+
+function effectiveUrlFor(config: PluginConfig): string {
+  return buildWebSocketUrl(config);
 }
 
 function createDialogContainer(): HTMLElement {
@@ -133,10 +144,7 @@ function createDialogHeader(title: string, onClose: () => void): HTMLElement {
   return header;
 }
 
-function createDialogBody(
-  state: SettingsDialogState,
-  actions: SettingsDialogActions,
-): HTMLElement {
+function createDialogBody(state: SettingsDialogState): HTMLElement {
   const body = document.createElement("div");
   body.className = "dialog-body";
   body.style.cssText = `
@@ -146,7 +154,7 @@ function createDialogBody(
   const statusSection = createStatusSection(state);
   body.appendChild(statusSection);
 
-  const formSection = createFormSection(state, actions);
+  const formSection = createFormSection(state);
   body.appendChild(formSection);
 
   return body;
@@ -209,36 +217,34 @@ function createStatusSection(state: SettingsDialogState): HTMLElement {
   statusIndicator.appendChild(indicator);
   statusIndicator.appendChild(statusText);
 
-  const portDisplay = document.createElement("div");
-  portDisplay.style.cssText = `
+  const urlDisplay = document.createElement("div");
+  urlDisplay.style.cssText = `
     font-size: 14px;
     color: #666;
+    word-break: break-all;
   `;
-  portDisplay.textContent = `Port: ${state.config.websocketPort}`;
+  urlDisplay.textContent = `URL: ${effectiveUrlFor(state.config)}`;
 
   section.appendChild(title);
   section.appendChild(statusIndicator);
-  section.appendChild(portDisplay);
+  section.appendChild(urlDisplay);
 
   return section;
 }
 
-function createFormSection(
-  state: SettingsDialogState,
-  actions: SettingsDialogActions,
-): HTMLElement {
+function createFormSection(state: SettingsDialogState): HTMLElement {
   const section = document.createElement("div");
   section.className = "form-section";
 
-  const portGroup = document.createElement("div");
-  portGroup.className = "form-group";
-  portGroup.style.cssText = `
+  const urlGroup = document.createElement("div");
+  urlGroup.className = "form-group";
+  urlGroup.style.cssText = `
     margin-bottom: 16px;
   `;
 
   const label = document.createElement("label");
-  label.textContent = "WebSocket Port";
-  label.htmlFor = "mcp-port-input";
+  label.textContent = "WebSocket URL";
+  label.htmlFor = "mcp-url-input";
   label.style.cssText = `
     display: block;
     margin-bottom: 6px;
@@ -247,21 +253,23 @@ function createFormSection(
   `;
 
   const input = document.createElement("input");
-  input.id = "mcp-port-input";
-  input.type = "number";
-  input.min = "1024";
-  input.max = "65535";
-  input.value = state.formData.port;
+  input.id = "mcp-url-input";
+  input.type = "text";
+  input.spellcheck = false;
+  input.autocomplete = "off";
+  input.value = state.formData.url;
+  input.placeholder = defaultUrlFor(state.config);
   input.style.cssText = `
     width: 100%;
     padding: 8px 12px;
     border: 1px solid #ddd;
     border-radius: 4px;
     font-size: 14px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     box-sizing: border-box;
   `;
 
-  if (state.errors.port) {
+  if (state.errors.url) {
     input.style.borderColor = "#dc3545";
   }
 
@@ -269,43 +277,41 @@ function createFormSection(
     const value = (e.target as HTMLInputElement).value;
     window.dispatchEvent(
       new CustomEvent("mcp-settings-message", {
-        detail: { type: "UPDATE_PORT", port: value },
+        detail: { type: "UPDATE_URL", url: value },
       }),
     );
   });
 
   const hint = document.createElement("div");
-  hint.textContent = "Port must be between 1024 and 65535";
+  hint.textContent = `Leave blank to use the default (${defaultUrlFor(state.config)}). Must start with ws:// or wss://`;
   hint.style.cssText = `
     font-size: 12px;
     color: #666;
     margin-top: 4px;
+    word-break: break-all;
   `;
 
-  if (state.errors.port) {
+  urlGroup.appendChild(label);
+  urlGroup.appendChild(input);
+  urlGroup.appendChild(hint);
+
+  if (state.errors.url) {
     const error = document.createElement("div");
-    error.textContent = state.errors.port;
+    error.textContent = state.errors.url;
     error.style.cssText = `
       font-size: 12px;
       color: #dc3545;
       margin-top: 4px;
     `;
-    portGroup.appendChild(error);
+    urlGroup.appendChild(error);
   }
 
-  portGroup.appendChild(label);
-  portGroup.appendChild(input);
-  portGroup.appendChild(hint);
-
-  section.appendChild(portGroup);
+  section.appendChild(urlGroup);
 
   return section;
 }
 
-function createDialogFooter(
-  state: SettingsDialogState,
-  actions: SettingsDialogActions,
-): HTMLElement {
+function createDialogFooter(state: SettingsDialogState): HTMLElement {
   const footer = document.createElement("div");
   footer.className = "dialog-footer";
   footer.style.cssText = `
@@ -458,8 +464,8 @@ export function createSettingsDialog(
     const content = createDialogContent();
 
     const header = createDialogHeader("MCP Settings", () => actions.onClose());
-    const body = createDialogBody(currentState, actions);
-    const footer = createDialogFooter(currentState, actions);
+    const body = createDialogBody(currentState);
+    const footer = createDialogFooter(currentState);
 
     content.appendChild(header);
     content.appendChild(body);
@@ -482,9 +488,9 @@ export function createSettingsDialog(
       const message = event.detail;
 
       switch (message.type) {
-        case "UPDATE_PORT":
-          currentState.formData.port = message.port;
-          delete currentState.errors.port;
+        case "UPDATE_URL":
+          currentState.formData.url = message.url;
+          delete currentState.errors.url;
           break;
 
         case "SAVE":
@@ -524,15 +530,10 @@ export function createSettingsDialog(
   };
 
   const validateAndSave = (): boolean => {
-    const portNum = parseInt(currentState.formData.port, 10);
+    const trimmed = currentState.formData.url.trim();
 
-    if (isNaN(portNum)) {
-      currentState.errors.port = "Port must be a number";
-      return false;
-    }
-
-    if (portNum < 1024 || portNum > 65535) {
-      currentState.errors.port = "Port must be between 1024 and 65535";
+    if (trimmed.length > 0 && !isValidWebSocketUrl(trimmed)) {
+      currentState.errors.url = "URL must start with ws:// or wss://";
       return false;
     }
 
@@ -540,8 +541,8 @@ export function createSettingsDialog(
     currentState.isSaving = true;
 
     const newConfig: PluginConfig = {
-      websocketPort: portNum,
-      serverUrl: currentState.config.serverUrl,
+      ...currentState.config,
+      websocketUrl: trimmed.length > 0 ? trimmed : undefined,
     };
 
     actions.onSave(newConfig);

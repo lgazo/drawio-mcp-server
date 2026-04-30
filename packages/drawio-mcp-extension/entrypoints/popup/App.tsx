@@ -1,19 +1,19 @@
 import { useState, useEffect } from "react";
 import "./App.css";
-import { getConfig } from "../../config";
+import { getWebSocketUrl } from "../../config";
 
 type ConnectionState = "connected" | "connecting" | "disconnected";
 
 function App() {
   const [connectionState, setConnectionState] = useState<ConnectionState>("disconnected");
   const [featuresExpanded, setFeaturesExpanded] = useState(false);
-  const [currentPort, setCurrentPort] = useState<number>(3333);
+  const [currentUrl, setCurrentUrl] = useState<string>("");
 
   useEffect(() => {
-    // Load current configuration
-    getConfig().then(config => {
-      setCurrentPort(config.websocketPort);
-    }).catch(error => console.error("Error loading config:", error));
+    // Load current effective WebSocket URL (override or derived default)
+    getWebSocketUrl()
+      .then(setCurrentUrl)
+      .catch(error => console.error("Error loading config:", error));
 
     // Request connection state from background script when popup opens
     browser.runtime.sendMessage({ type: "GET_CONNECTION_STATE" })
@@ -65,7 +65,14 @@ function App() {
       </div>
       <div className="card">
         <p>
-          The WebSocket connection is currently <strong>{connectionState}</strong> on port <strong>{currentPort}</strong>.
+          The WebSocket connection is currently <strong>{connectionState}</strong>
+          {currentUrl && (
+            <>
+              {" at "}
+              <strong className="connection-url">{currentUrl}</strong>
+            </>
+          )}
+          .
         </p>
         {connectionState !== "connected" && (
           <p>

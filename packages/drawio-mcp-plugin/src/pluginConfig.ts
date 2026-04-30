@@ -16,7 +16,7 @@ export const DEFAULT_PLUGIN_CONFIG: PluginConfig = {
   serverUrl: "",
 };
 
-function isValidWebSocketUrl(value: unknown): value is string {
+export function isValidWebSocketUrl(value: unknown): value is string {
   if (typeof value !== "string" || value.length === 0) {
     return false;
   }

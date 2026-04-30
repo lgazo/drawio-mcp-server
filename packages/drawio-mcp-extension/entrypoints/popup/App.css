@@ -45,6 +45,12 @@
   color: #888;
 }
 
+.connection-url {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+  word-break: break-all;
+}
+
 /* Connection status styles */
 .connection-status {
   display: flex;
