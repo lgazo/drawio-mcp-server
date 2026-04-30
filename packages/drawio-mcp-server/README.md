@@ -16,7 +16,8 @@ Let's do some Vibe Diagramming with the most wide-spread diagramming tool called
 - Per-document FIFO serialization for live operations, so multiple agents can work on different files safely ![v2.1.0](https://img.shields.io/badge/v2.1.0-blue)
 - Page management tools: `list-pages`, `get-current-page`, `create-page`, `copy-page`, `rename-page` ![v2.1.0](https://img.shields.io/badge/v2.1.0-blue)
 - Import, embed, or expand [Mermaid](https://mermaid.js.org/) diagrams ![v2.1.0](https://img.shields.io/badge/v2.1.0-blue)
-- Firefox support is back ![v2.1.0](https://img.shields.io/badge/v2.1.0-blue)
+- Firefox support is back, TLS mode is necessary ![v2.1.0](https://img.shields.io/badge/v2.1.0-blue)
+- Server supports TLS mode and optionally generates self-signed certificates ![v2.1.0](https://img.shields.io/badge/v2.1.0-blue)
 
 - Import and export diagrams from/to XML, SVG (with embedded XML), or PNG (with embedded XML) ![v2.0.0](https://img.shields.io/badge/v2.0.0-blue)
 - Edge geometry control with waypoints and automatic self-connector routing ![v2.0.0](https://img.shields.io/badge/v2.0.0-blue)
@@ -163,6 +164,7 @@ The server provides MCP tools for:
 - **Page management** - list pages, inspect the current page, create pages, copy pages, and rename pages without forcing a visible page switch on supported runtimes
 - **Layer management** - create, switch, and organize layers
 - **Vendor shape coverage** - AWS, GCP, Azure, Cisco19, and CiscoSafe stencils auto-discovered at runtime from drawio's sidebar, so agents can place icons like `mxgraph.gcp2.cloud_run` or `mxgraph.cisco19.router` without hand-curated catalogs
+- **Built-in TLS** — opt-in HTTPS + WSS with manual cert/key or auto-generated self-signed material via a per-user local CA. See [CONFIG.md → TLS](./CONFIG.md#tls-https--wss).
 
 See [Tools Reference](./TOOLS.md) for the complete list of available tools.
 
