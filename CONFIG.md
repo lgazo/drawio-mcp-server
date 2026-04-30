@@ -138,6 +138,25 @@ Default WebSocket port is 3333. To customize:
 
 When using a custom port, ensure the browser extension is configured to connect to the same port. See the [extension documentation](./packages/drawio-mcp-extension/README.md) for port configuration instructions.
 
+### Firefox: required TLS
+
+Firefox auto-upgrades the extension's `ws://localhost:<port>` connection to `wss://` (active mixed-content upgrade from the `moz-extension://` secure context). The upgrade also fires when the extension stores an explicit `ws://` override. The plain-WebSocket server then refuses the TLS handshake and the extension stays disconnected with:
+
+```
+Firefox can't establish a connection to the server at wss://localhost:3333/
+```
+
+Run the server with TLS so the WebSocket endpoint actually speaks WSS. Two options:
+
+1. **`--tls --tls-cert ./server.crt --tls-key ./server.key`** — bring your own cert (e.g. mkcert). Trust is already established by the issuing CA; nothing else to do in Firefox.
+2. **`--tls --tls-auto`** — server generates a self-signed leaf via a per-user local CA. Firefox will reject the cert until the local CA is trusted. Pick one of:
+   - Import `ca.crt` into Firefox's NSS store (Settings → Privacy & Security → Certificates → Authorities → Import). Recommended for ongoing use; survives restarts.
+   - Open `https://localhost:<port>/` in Firefox once and click through the certificate warning ("Advanced → Accept the Risk and Continue"). Quick diagnostic; the override is per-host and persists, but Firefox occasionally drops it after profile changes.
+
+The auto-mode CA path and renewal rules are documented in [TLS](#tls-https--wss).
+
+The `dev:firefox` script (`web-ext run`) launches Firefox with relaxed dev prefs that skip this upgrade, which is why plain `ws://localhost:<port>` works there but not in a normal Firefox profile.
+
 ## MCP Client Configuration Examples
 
 ### Claude Desktop
