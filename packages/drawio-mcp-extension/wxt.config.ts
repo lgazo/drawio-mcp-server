@@ -27,7 +27,7 @@ export default defineConfig({
     ...(browser === "firefox" && {
       browser_specific_settings: {
         gecko: {
-          id: "{829ae72d-49d6-4ffd-a810-b245e2e494a6}",
+          id: "{e07de650-85aa-4302-9709-d3292c66b674}",
           strict_min_version: "109.0",
         },
       },
