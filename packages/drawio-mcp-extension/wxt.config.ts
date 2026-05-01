@@ -1,6 +1,7 @@
 import { defineConfig } from "wxt";
 
-const bg = process.env.MODE === "plugin" ? "background-plugin.js" : "background.js";
+const bg =
+  process.env.MODE === "plugin" ? "background-plugin.js" : "background.js";
 console.log("BACKGROUND:", bg);
 
 // See https://wxt.dev/api/config.html
@@ -23,10 +24,5 @@ export default defineConfig({
         matches: ["<all_urls>"],
       },
     ],
-    browser_specific_settings: {
-      gecko: {
-        id: "drawio-mcp@gazo.dev",
-      },
-    },
   },
 });
