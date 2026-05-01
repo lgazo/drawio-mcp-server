@@ -10,7 +10,7 @@ export default defineConfig({
   background: {
     service_worker: bg,
   },
-  manifest: {
+  manifest: ({ browser }) => ({
     name: "Draw.io MCP Extension",
     permissions: ["storage", "scripting"],
     host_permissions: ["<all_urls>"],
@@ -24,5 +24,13 @@ export default defineConfig({
         matches: ["<all_urls>"],
       },
     ],
-  },
+    ...(browser === "firefox" && {
+      browser_specific_settings: {
+        gecko: {
+          id: "{829ae72d-49d6-4ffd-a810-b245e2e494a6}",
+          strict_min_version: "109.0",
+        },
+      },
+    }),
+  }),
 });
