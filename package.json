@@ -5,29 +5,6 @@
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.8.1",
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild",
-      "unrs-resolver"
-    ],
-    "overrides": {
-      "node-forge": ">=1.4.0",
-      "defu": ">=6.1.5",
-      "picomatch": ">=4.0.4",
-      "minimatch@>=9 <9.0.7": ">=9.0.7",
-      "minimatch@>=10 <10.2.3": ">=10.2.3",
-      "minimatch@>=3 <3.1.4": ">=3.1.4 <4",
-      "brace-expansion@<1.1.13": ">=1.1.13",
-      "@isaacs/brace-expansion": ">=5.0.1",
-      "braces": ">=3.0.3",
-      "vite@>=7 <7.3.2": ">=7.3.2",
-      "path-to-regexp@>=8 <8.4.0": ">=8.4.0",
-      "qs": ">=6.14.2",
-      "ajv": ">=8.18.0",
-      "uuid@<14": ">=14.0.0",
-      "postcss@<8.5.10": ">=8.5.10"
-    }
-  },
   "scripts": {
     "build": "pnpm -r build",
     "dev": "pnpm -r dev",

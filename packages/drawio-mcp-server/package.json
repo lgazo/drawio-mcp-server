@@ -56,11 +56,11 @@
     "@hono/node-server": "1.19.13",
     "@modelcontextprotocol/sdk": "1.29.0",
     "cachedir": "2.4.0",
-    "hono": "4.12.14",
+    "hono": "4.12.23",
     "nanoid": "5.1.6",
     "node-forge": "catalog:",
     "unzipper": "0.12.3",
-    "ws": "8.18.3",
+    "ws": "8.21.0",
     "zod": "4.2.1"
   },
   "devDependencies": {
