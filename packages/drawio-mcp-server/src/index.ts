@@ -21,7 +21,7 @@ import {
 import { AddressInfo } from "node:net";
 
 import { WebSocket, WebSocketServer } from "ws";
-const VERSION = process.env.npm_package_version ?? "2.1.0";
+const VERSION = process.env.npm_package_version ?? "2.1.1";
 import {
   buildConfig,
   defaultConfig,
