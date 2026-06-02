@@ -41,7 +41,7 @@ Experimental: integration with the **draw.io desktop (Electron) app** is in prog
 
 ## Requirements
 
-- **Node.js** (v20 or higher) - Runtime environment for the MCP server
+- **Node.js** (v22 or higher; tested against v22 LTS and v24 LTS) - Runtime environment for the MCP server
 - **MCP client** - Claude Desktop, Claude Code, Zed, Codex, OpenCode, or any MCP-compatible host
 
 ### For Built-in Editor
