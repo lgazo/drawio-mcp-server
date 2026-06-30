@@ -1085,8 +1085,41 @@ async function main() {
   }
 
   await app.startWebSocketServer(config.extensionPort, config.host);
+
+  let shuttingDown = false;
+  const shutdown = async (reason: string) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    app.log.debug(`[shutdown] triggered by ${reason}`);
+    try {
+      await app.close();
+    } catch (error) {
+      app.log.log("error", "[shutdown] error while closing app", error);
+    }
+    process.exit(0);
+  };
+  process.on("SIGTERM", () => {
+    void shutdown("SIGTERM");
+  });
+  process.on("SIGINT", () => {
+    void shutdown("SIGINT");
+  });
+  process.on("SIGHUP", () => {
+    void shutdown("SIGHUP");
+  });
+
   if (config.transports.indexOf("stdio") > -1) {
     await app.startStdioTransport();
+    // MCP hosts (e.g. Claude Desktop on Windows) signal disconnect by
+    // closing the stdio pipe rather than sending a POSIX signal. Without
+    // this, the WebSocket server keeps the event loop alive and port
+    // 3333 leaks across host restarts.
+    process.stdin.once("end", () => {
+      void shutdown("stdin-end");
+    });
+    process.stdin.once("close", () => {
+      void shutdown("stdin-close");
+    });
   }
   await app.startHttpServer(config.httpPort, config, features);
 
