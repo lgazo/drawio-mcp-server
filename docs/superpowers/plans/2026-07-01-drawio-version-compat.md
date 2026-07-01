@@ -98,6 +98,7 @@ packages/drawio-mcp-extension/entrypoints/popup/App.tsx       # render <CompatBa
 **Files:**
 - Create: `packages/drawio-mcp-compat/package.json`
 - Create: `packages/drawio-mcp-compat/tsconfig.json`
+- Create: `packages/drawio-mcp-compat/jest.config.js`
 - Create: `packages/drawio-mcp-compat/src/index.ts`
 - Create: `packages/drawio-mcp-compat/src/index.test.ts`
 - Modify: `pnpm-workspace.yaml` — add `packages/drawio-mcp-compat` if the workspace uses per-package listing (check `pnpm-workspace.yaml` — if it uses `packages/*` glob, no change needed)
