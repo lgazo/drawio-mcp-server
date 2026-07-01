@@ -1,8 +1,8 @@
-import { existsSync } from "node:fs";
-import { open } from "node:fs/promises";
+import { createReadStream, existsSync } from "node:fs";
 import { join } from "node:path";
 
-const HEAD_BYTES = 200_000;
+const CHUNK_BYTES = 1024 * 1024;
+const OVERLAP_BYTES = 64;
 const VERSION_RE = /EditorUi\.VERSION\s*=\s*"(\d+\.\d+\.\d+)"/;
 
 export async function readCachedDrawioVersion(
@@ -10,14 +10,33 @@ export async function readCachedDrawioVersion(
 ): Promise<string | null> {
   const path = join(assetRoot, "js", "app.min.js");
   if (!existsSync(path)) return null;
-  const handle = await open(path, "r");
-  try {
-    const buf = Buffer.alloc(HEAD_BYTES);
-    const { bytesRead } = await handle.read(buf, 0, HEAD_BYTES, 0);
-    const text = buf.subarray(0, bytesRead).toString("utf8");
-    const match = VERSION_RE.exec(text);
-    return match?.[1] ?? null;
-  } finally {
-    await handle.close();
-  }
+
+  return new Promise((resolve, reject) => {
+    const stream = createReadStream(path, { highWaterMark: CHUNK_BYTES });
+    let tail = "";
+    let resolved = false;
+    const finish = (value: string | null) => {
+      if (resolved) return;
+      resolved = true;
+      stream.destroy();
+      resolve(value);
+    };
+    stream.on("data", (chunk) => {
+      const text =
+        tail +
+        (typeof chunk === "string" ? chunk : chunk.toString("utf8"));
+      const match = VERSION_RE.exec(text);
+      if (match) {
+        finish(match[1] ?? null);
+        return;
+      }
+      tail = text.slice(-OVERLAP_BYTES);
+    });
+    stream.on("end", () => finish(null));
+    stream.on("error", (err) => {
+      if (resolved) return;
+      resolved = true;
+      reject(err);
+    });
+  });
 }
