@@ -29,7 +29,7 @@ export function import_mermaid(
     } catch (err) {
       resolve({
         success: false,
-        message: `parseMermaidDiagram threw: ${err instanceof Error ? err.message : String(err)}`,
+        message: `Mermaid API threw: ${err instanceof Error ? err.message : String(err)}`,
       });
     }
   });

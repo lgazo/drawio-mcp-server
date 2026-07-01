@@ -61,6 +61,8 @@ describe("import_mermaid v30", () => {
         _source: string,
         _config: unknown,
         success: (xml: string) => void,
+        _onError: (err: any) => void,
+        _onError2: (err: any) => void,
       ) => {
         success("<mxGraphModel><root/></mxGraphModel>");
       },
@@ -71,7 +73,7 @@ describe("import_mermaid v30", () => {
       mode: "native",
       insert_mode: "add",
     })) as any;
-    expect(parseMermaidDiagram).toHaveBeenCalled();
+    expect(parseMermaidDiagram).toHaveBeenCalledWith(FLOWCHART, undefined, expect.any(Function), expect.any(Function), expect.any(Function));
     expect(result.mode).toBe("native");
   });
 });
