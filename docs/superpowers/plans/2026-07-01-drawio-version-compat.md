@@ -8,6 +8,19 @@
 
 **Tech Stack:** TypeScript, pnpm workspace, esbuild (plugin bundle), Vite/WXT (extension), Jest (server + shared tests), Playwright (real-environment), Biome + Prettier (lint/format).
 
+## Starting-state note
+
+Before Task 1 begins, `packages/drawio-mcp-plugin/src/drawio-tools.ts` carries
+an uncommitted edit: `import_mermaid` was patched to call the v30
+`parseMermaidImage` helper for embed mode. That edit is the trigger for this
+plan and must not be committed on its own; it materializes as
+`packages/drawio-mcp-plugin/src/tools/import-mermaid/v30.ts` in Task 4.
+
+Every commit step in Tasks 1-3 stages only files listed in that task's
+`Files:` block — no wide `git add packages/drawio-mcp-plugin`. The pending
+`drawio-tools.ts` diff must stay unstaged through Tasks 1-3 and gets folded
+into Task 4's refactor commit.
+
 ## Global Constraints
 
 - Server logging discipline (`AGENTS.md`): `console.log`, `console.info`, `console.dir`, `process.stdout.write` are banned in `packages/drawio-mcp-server/src/**` outside the allowlist. Every function that emits a diagnostic MUST receive an `AppLogger`/`Logger` via DI or `Context.log`. Constructing a logger inside a function is forbidden except in entry-point files.
@@ -479,9 +492,13 @@ Expected: no TS errors, `dist/mcp-plugin.js` built.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add packages/drawio-mcp-plugin
+git add packages/drawio-mcp-plugin/package.json \
+        packages/drawio-mcp-plugin/src/drawio-compat/detect.ts \
+        packages/drawio-mcp-plugin/src/drawio-compat/detect.test.ts \
+        pnpm-lock.yaml
 git commit -m "feat(plugin): detect drawio version via EditorUi.VERSION"
 ```
+Verify `git status` still shows `packages/drawio-mcp-plugin/src/drawio-tools.ts` as modified but unstaged.
 
 ---
 
@@ -751,9 +768,13 @@ Expected: no TS errors.
 - [ ] **Step 8: Commit**
 
 ```bash
-git add packages/drawio-mcp-plugin
+git add packages/drawio-mcp-plugin/src/drawio-compat/matrix.ts \
+        packages/drawio-mcp-plugin/src/drawio-compat/matrix.test.ts \
+        packages/drawio-mcp-plugin/src/drawio-compat/dispatch.ts \
+        packages/drawio-mcp-plugin/src/drawio-compat/dispatch.test.ts
 git commit -m "feat(plugin): add version compat matrix + dispatch"
 ```
+Verify `git status` still shows `packages/drawio-mcp-plugin/src/drawio-tools.ts` as modified but unstaged.
 
 ---
 
@@ -1225,11 +1246,14 @@ Expected: PASS all 4 sub-tests.
 - [ ] **Step 13: Commit**
 
 ```bash
-git add packages/drawio-mcp-plugin packages/drawio-mcp-server/build
-git reset packages/drawio-mcp-server/build
+git add packages/drawio-mcp-plugin/src/tools/import-mermaid \
+        packages/drawio-mcp-plugin/src/drawio-compat/matrix.ts \
+        packages/drawio-mcp-plugin/src/drawio-tools.ts \
+        packages/drawio-mcp-plugin/src/tool-registry.ts
+git status  # confirm no build/ or unrelated files staged
 git commit -m "refactor(plugin): split import-mermaid into per-drawio-version impls"
 ```
-(The reset step skips the build/ artefact if the repo does not commit it. Confirm via `git status` before committing.)
+This commit folds in the previously-uncommitted `drawio-tools.ts` fix — the fixed `import_mermaid` body moves into `v30.ts` and is deleted from `drawio-tools.ts`.
 
 ---
 
