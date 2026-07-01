@@ -1,0 +1,28 @@
+{
+  "name": "drawio-mcp-compat",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest",
+    "lint": "biome check src/ && tsc --noEmit"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "catalog:",
+    "@jest/globals": "30.2.0",
+    "@types/jest": "30.0.0",
+    "jest": "30.2.0",
+    "ts-jest": "29.4.9",
+    "typescript": "catalog:"
+  }
+}
