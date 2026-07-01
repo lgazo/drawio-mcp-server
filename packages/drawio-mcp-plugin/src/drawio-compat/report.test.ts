@@ -29,6 +29,24 @@ describe("computeCompatReport", () => {
     expect(r.state).toBe("no-version");
     expect(r.drawioVersion).toBeNull();
   });
+
+  it("reports above-window when detected version exceeds any bounded tool's newest range", () => {
+    const noop = () => Promise.resolve({ success: false, message: "" });
+    const bounded = {
+      supportedFloor: "29.0.0",
+      versionedTools: {
+        "example-tool": [
+          { range: { min: "29.0.0", maxExclusive: "30.0.0" }, impl: noop },
+          { range: { min: "30.0.0", maxExclusive: "31.0.0" }, impl: noop },
+        ],
+      },
+    };
+    (globalThis as any).EditorUi = { VERSION: "31.5.0" };
+    const r = computeCompatReport(bounded);
+    expect(r.state).toBe("above-window");
+    expect(r.drawioVersion).toBe("31.5.0");
+    expect(r.detail).toBe("30.0.0");
+  });
 });
 
 describe("sendCompatReport", () => {
