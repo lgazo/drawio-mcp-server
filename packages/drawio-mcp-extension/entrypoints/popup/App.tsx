@@ -1,11 +1,20 @@
 import { useState, useEffect } from "react";
 import "./App.css";
 import { getWebSocketUrl } from "../../config";
+import { CompatBanner } from "./CompatBanner.js";
 
 type ConnectionState = "connected" | "connecting" | "disconnected";
 
+type CompatState =
+  | { kind: "unknown" }
+  | { kind: "ok"; version: string }
+  | { kind: "below-floor"; version: string; floor: string }
+  | { kind: "above-window"; version: string; lastSupportedMin: string }
+  | { kind: "no-version"; reason: "missing" | "unparseable" };
+
 function App() {
   const [connectionState, setConnectionState] = useState<ConnectionState>("disconnected");
+  const [compatState, setCompatState] = useState<CompatState>({ kind: "unknown" });
   const [featuresExpanded, setFeaturesExpanded] = useState(false);
   const [currentUrl, setCurrentUrl] = useState<string>("");
 
@@ -39,11 +48,25 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    browser.runtime.sendMessage({ type: "GET_COMPAT_STATE" })
+      .then((response) => { if (response?.state) setCompatState(response.state); })
+      .catch((error) => console.error("compat state fetch failed:", error));
+
+    const listener = (message: any) => {
+      if (message.type === "COMPAT_STATE_UPDATE") setCompatState(message.state);
+      return true;
+    };
+    browser.runtime.onMessage.addListener(listener);
+    return () => browser.runtime.onMessage.removeListener(listener);
+  }, []);
+
   // Get the appropriate logo based on connection state
   const logoSrc = `/icon/logo_${connectionState}_128.png`;
 
   return (
     <>
+      <CompatBanner state={compatState} />
       <div>
         <a href="https://github.com/lgazo/drawio-mcp-server" target="_blank">
           <img src={logoSrc} className="logo" alt="Draw.io MCP logo" />
