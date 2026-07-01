@@ -1,5 +1,5 @@
 import { isBelowFloor, parseVersion } from "drawio-mcp-compat";
-import { COMPAT_MATRIX } from "./matrix.js";
+import { COMPAT_MATRIX, type CompatMatrix } from "./matrix.js";
 import { getDetectedDrawioVersion } from "./detect.js";
 
 export type CompatReport = {
@@ -9,12 +9,9 @@ export type CompatReport = {
   readonly detail?: string;
 };
 
-export interface CompatMatrix {
-  readonly supportedFloor: string;
-  readonly versionedTools: Record<string, Array<{ readonly range: { readonly min: string; readonly maxExclusive: string | null }; readonly impl: () => Promise<unknown> }>>;
-}
-
-export function computeCompatReport(matrix: typeof COMPAT_MATRIX = COMPAT_MATRIX): CompatReport {
+export function computeCompatReport(
+  matrix: CompatMatrix = COMPAT_MATRIX,
+): CompatReport {
   const detected = getDetectedDrawioVersion();
   if (!detected.ok) {
     return {
