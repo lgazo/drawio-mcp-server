@@ -60,6 +60,7 @@ import { registerTools } from "./tools/index.js";
 import { createServerWithSchemaStripping } from "./register-tool.js";
 import { target_document_field } from "./tools/shared.js";
 import { resolveTlsMaterial, type ResolvedTlsMaterial } from "./tls/index.js";
+import { handleCompatReport } from "./drawio-compat/log-report.js";
 
 const fatalLog = create_console_logger();
 
@@ -891,6 +892,11 @@ export function createDrawioMcpApp(options?: {
             entry.document = normalizeDocumentState(json.document);
             entry.updated_at = Date.now();
             flushSyncWaiters(entry);
+            return;
+          }
+
+          if (json?.__control === "compat-report") {
+            handleCompatReport(json, getLog());
             return;
           }
 
