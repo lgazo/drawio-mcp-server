@@ -2,14 +2,6 @@ import { bus_reply_stream, bus_request_stream } from "@/types";
 
 const CONTENT_PORT_NAME = "drawio-mcp-frame";
 
-// Send message to WebSocket via background
-function sendToWebSocket(data: any) {
-  browser.runtime.sendMessage({
-    type: "SEND_WS_MESSAGE",
-    data: data,
-  });
-}
-
 // Content script is now registered dynamically via background.ts
 // The matches are configured by users in the options page
 export default defineContentScript({
@@ -26,6 +18,13 @@ export default defineContentScript({
     // background uses to broadcast WS messages to every frame (including
     // iframes) — browser.tabs.sendMessage would only hit the top frame.
     const port = browser.runtime.connect({ name: CONTENT_PORT_NAME });
+
+    // Outbound: use the SAME port so background trivially knows which
+    // frame each payload came from — needed to route inbound tool
+    // requests back to the specific frame whose document.id matches.
+    const sendToWebSocket = (data: any) => {
+      port.postMessage({ type: "SEND_WS_MESSAGE", data });
+    };
 
     // Firefox content scripts run in an Xray-wrapped view of the page's window.
     // Objects passed across that boundary in CustomEvent.detail must be cloned

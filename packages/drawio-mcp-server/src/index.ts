@@ -21,7 +21,7 @@ import {
 import { AddressInfo } from "node:net";
 
 import { WebSocket, WebSocketServer } from "ws";
-const VERSION = process.env.npm_package_version ?? "2.1.1";
+const VERSION = process.env.npm_package_version ?? "2.2.0";
 import {
   buildConfig,
   defaultConfig,
@@ -408,7 +408,7 @@ export function createDrawioMcpApp(options?: {
   type ConnectionEntry = {
     connection_id: string;
     ws: WebSocket;
-    document: ConnectedDocumentInfo | null;
+    documents: Map<string, ConnectedDocumentInfo>;
     updated_at: number;
     sync_waiters: Set<() => void>;
   };
@@ -500,19 +500,13 @@ export function createDrawioMcpApp(options?: {
   }
 
   function listKnownDocuments(): ConnectedDocumentInfo[] {
-    return [...conns.values()]
-      .map((entry) => entry.document)
-      .filter(
-        (document): document is ConnectedDocumentInfo => document !== null,
-      );
+    return [...conns.values()].flatMap((entry) => [...entry.documents.values()]);
   }
 
   function findConnectionByDocumentId(
     documentId: string,
   ): ConnectionEntry | undefined {
-    return [...conns.values()].find(
-      (entry) => entry.document?.id === documentId,
-    );
+    return [...conns.values()].find((entry) => entry.documents.has(documentId));
   }
 
   function flushSyncWaiters(entry: ConnectionEntry) {
@@ -599,14 +593,15 @@ export function createDrawioMcpApp(options?: {
           entry = findConnectionByDocumentId(documentId);
         }
 
-        if (!entry || !entry.document) {
+        const document = entry?.documents.get(documentId);
+        if (!entry || !document) {
           throw new Error(`Document with ID ${documentId} was not found`);
         }
 
         return {
           connection_id: entry.connection_id,
           target_document: { id: documentId },
-          document: entry.document,
+          document,
         };
       }
 
@@ -870,7 +865,7 @@ export function createDrawioMcpApp(options?: {
       const entry: ConnectionEntry = {
         connection_id,
         ws,
-        document: null,
+        documents: new Map(),
         updated_at: Date.now(),
         sync_waiters: new Set(),
       };
@@ -889,9 +884,21 @@ export function createDrawioMcpApp(options?: {
           getLog().debug(`[ws] received from Extension`, json);
 
           if (json?.__control === "document-state") {
-            entry.document = normalizeDocumentState(json.document);
+            const document = normalizeDocumentState(json.document);
+            if (document) {
+              entry.documents.set(document.id, document);
+            }
             entry.updated_at = Date.now();
             flushSyncWaiters(entry);
+            return;
+          }
+
+          if (json?.__control === "document-removed") {
+            const removedId = normalizeOptionalString(json.document_id);
+            if (removedId) {
+              entry.documents.delete(removedId);
+              entry.updated_at = Date.now();
+            }
             return;
           }
 

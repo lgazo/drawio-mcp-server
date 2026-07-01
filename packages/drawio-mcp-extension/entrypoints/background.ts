@@ -25,8 +25,46 @@ export default defineBackground(() => {
   // Track current compat state
   let currentCompatState: CompatState = { kind: "unknown" };
 
+  type ContentPort = ReturnType<typeof browser.runtime.connect>;
+
   // Ports opened by content scripts. One per frame (top frame + any iframes).
-  const contentPorts = new Set<ReturnType<typeof browser.runtime.connect>>();
+  const contentPorts = new Set<ContentPort>();
+
+  // Every drawio document.id observed on a port's outbound `document-state`
+  // is remembered here so inbound tool calls with `target_document.id` can be
+  // routed to exactly the port whose plugin owns the document. Without this,
+  // background would broadcast every tool call to every drawio tab and the
+  // tabs whose id doesn't match would throw "no longer active" errors.
+  const portToDocuments = new Map<ContentPort, Set<string>>();
+  const documentToPort = new Map<string, ContentPort>();
+
+  function forgetPortDocuments(port: ContentPort) {
+    const owned = portToDocuments.get(port);
+    if (!owned) return [] as string[];
+    portToDocuments.delete(port);
+    const removed: string[] = [];
+    for (const documentId of owned) {
+      if (documentToPort.get(documentId) === port) {
+        documentToPort.delete(documentId);
+        removed.push(documentId);
+      }
+    }
+    return removed;
+  }
+
+  function rememberDocumentForPort(port: ContentPort, documentId: string) {
+    const previousPort = documentToPort.get(documentId);
+    if (previousPort && previousPort !== port) {
+      portToDocuments.get(previousPort)?.delete(documentId);
+    }
+    documentToPort.set(documentId, port);
+    let owned = portToDocuments.get(port);
+    if (!owned) {
+      owned = new Set();
+      portToDocuments.set(port, owned);
+    }
+    owned.add(documentId);
+  }
 
   browser.runtime.onConnect.addListener((port) => {
     if (port.name !== CONTENT_PORT_NAME) return;
@@ -45,8 +83,24 @@ export default defineBackground(() => {
     } catch (err) {
       console.debug("[background] initial WS_STATUS post failed", err);
     }
+    port.onMessage.addListener((message: any) => {
+      if (message?.type === "SEND_WS_MESSAGE") {
+        handleContentSend(port, message.data);
+      }
+    });
     port.onDisconnect.addListener(() => {
       contentPorts.delete(port);
+      const removed = forgetPortDocuments(port);
+      for (const documentId of removed) {
+        if (socket?.readyState === WebSocket.OPEN) {
+          socket.send(
+            JSON.stringify({
+              __control: "document-removed",
+              document_id: documentId,
+            }),
+          );
+        }
+      }
       console.debug(
         `[background] content port disconnected (total=${contentPorts.size})`,
       );
@@ -117,11 +171,7 @@ export default defineBackground(() => {
       socket.addEventListener("message", (event) => {
         console.debug("[background] Message from server:", event.data);
         const json = JSON.parse(event.data);
-        // Forward messages to all content scripts
-        broadcastToContentScripts({
-          type: "WS_MESSAGE",
-          data: json,
-        });
+        dispatchServerMessage(json);
       });
 
       socket.addEventListener("close", (event) => {
@@ -173,52 +223,95 @@ export default defineBackground(() => {
       } catch (err) {
         console.debug("[background] dropping dead port", err);
         contentPorts.delete(port);
+        forgetPortDocuments(port);
       }
     }
   }
 
-  // Handle messages from content scripts and popup
-  browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    // Handle messages from content scripts
-    if (
-      message.type === "SEND_WS_MESSAGE" &&
-      socket?.readyState === WebSocket.OPEN
-    ) {
-      const ser = JSON.stringify(message.data);
-      console.debug(`[background] received from content`, {
-        received: message.data,
-        sending: ser,
-      });
-      // Intercept compat-report control message and derive CompatState
-      if (message.data?.__control === "compat-report") {
-        const { drawioVersion, state: reportState, floor, detail } = message.data;
-        switch (reportState) {
-          case "ok":
-            updateCompatState({ kind: "ok", version: drawioVersion });
-            break;
-          case "below-floor":
-            updateCompatState({ kind: "below-floor", version: drawioVersion, floor });
-            break;
-          case "above-window":
-            updateCompatState({
-              kind: "above-window",
-              version: drawioVersion,
-              lastSupportedMin: detail ?? "",
-            });
-            break;
-          case "no-version":
-            updateCompatState({
-              kind: "no-version",
-              reason: detail === "unparseable" ? "unparseable" : "missing",
-            });
-            break;
-          default:
-            console.debug("[background] compat-report: unknown state", reportState);
-        }
-      }
-      socket.send(ser);
+  function postToPort(port: ContentPort, message: any) {
+    try {
+      port.postMessage(message);
+    } catch (err) {
+      console.debug("[background] dropping dead port", err);
+      contentPorts.delete(port);
+      forgetPortDocuments(port);
     }
+  }
 
+  // Dispatch a WS_MESSAGE from the server to content scripts. Tool calls
+  // carry `target_document.id`; route them to the single port whose plugin
+  // owns that document, so other tabs' plugins never see the request and
+  // can't race to reply first. Control messages (no target_document) still
+  // broadcast — every frame needs to see e.g. sync-document-state.
+  function dispatchServerMessage(payload: any) {
+    const targetDocumentId =
+      typeof payload?.target_document?.id === "string"
+        ? payload.target_document.id
+        : null;
+    if (targetDocumentId) {
+      const port = documentToPort.get(targetDocumentId);
+      if (port) {
+        console.debug(
+          `[background] routing to port for document ${targetDocumentId}`,
+        );
+        postToPort(port, { type: "WS_MESSAGE", data: payload });
+        return;
+      }
+      console.debug(
+        `[background] no port owns document ${targetDocumentId}; falling back to broadcast`,
+      );
+    }
+    broadcastToContentScripts({ type: "WS_MESSAGE", data: payload });
+  }
+
+  // Outbound plugin → server. Called from a specific port's onMessage,
+  // so we know which frame the payload came from and can associate any
+  // reported document.id with that port.
+  function handleContentSend(port: ContentPort, data: any) {
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+    if (data?.__control === "document-state") {
+      const documentId =
+        typeof data?.document?.id === "string" ? data.document.id : null;
+      if (documentId) {
+        rememberDocumentForPort(port, documentId);
+      }
+    }
+    if (data?.__control === "compat-report") {
+      const { drawioVersion, state: reportState, floor, detail } = data;
+      switch (reportState) {
+        case "ok":
+          updateCompatState({ kind: "ok", version: drawioVersion });
+          break;
+        case "below-floor":
+          updateCompatState({ kind: "below-floor", version: drawioVersion, floor });
+          break;
+        case "above-window":
+          updateCompatState({
+            kind: "above-window",
+            version: drawioVersion,
+            lastSupportedMin: detail ?? "",
+          });
+          break;
+        case "no-version":
+          updateCompatState({
+            kind: "no-version",
+            reason: detail === "unparseable" ? "unparseable" : "missing",
+          });
+          break;
+        default:
+          console.debug("[background] compat-report: unknown state", reportState);
+      }
+    }
+    const ser = JSON.stringify(data);
+    console.debug(`[background] received from content`, { received: data, sending: ser });
+    socket.send(ser);
+  }
+
+  // Handle messages from popup. Content scripts now send via their long-lived
+  // port so background can identify the sender frame for document routing.
+  browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     // Handle connection state request from popup
     if (message.type === "GET_CONNECTION_STATE") {
       console.debug("[background] Connection state requested by popup");
