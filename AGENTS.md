@@ -36,6 +36,14 @@ Additional: `roam health` (0-100 score), `roam impact <name>` (what breaks),
 
 Run `roam --help` for all commands. Use `roam --json <cmd>` for structured output.
 
+## drawio version compatibility
+
+Plugin-side runtime version detection + per-tool dispatch lives in
+`packages/drawio-mcp-plugin/src/drawio-compat/`. Add per-version tool impls
+under `packages/drawio-mcp-plugin/src/tools/<tool>/{v29,v30,...}.ts` and
+register them in `drawio-compat/matrix.ts`. See
+`packages/drawio-mcp-plugin/src/drawio-compat/README.md`.
+
 <!-- rtk-instructions v2 -->
 # RTK (Rust Token Killer) - Token-Optimized Commands
 
