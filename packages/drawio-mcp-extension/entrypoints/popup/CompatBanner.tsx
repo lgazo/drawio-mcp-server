@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+
 type CompatState =
   | { kind: "unknown" }
   | { kind: "ok"; version: string }
@@ -5,7 +7,7 @@ type CompatState =
   | { kind: "above-window"; version: string; lastSupportedMin: string }
   | { kind: "no-version"; reason: "missing" | "unparseable" };
 
-const BASE_STYLE: React.CSSProperties = {
+const BASE_STYLE: CSSProperties = {
   padding: "8px 12px",
   borderRadius: 4,
   marginBottom: 12,
@@ -24,7 +26,11 @@ export function CompatBanner({ state }: { state: CompatState }) {
 
   if (state.kind === "below-floor") {
     return (
-      <div style={{ ...BASE_STYLE, ...VARIANTS.error }} data-variant="error">
+      <div
+        role="alert"
+        style={{ ...BASE_STYLE, ...VARIANTS.error }}
+        data-variant="error"
+      >
         <strong>drawio v{state.version}</strong> predates the supported floor
         v{state.floor}. MCP tools that need v{state.floor}+ will return errors.
         Reload drawio with cache cleared, or upgrade your self-hosted drawio.
@@ -34,7 +40,11 @@ export function CompatBanner({ state }: { state: CompatState }) {
 
   if (state.kind === "above-window") {
     return (
-      <div style={{ ...BASE_STYLE, ...VARIANTS.warning }} data-variant="warning">
+      <div
+        role="alert"
+        style={{ ...BASE_STYLE, ...VARIANTS.warning }}
+        data-variant="warning"
+      >
         <strong>drawio v{state.version}</strong> is newer than the tested window
         (last tested min: v{state.lastSupportedMin}). Tools run on the closest
         impl; please report issues.
@@ -43,7 +53,11 @@ export function CompatBanner({ state }: { state: CompatState }) {
   }
 
   return (
-    <div style={{ ...BASE_STYLE, ...VARIANTS.info }} data-variant="info">
+    <div
+      role="status"
+      style={{ ...BASE_STYLE, ...VARIANTS.info }}
+      data-variant="info"
+    >
       Cannot detect drawio version (<code>{state.reason}</code>).
     </div>
   );
