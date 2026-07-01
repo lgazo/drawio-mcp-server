@@ -136,6 +136,9 @@ export async function ensureAssets(
 ): Promise<{ readonly assetRoot: string; readonly isLocal: boolean }> {
   const { getCacheDir, getAssetRoot, assetsExist } =
     await import("./manager.js");
+  const { ensureSupportedAssets, SERVER_COMPAT_MATRIX } = await import(
+    "./auto-refresh.js"
+  );
 
   const cacheDir = getCacheDir(config.assetPath);
   const assetRoot = getAssetRoot(config);
@@ -144,6 +147,11 @@ export async function ensureAssets(
     log.log("info", `Assets not found in ${assetRoot}. Downloading...`);
     await downloadAndExtractAssets(cacheDir, log);
   }
+
+  await ensureSupportedAssets(config, SERVER_COMPAT_MATRIX, log, {
+    downloadAndExtract: (targetDir) =>
+      downloadAndExtractAssets(targetDir, log),
+  });
 
   return { assetRoot, isLocal: true };
 }

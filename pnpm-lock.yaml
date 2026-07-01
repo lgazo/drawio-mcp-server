@@ -122,6 +122,9 @@ importers:
       cachedir:
         specifier: 2.4.0
         version: 2.4.0
+      drawio-mcp-compat:
+        specifier: workspace:*
+        version: link:../drawio-mcp-compat
       hono:
         specifier: 4.12.25
         version: 4.12.25
