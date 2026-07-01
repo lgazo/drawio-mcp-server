@@ -16,6 +16,7 @@ import { reply_name } from "./events";
 import { setRuntimeCatalog } from "./shape-library";
 import { extractShapesFromSidebar } from "./shape-extractor";
 import { toolDefinitions } from "./tool-registry";
+import { sendCompatReport } from "./drawio-compat/report.js";
 import type {
   DrawIOFunction,
   DrawioEventListener,
@@ -279,6 +280,8 @@ export function bootstrapPlugin(opts: BootstrapOptions): BootstrapHandle {
       cleanups.push(() => clearInterval(intervalId));
     }
   }
+
+  sendCompatReport(transport.send.bind(transport));
 
   return {
     syncDocumentState,
