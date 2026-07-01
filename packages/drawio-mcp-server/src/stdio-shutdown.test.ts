@@ -3,6 +3,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createServer } from "node:net";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import WebSocket from "ws";
 
 async function getFreePort(): Promise<number> {
   return new Promise((resolve, reject) => {
@@ -142,6 +143,34 @@ describe("graceful shutdown releases WebSocket port", () => {
 
     expect(await isPortFree(extensionPort, HOST)).toBe(true);
     expect(await isPortFree(httpPort, HOST)).toBe(true);
+  }, 20000);
+
+  it("releases extension port after SIGINT with a live WebSocket client", async () => {
+    const extensionPort = await getFreePort();
+    const httpPort = await getFreePort();
+
+    proc = spawnServer(extensionPort, httpPort);
+    const portTaken = await waitForPortHeld(extensionPort, HOST, 5000);
+    expect(portTaken).toBe(true);
+
+    const ws = new WebSocket(`ws://${HOST}:${extensionPort}`);
+    await new Promise<void>((resolve, reject) => {
+      ws.once("open", () => resolve());
+      ws.once("error", reject);
+    });
+
+    proc.kill("SIGINT");
+    const exitCode = await waitForExit(proc, 5000);
+    expect(exitCode).not.toBeNull();
+
+    try {
+      ws.terminate();
+    } catch {
+      // ignore
+    }
+
+    const free = await isPortFree(extensionPort, HOST);
+    expect(free).toBe(true);
   }, 20000);
 
   it("releases extension port when stdio host closes stdin pipe", async () => {

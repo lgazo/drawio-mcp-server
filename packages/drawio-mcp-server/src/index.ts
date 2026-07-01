@@ -954,23 +954,48 @@ export function createDrawioMcpApp(options?: {
   }
 
   async function close() {
+    getLog().debug(`[close] begin`);
     emitter.off(bus_request_stream, bus_to_ws_forwarder_listener);
+    // ws.close() is graceful and waits for the peer close frame; a dead or
+    // slow peer keeps the underlying TCP socket alive, which in turn keeps
+    // the ws server's internal http.Server from firing its close callback.
+    // terminate() destroys the socket immediately.
     for (const entry of [...conns.values()]) {
       try {
         flushSyncWaiters(entry);
-        entry.ws.close();
+        entry.ws.terminate();
       } catch {
         // ignore
       }
     }
     conns.clear();
+    getLog().debug(`[close] tracked ws clients terminated`);
 
     for (const s of mcpServers) {
       await s.close();
     }
     mcpServers.clear();
+    getLog().debug(`[close] mcp servers closed`);
 
     if (wsServer) {
+      // Also terminate any straggler clients that connected but never
+      // completed our handshake (not in `conns`).
+      for (const client of wsServer.clients) {
+        try {
+          client.terminate();
+        } catch {
+          // ignore
+        }
+      }
+      // For port-created WebSocketServer, `_server` is the underlying
+      // http.Server; force-close any lingering TCP connections so its
+      // close() callback fires promptly.
+      const internal = (
+        wsServer as unknown as {
+          _server?: { closeAllConnections?: () => void };
+        }
+      )._server;
+      internal?.closeAllConnections?.();
       await new Promise<void>((resolve, reject) => {
         wsServer?.close((error) => {
           if (error) {
@@ -981,6 +1006,7 @@ export function createDrawioMcpApp(options?: {
         });
       });
       wsServer = undefined;
+      getLog().debug(`[close] wsServer closed`);
     }
 
     if (wssHttpsServer) {
@@ -991,9 +1017,16 @@ export function createDrawioMcpApp(options?: {
       // WebSocket upgrade) so the server closes immediately.
       hs.closeAllConnections?.();
       await new Promise<void>((resolve) => hs.close(() => resolve()));
+      getLog().debug(`[close] wssHttpsServer closed`);
     }
 
     if (httpServer) {
+      // Node http.Server.close() waits for keep-alive TCP sockets to drain;
+      // MCP HTTP clients keep them open. Force them shut like wssHttpsServer.
+      const hs = httpServer as unknown as {
+        closeAllConnections?: () => void;
+      };
+      hs.closeAllConnections?.();
       await new Promise<void>((resolve, reject) => {
         httpServer?.close((error?: Error) => {
           if (error) {
@@ -1004,7 +1037,9 @@ export function createDrawioMcpApp(options?: {
         });
       });
       httpServer = undefined;
+      getLog().debug(`[close] httpServer closed`);
     }
+    getLog().debug(`[close] done`);
   }
 
   return {
