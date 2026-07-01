@@ -3,6 +3,13 @@ import { getWebSocketUrl, CONFIG_STORAGE_KEY, type ExtensionConfig } from '../co
 
 const CONTENT_PORT_NAME = "drawio-mcp-frame";
 
+type CompatState =
+  | { kind: "unknown" }
+  | { kind: "ok"; version: string }
+  | { kind: "below-floor"; version: string; floor: string }
+  | { kind: "above-window"; version: string; lastSupportedMin: string }
+  | { kind: "no-version"; reason: "missing" | "unparseable" };
+
 export default defineBackground(() => {
   console.log("Hello background!", { id: browser.runtime.id });
 
@@ -14,6 +21,9 @@ export default defineBackground(() => {
   // Track current connection state
   let currentConnectionState: "connected" | "connecting" | "disconnected" =
     "disconnected";
+
+  // Track current compat state
+  let currentCompatState: CompatState = { kind: "unknown" };
 
   // Ports opened by content scripts. One per frame (top frame + any iframes).
   const contentPorts = new Set<ReturnType<typeof browser.runtime.connect>>();
@@ -73,6 +83,16 @@ export default defineBackground(() => {
         type: "CONNECTION_STATE_UPDATE",
         state: currentConnectionState,
       })
+      .catch(() => {
+        // Ignore errors (no popup listening)
+      });
+  }
+
+  // Derive and broadcast compat state
+  function updateCompatState(next: CompatState) {
+    currentCompatState = next;
+    browser.runtime
+      .sendMessage({ type: "COMPAT_STATE_UPDATE", state: next })
       .catch(() => {
         // Ignore errors (no popup listening)
       });
@@ -169,6 +189,33 @@ export default defineBackground(() => {
         received: message.data,
         sending: ser,
       });
+      // Intercept compat-report control message and derive CompatState
+      if (message.data?.__control === "compat-report") {
+        const { drawioVersion, state: reportState, floor, detail } = message.data;
+        switch (reportState) {
+          case "ok":
+            updateCompatState({ kind: "ok", version: drawioVersion });
+            break;
+          case "below-floor":
+            updateCompatState({ kind: "below-floor", version: drawioVersion, floor });
+            break;
+          case "above-window":
+            updateCompatState({
+              kind: "above-window",
+              version: drawioVersion,
+              lastSupportedMin: detail ?? "",
+            });
+            break;
+          case "no-version":
+            updateCompatState({
+              kind: "no-version",
+              reason: detail === "unparseable" ? "unparseable" : "missing",
+            });
+            break;
+          default:
+            console.debug("[background] compat-report: unknown state", reportState);
+        }
+      }
       socket.send(ser);
     }
 
@@ -176,6 +223,11 @@ export default defineBackground(() => {
     if (message.type === "GET_CONNECTION_STATE") {
       console.debug("[background] Connection state requested by popup");
       sendResponse({ state: currentConnectionState });
+    }
+
+    // Handle compat state request from popup
+    if (message.type === "GET_COMPAT_STATE") {
+      sendResponse({ state: currentCompatState });
     }
 
     // Handle ping request from popup
