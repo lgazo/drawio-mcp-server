@@ -1,4 +1,6 @@
 import type { VersionRange } from "drawio-mcp-compat";
+import { import_mermaid as importMermaidV29 } from "../tools/import-mermaid/v29.js";
+import { import_mermaid as importMermaidV30 } from "../tools/import-mermaid/v30.js";
 
 export type ToolImpl = (
   ui: any,
@@ -20,6 +22,15 @@ export type CompatMatrix = {
 export const COMPAT_MATRIX: CompatMatrix = {
   supportedFloor: "29.0.0",
   versionedTools: {
-    // populated by Task 4 (import-mermaid)
+    "import-mermaid": [
+      {
+        range: { min: "29.0.0", maxExclusive: "30.0.0" },
+        impl: importMermaidV29,
+      },
+      {
+        range: { min: "30.0.0", maxExclusive: null },
+        impl: importMermaidV30,
+      },
+    ],
   },
 };

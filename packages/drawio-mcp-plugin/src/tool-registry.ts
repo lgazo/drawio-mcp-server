@@ -18,7 +18,6 @@ import {
   get_shape_categories,
   get_shapes_in_category,
   import_diagram,
-  import_mermaid,
   list_layers,
   list_pages,
   list_paged_model,
@@ -33,6 +32,7 @@ import {
   set_cell_shape,
   type DrawioCellOptions,
 } from "./drawio-tools.js";
+import { import_mermaid } from "./tools/import-mermaid/index.js";
 
 export type ToolDefinition = {
   name: string;
