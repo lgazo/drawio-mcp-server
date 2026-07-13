@@ -1,0 +1,14 @@
+{
+  "beacon_manifest": "0.1",
+  "id": "lgazo/drawio-mcp-server",
+  "name": "Draw.io MCP Server",
+  "description": "MCP server for creating and editing draw.io diagrams from AI assistants.",
+  "capabilities": ["mcp-server", "diagrams", "drawio", "visualization", "documentation"],
+  "interfaces": [
+    { "type": "npx", "endpoint": "npx -y drawio-mcp" },
+    { "type": "mcp", "endpoint": "https://github.com/lgazo/drawio-mcp-server" }
+  ],
+  "source": "https://github.com/lgazo/drawio-mcp-server",
+  "homepage": "https://github.com/lgazo/drawio-mcp-server",
+  "license": "MIT"
+}

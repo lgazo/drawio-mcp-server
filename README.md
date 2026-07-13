@@ -1,5 +1,7 @@
 # Draw.io MCP server
 
+[![Beacon Verified](https://registry-ruby.vercel.app/api/v1/agents/lgazo%2Fdrawio-mcp-server/badge.svg)](https://portal-five-phi-54.vercel.app/?q=drawio+mcp)
+
 Let's do some Vibe Diagramming with the most wide-spread diagramming tool called Draw.io (Diagrams.net).
 
 [![Discord channel](https://shields.io/static/v1?logo=discord&message=draw.io%20mcp&label=chat&color=5865F2&logoColor=white)](https://discord.gg/dM4PWdf42q)
