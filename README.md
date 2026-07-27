@@ -1,5 +1,7 @@
 # Draw.io MCP server
 
+[![MCP Toplist](https://mcptoplist.com/badge/glama%2Flgazo%2Fdrawio-mcp-server.svg)](https://mcptoplist.com/server/glama%2Flgazo%2Fdrawio-mcp-server)
+
 Let's do some Vibe Diagramming with the most wide-spread diagramming tool called Draw.io (Diagrams.net).
 
 [![Discord channel](https://shields.io/static/v1?logo=discord&message=draw.io%20mcp&label=chat&color=5865F2&logoColor=white)](https://discord.gg/dM4PWdf42q)
