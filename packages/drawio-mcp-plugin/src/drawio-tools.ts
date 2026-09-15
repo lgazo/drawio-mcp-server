@@ -2657,8 +2657,9 @@ export function import_diagram(
               // Copy attributes: value comes from the wrapper's label when
               // wrapped, otherwise from the cell's own value attribute.
               const wrapperLabel = wrapper?.getAttribute("label");
-              if (cell.hasAttribute("value")) {
-                newCell.setValue(cell.getAttribute("value"));
+              const cellValue = cell.getAttribute("value");
+              if (cell.hasAttribute("value") && cellValue !== "") {
+                newCell.setValue(cellValue);
               } else if (wrapperLabel != null && wrapperLabel !== "") {
                 newCell.setValue(wrapperLabel);
               } else if (wrapper?.hasAttribute("value")) {
@@ -2700,9 +2701,10 @@ export function import_diagram(
               if (oldId != null) {
                 idMapping[oldId] = newCell.getId();
                 // Edges may reference either the wrapper id or the inner
-                // cell id; map both when they differ.
+                // cell id; map both when they differ and the inner id is
+                // not already claimed by another cell.
                 const ownId = cell.getAttribute("id");
-                if (ownId != null && ownId !== oldId) {
+                if (ownId != null && ownId !== oldId && idMapping[ownId] == null) {
                   idMapping[ownId] = newCell.getId();
                 }
               }
