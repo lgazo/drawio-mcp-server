@@ -2625,8 +2625,25 @@ export function import_diagram(
             const importedCells = importedRootCell.querySelectorAll("mxCell");
             const idMapping: Record<string, string> = {};
 
+            // draw.io pipelines (Mermaid included) emit UserObject cells as
+            // <object label="..." id="..."> wrappers: the label and the id
+            // other cells reference live on the wrapper, while style, vertex/
+            // edge flags and geometry stay on the inner <mxCell>. Iterate the
+            // inner mxCells but resolve id/label through the wrapper when one
+            // encloses the cell (github.com/lgazo/drawio-mcp-server/issues/69).
+            const resolveWrapper = (cell: any) => {
+              const parentNode = cell.parentNode;
+              return parentNode &&
+                (parentNode.nodeName === "object" ||
+                  parentNode.nodeName === "UserObject")
+                ? parentNode
+                : null;
+            };
+
             importedCells.forEach((cell: any) => {
-              const oldId = cell.getAttribute("id");
+              const wrapper = resolveWrapper(cell);
+              const idElement = wrapper ?? cell;
+              const oldId = idElement.getAttribute("id");
 
               // Skip root cells
               if (oldId === "0" || oldId === "1") {
@@ -2637,18 +2654,30 @@ export function import_diagram(
               const newCell = new (window as any).mxCell();
               newCell.setId(null); // Generate new ID
 
-              // Copy attributes
+              // Copy attributes: value comes from the wrapper's label when
+              // wrapped, otherwise from the cell's own value attribute.
+              const wrapperLabel = wrapper?.getAttribute("label");
               if (cell.hasAttribute("value")) {
                 newCell.setValue(cell.getAttribute("value"));
+              } else if (wrapperLabel != null && wrapperLabel !== "") {
+                newCell.setValue(wrapperLabel);
+              } else if (wrapper?.hasAttribute("value")) {
+                newCell.setValue(wrapper.getAttribute("value"));
               }
               if (cell.hasAttribute("style")) {
                 newCell.setStyle(cell.getAttribute("style"));
+              } else if (wrapper?.hasAttribute("style")) {
+                newCell.setStyle(wrapper.getAttribute("style"));
               }
               if (cell.hasAttribute("vertex")) {
                 newCell.vertex = cell.getAttribute("vertex") === "1";
+              } else if (wrapper?.hasAttribute("vertex")) {
+                newCell.vertex = wrapper.getAttribute("vertex") === "1";
               }
               if (cell.hasAttribute("edge")) {
                 newCell.edge = cell.getAttribute("edge") === "1";
+              } else if (wrapper?.hasAttribute("edge")) {
+                newCell.edge = wrapper.getAttribute("edge") === "1";
               }
 
               // Copy geometry
@@ -2668,13 +2697,23 @@ export function import_diagram(
 
               // Add to model
               model.add(defaultParent, newCell);
-              idMapping[oldId] = newCell.getId();
+              if (oldId != null) {
+                idMapping[oldId] = newCell.getId();
+                // Edges may reference either the wrapper id or the inner
+                // cell id; map both when they differ.
+                const ownId = cell.getAttribute("id");
+                if (ownId != null && ownId !== oldId) {
+                  idMapping[ownId] = newCell.getId();
+                }
+              }
             });
 
             // Update references (source, target, parent)
             importedCells.forEach((cell: any) => {
-              const oldId = cell.getAttribute("id");
-              const newId = idMapping[oldId];
+              const wrapper = resolveWrapper(cell);
+              const idElement = wrapper ?? cell;
+              const oldId = idElement.getAttribute("id");
+              const newId = oldId != null ? idMapping[oldId] : undefined;
 
               if (!newId) return;
 
@@ -2682,7 +2721,8 @@ export function import_diagram(
               if (!newCell) return;
 
               // Update parent
-              const parentId = cell.getAttribute("parent");
+              const parentId =
+                cell.getAttribute("parent") ?? wrapper?.getAttribute("parent");
               if (parentId && idMapping[parentId]) {
                 const parentCell = model.getCell(idMapping[parentId]);
                 if (parentCell) {
@@ -2692,8 +2732,10 @@ export function import_diagram(
 
               // Update source and target for edges
               if (newCell.edge) {
-                const sourceId = cell.getAttribute("source");
-                const targetId = cell.getAttribute("target");
+                const sourceId =
+                  cell.getAttribute("source") ?? wrapper?.getAttribute("source");
+                const targetId =
+                  cell.getAttribute("target") ?? wrapper?.getAttribute("target");
 
                 if (sourceId && idMapping[sourceId]) {
                   const sourceCell = model.getCell(idMapping[sourceId]);
