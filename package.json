@@ -9,6 +9,8 @@
     "build": "pnpm -r build",
     "dev": "pnpm -r dev",
     "clean": "pnpm -r clean",
+    "translate": "node scripts/translate.mjs",
+    "translate:check": "node scripts/translate.mjs locales --check",
     "test": "pnpm -r test",
     "test:watch": "pnpm -r test:watch",
     "test:coverage": "pnpm -r test:coverage",
