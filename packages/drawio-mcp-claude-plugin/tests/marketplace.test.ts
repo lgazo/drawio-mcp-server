@@ -36,7 +36,11 @@ describe("marketplace manifest", () => {
 			(p: { name: string }) => p.name === "drawio",
 		);
 		expect(plug).toBeTruthy();
-		const abs = join(marketplacePath, "..", "..", plug.source);
+		const sourcePath =
+			typeof plug.source === "string"
+				? plug.source
+				: plug.source?.path ?? plug.source?.source;
+		const abs = join(marketplacePath, "..", "..", sourcePath);
 		expect(existsSync(join(abs, ".claude-plugin", "plugin.json"))).toBe(true);
 	});
 

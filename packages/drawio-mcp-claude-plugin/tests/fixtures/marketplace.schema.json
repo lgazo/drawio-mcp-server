@@ -17,12 +17,35 @@
         "required": ["name", "source", "version"],
         "properties": {
           "name": { "type": "string" },
-          "source": { "type": "string" },
+          "source": {
+            "oneOf": [
+              { "type": "string" },
+              {
+                "type": "object",
+                "required": ["source", "path"],
+                "properties": {
+                  "source": { "enum": ["local"] },
+                  "path": { "type": "string" }
+                },
+                "additionalProperties": false
+              }
+            ]
+          },
           "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
           "description": { "type": "string" },
           "homepage": { "type": "string" },
           "keywords": { "type": "array", "items": { "type": "string" } },
-          "license": { "type": "string" }
+          "license": { "type": "string" },
+          "category": { "type": "string" },
+          "policy": {
+            "type": "object",
+            "required": ["installation", "authentication"],
+            "properties": {
+              "installation": { "type": "string" },
+              "authentication": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
         }
       }
     }
