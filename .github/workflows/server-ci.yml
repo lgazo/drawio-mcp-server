@@ -36,7 +36,11 @@ jobs:
         run: pnpm install
 
       - name: Audit dependencies
+        # Non-blocking: regular CI must not fail on new advisories.
+        # Blocking audits live in the release pipelines and the scheduled
+        # security scan (.github/workflows/security-scan.yml).
         run: pnpm audit --audit-level=moderate
+        continue-on-error: true
 
       - name: Cache Playwright browsers
         uses: actions/cache@v5

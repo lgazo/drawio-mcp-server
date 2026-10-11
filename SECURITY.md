@@ -89,7 +89,7 @@ Some MCP tools read or write files (diagram import/export, PNG export). The serv
 
 - The npm packages and Docker image are published from the GitHub repository. Verify the version against <https://github.com/lgazo/drawio-mcp-server/releases>.
 - The browser extension is distributed via the Chrome Web Store, the Firefox add-on store, and the packaged repo artifacts. Verify the publisher before installing.
-- Dependencies are checked in CI with `pnpm audit`. Automated dependency-update bots are not currently in use; version bumps happen manually as part of maintenance passes.
+- Dependencies are audited on three levels. Regular CI pipelines run `pnpm audit` non-blocking (visible in logs, never fails the build). Release pipelines (server publish, extension publish) block on `pnpm audit`. A scheduled Security Scan workflow (`.github/workflows/security-scan.yml`, weekly) runs a blocking audit, checks that the security overrides in `pnpm-workspace.yaml` are still needed (`scripts/check-audit-overrides.sh`), and attempts an automated fix (`pnpm audit --fix`) that is fully built and tested before a PR is opened. Automated dependency-update bots are not currently in use; version bumps happen manually as part of maintenance passes.
 
 ## Hardening Recommendations
 

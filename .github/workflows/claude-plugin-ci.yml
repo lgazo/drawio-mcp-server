@@ -31,7 +31,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install
       - name: Audit dependencies
+        # Non-blocking: regular CI must not fail on new advisories.
+        # Blocking audits live in the release pipelines and the scheduled
+        # security scan (.github/workflows/security-scan.yml).
         run: pnpm audit --audit-level=moderate
+        continue-on-error: true
       - name: Lint plugin package
         run: pnpm --filter drawio-mcp-claude-plugin lint
       - name: Run plugin tests

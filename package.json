@@ -11,7 +11,8 @@
     "clean": "pnpm -r clean",
     "test": "pnpm -r test",
     "test:watch": "pnpm -r test:watch",
-    "test:coverage": "pnpm -r test:coverage"
+    "test:coverage": "pnpm -r test:coverage",
+    "check-audit-overrides": "./scripts/check-audit-overrides.sh"
   },
   "keywords": [
     "mcp",

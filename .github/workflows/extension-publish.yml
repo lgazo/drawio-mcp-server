@@ -22,6 +22,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Audit dependencies (blocking on release)
+        run: pnpm audit --audit-level=moderate
+
       - name: Build compat
         run: pnpm --filter drawio-mcp-compat run build
 
