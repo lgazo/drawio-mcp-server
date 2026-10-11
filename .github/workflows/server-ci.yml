@@ -6,11 +6,19 @@ on:
     paths:
       - 'packages/drawio-mcp-server/**'
       - '.github/workflows/server-ci.yml'
+      - 'README.md'
+      - 'TOOLS.md'
+      - 'CONFIG.md'
+      - 'TROUBLESHOOTING.md'
   pull_request:
     branches: [main]
     paths:
       - 'packages/drawio-mcp-server/**'
       - '.github/workflows/server-ci.yml'
+      - 'README.md'
+      - 'TOOLS.md'
+      - 'CONFIG.md'
+      - 'TROUBLESHOOTING.md'
   workflow_dispatch:
 
 jobs:
@@ -86,3 +94,8 @@ jobs:
       - name: Run tests
         run: pnpm test
         working-directory: packages/drawio-mcp-server
+
+      - name: Check translations
+        run: |
+          node scripts/translate.mjs locales --check
+          node scripts/translate.mjs docs --check
