@@ -10,6 +10,7 @@
 [![Build project](https://github.com/lgazo/drawio-mcp-server/actions/workflows/server-ci.yml/badge.svg)](https://github.com/lgazo/drawio-mcp-server/actions/workflows/server-ci.yml)
 [![Verified on MseeP](https://mseep.ai/badge.svg)](https://mseep.ai/app/5fc2b7fe-8ceb-4683-97bd-6d31e07b5888)
 [![Version](https://img.shields.io/npm/v/drawio-mcp-server)](https://npmjs.com/package/drawio-mcp-server)
+[![Bundle size](https://img.shields.io/bundlephobia/minzip/drawio-mcp-server)](https://bundlephobia.com/package/drawio-mcp-server)
 
 ## 核心亮点
 
