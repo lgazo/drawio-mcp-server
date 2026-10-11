@@ -11,11 +11,19 @@
 //                                and that each registered doc has its translated
 //                                counterpart with the snapshot banner.
 //
-// Flags: --lang zh-CN (default), --model <id>, --dry-run.
+// Flags: --lang zh-CN (default), --model <id>, --dry-run,
+// --provider anthropic|gemini|openai.
 //
-// Provider: Anthropic Messages API. Translating modes require
-// ANTHROPIC_API_KEY (x-api-key) or ANTHROPIC_AUTH_TOKEN (Bearer), with
-// ANTHROPIC_BASE_URL as an optional gateway override. --check needs no key.
+// Providers (translating modes need one credential; --check needs no key):
+//   anthropic (default)  ANTHROPIC_API_KEY (x-api-key) or
+//                        ANTHROPIC_AUTH_TOKEN (Bearer), optional
+//                        ANTHROPIC_BASE_URL gateway. Default model
+//                        claude-sonnet-5-5.
+//   gemini               GEMINI_API_KEY (Google AI Studio — free tier for
+//                        OSS projects). Default model gemini-2.5-flash.
+//   openai               OpenAI-compatible Chat Completions: OPENAI_API_KEY,
+//                        optional OPENAI_BASE_URL (Groq/Together/vLLM/...).
+//                        Default model gpt-4o-mini (override OPENAI_MODEL).
 // Tool descriptions, MCP error strings, and plugin command prompts are
 // deliberately NOT part of this pipeline (agent-facing, English kept).
 
@@ -51,7 +59,8 @@ function parseArgs(argv) {
     check: false,
     dryRun: false,
     lang: process.env.LOCALE_TARGET || "zh-CN",
-    model: process.env.ANTHROPIC_MODEL || "claude-sonnet-5-5",
+    model: process.env.TRANSLATE_MODEL || null,
+    provider: process.env.TRANSLATE_PROVIDER || null,
     positional: [],
   };
   for (let i = 0; i < argv.length; i++) {
@@ -59,51 +68,141 @@ function parseArgs(argv) {
     else if (argv[i] === "--dry-run") args.dryRun = true;
     else if (argv[i] === "--lang") args.lang = argv[++i];
     else if (argv[i] === "--model") args.model = argv[++i];
+    else if (argv[i] === "--provider") args.provider = argv[++i];
     else args.positional.push(argv[i]);
   }
   return args;
 }
 
-function requireApiKey() {
-  const apiKey = process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN;
-  if (!apiKey) {
-    console.error(
-      "translate: ANTHROPIC_API_KEY (or ANTHROPIC_AUTH_TOKEN) is not set; " +
-        "translating modes need it. --check runs without the key.",
-    );
-    process.exit(1);
-  }
-  return apiKey;
-}
+const PROVIDERS = {
+  anthropic: {
+    defaultModel: "claude-sonnet-5-5",
+    keyMissingMessage:
+      "translate: no provider credential found; set ANTHROPIC_API_KEY " +
+      "(or ANTHROPIC_AUTH_TOKEN), GEMINI_API_KEY, or OPENAI_API_KEY — or pass --provider with the matching key. --check runs without any key.",
+    apiKey() {
+      return process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN;
+    },
+    async translate(model, { system, user }) {
+      const base = process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com";
+      const headers = {
+        "content-type": "application/json",
+        "anthropic-version": "2023-06-01",
+      };
+      if (process.env.ANTHROPIC_AUTH_TOKEN) {
+        headers.authorization = `Bearer ${process.env.ANTHROPIC_AUTH_TOKEN}`;
+      }
+      if (process.env.ANTHROPIC_API_KEY) {
+        headers["x-api-key"] = process.env.ANTHROPIC_API_KEY;
+      }
+      const response = await fetch(`${base}/v1/messages`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          model,
+          max_tokens: 32000,
+          system,
+          messages: [{ role: "user", content: user }],
+        }),
+      });
+      const data = await checkedJson(response, "Anthropic API");
+      const text = (data.content || [])
+        .filter((block) => block.type === "text")
+        .map((block) => block.text)
+        .join("");
+      if (!text) throw new Error("Anthropic API returned no text content");
+      return text;
+    },
+  },
+  gemini: {
+    defaultModel: "gemini-2.5-flash",
+    keyMissingMessage:
+      "translate: GEMINI_API_KEY is not set (Google AI Studio, free tier included). --check runs without any key.",
+    apiKey() {
+      return process.env.GEMINI_API_KEY;
+    },
+    async translate(model, { system, user }) {
+      const base =
+        process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta";
+      const response = await fetch(`${base}/models/${model}:generateContent`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-goog-api-key": process.env.GEMINI_API_KEY,
+        },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: user }] }],
+          systemInstruction: { parts: [{ text: system }] },
+        }),
+      });
+      const data = await checkedJson(response, "Gemini API");
+      const text = (data.candidates?.[0]?.content?.parts || [])
+        .map((part) => part.text || "")
+        .join("");
+      if (!text) throw new Error("Gemini API returned no text content");
+      return text;
+    },
+  },
+  openai: {
+    defaultModel: () => process.env.OPENAI_MODEL || "gpt-4o-mini",
+    keyMissingMessage:
+      "translate: OPENAI_API_KEY is not set (works with any OpenAI-compatible endpoint via OPENAI_BASE_URL, e.g. Groq, Together, vLLM). --check runs without any key.",
+    apiKey() {
+      return process.env.OPENAI_API_KEY;
+    },
+    async translate(model, { system, user }) {
+      const base = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
+      const response = await fetch(`${base}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: system },
+            { role: "user", content: user },
+          ],
+        }),
+      });
+      const data = await checkedJson(response, "OpenAI-compatible API");
+      const text = data.choices?.[0]?.message?.content;
+      if (!text) throw new Error("OpenAI-compatible API returned no text content");
+      return text;
+    },
+  },
+};
 
-async function anthropic(model, body) {
-  const base = process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com";
-  const headers = {
-    "content-type": "application/json",
-    "anthropic-version": "2023-06-01",
-  };
-  if (process.env.ANTHROPIC_AUTH_TOKEN) {
-    headers.authorization = `Bearer ${process.env.ANTHROPIC_AUTH_TOKEN}`;
-  }
-  if (process.env.ANTHROPIC_API_KEY) {
-    headers["x-api-key"] = process.env.ANTHROPIC_API_KEY;
-  }
-  const response = await fetch(`${base}/v1/messages`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ model, max_tokens: 32000, ...body }),
-  });
+async function checkedJson(response, providerLabel) {
   if (!response.ok) {
     const detail = await response.text().catch(() => "");
-    throw new Error(`Anthropic API ${response.status}: ${detail.slice(0, 300)}`);
+    throw new Error(`${providerLabel} ${response.status}: ${detail.slice(0, 300)}`);
   }
-  const data = await response.json();
-  const text = (data.content || [])
-    .filter((block) => block.type === "text")
-    .map((block) => block.text)
-    .join("");
-  if (!text) throw new Error("Anthropic API returned no text content");
-  return text;
+  return response.json();
+}
+
+function resolveTranslator(args) {
+  const name = args.provider || "anthropic";
+  const provider = PROVIDERS[name];
+  if (!provider) {
+    console.error(`translate: unknown provider "${name}" (${Object.keys(PROVIDERS).join(", ")})`);
+    process.exit(2);
+  }
+  if (!provider.apiKey()) {
+    console.error(provider.keyMissingMessage);
+    process.exit(1);
+  }
+  return {
+    translate: (prompt) =>
+      provider.translate(
+        args.model ||
+          (typeof provider.defaultModel === "function"
+            ? provider.defaultModel()
+            : provider.defaultModel),
+        prompt,
+      ),
+  };
 }
 
 async function withRetries(label, attempt) {
@@ -188,7 +287,6 @@ async function runLocales(args) {
     console.log(missingInTarget.join("\n"));
     return;
   }
-  requireApiKey();
 
   const payload = Object.fromEntries(
     missingInTarget.map((key) => [key, source[key].message]),
@@ -201,10 +299,11 @@ async function runLocales(args) {
     "Respond with ONLY a JSON object mapping each key to the translated string (same keys, no commentary, no code fences).",
     `Catalog: ${JSON.stringify(payload)}`,
   ].join("\n");
+  const { translate } = resolveTranslator(args);
   const raw = await withRetries("locales", () =>
-    anthropic(args.model, {
+    translate({
       system: "You are a professional localization engineer. You output exactly one JSON object and nothing else.",
-      messages: [{ role: "user", content: prompt }],
+      user: prompt,
     }),
   );
   const translations = parseJsonObject(raw);
@@ -225,8 +324,58 @@ async function runLocales(args) {
   return;
 }
 
+function docSlug(file) {
+  return file.replace(/\.md$/, "");
+}
+
+function translatedDocPath(file, lang) {
+  return join(ROOT, docSlug(file) + `.${lang}.md`);
+}
+
+/**
+ * Point links between translated docs at their translated counterparts.
+ * `](./TOOLS.md)` -> `](./TOOLS.zh-CN.md)` but only when that translation
+ * exists, and never on the language-switch links inside the translated
+ * README itself. Anchors survive (`./CONFIG.md#tls` -> `./CONFIG.zh-CN.md#tls`).
+ */
+export function crosslinkReferences(content, lang, translatedSlugs, fileName) {
+  const selfSlug = docSlug(fileName);
+  return content.replace(
+    /\]\((\.\/)?([A-Za-z0-9._/-]+\.md)(#[^)\s]*)?\)/g,
+    (match, prefix, target, anchor) => {
+      const slug = docSlug(target);
+      if (
+        translatedSlugs.includes(slug) &&
+        !(selfSlug === "README" && slug === "README")
+      ) {
+        return `](${prefix || "./"}${slug}.${lang}.md${anchor ?? ""})`;
+      }
+      return match;
+    },
+  );
+}
+
+function crosslinkTranslatedDoc(args, file) {
+  const outPath = translatedDocPath(file, args.lang);
+  if (!existsSync(outPath)) {
+    console.error(`translate crosslink: missing translation ${outPath.replace(`${ROOT}/`, "")}`);
+    return false;
+  }
+  const translatedSlugs = SOURCE_DOCS.filter(
+    (candidate) => existsSync(translatedDocPath(candidate, args.lang)),
+  ).map(docSlug);
+  const content = readFileSync(outPath, "utf-8");
+  const linked = crosslinkReferences(content, args.lang, translatedSlugs, file);
+  if (linked !== content) {
+    if (!args.dryRun) writeFileSync(outPath, linked);
+    console.log(`translate crosslink${args.dryRun ? " (dry-run):" : ":"} rewrote links in ${outPath.replace(`${ROOT}/`, "")}`);
+  } else {
+    console.log(`translate crosslink: ${outPath.replace(`${ROOT}/`, "")} already up to date`);
+  }
+  return true;
+}
+
 async function runDocs(args, files) {
-  if (!args.dryRun) requireApiKey();
   let hadFailure = false;
   for (const file of files) {
     const sourcePath = join(ROOT, file);
@@ -251,12 +400,13 @@ async function runDocs(args, files) {
       "",
       source,
     ].join("\n");
+    const { translate } = resolveTranslator(args);
     let translated;
     try {
       translated = await withRetries(file, () =>
-        anthropic(args.model, {
+        translate({
           system: "You are a professional technical documentation translator. You output only the translated Markdown document.",
-          messages: [{ role: "user", content: prompt }],
+          user: prompt,
         }),
       );
     } catch (error) {
@@ -264,7 +414,18 @@ async function runDocs(args, files) {
       hadFailure = true;
       continue;
     }
-    writeFileSync(outPath, `> ${BANNERS[args.lang] ?? BANNERS.default}\n\n${translated.trim()}\n`);
+    const translatedSlugs = SOURCE_DOCS.filter(
+      (candidate) => candidate !== file && existsSync(translatedDocPath(candidate, args.lang)),
+    ).map(docSlug);
+    writeFileSync(
+      outPath,
+      crosslinkReferences(
+        `> ${BANNERS[args.lang] ?? BANNERS.default}\n\n${translated.trim()}\n`,
+        args.lang,
+        [...translatedSlugs, docSlug(file)],
+        file,
+      ),
+    );
     console.log(`translate docs: wrote ${outPath.replace(`${ROOT}/`, "")}`);
   }
   if (hadFailure) process.exit(1);
@@ -335,15 +496,23 @@ if (command === "locales") {
 } else if (command === "docs") {
   const files = rest.length > 0 ? rest : SOURCE_DOCS;
   await runDocs(args, files);
+} else if (command === "crosslink") {
+  const files = rest.length > 0 ? rest : SOURCE_DOCS;
+  let allOk = true;
+  for (const file of files) allOk = crosslinkTranslatedDoc(args, file) && allOk;
+  process.exit(allOk ? 0 : 1);
 } else {
   console.error(
-    "Usage: node scripts/translate.mjs <locales|docs> [--check] [--lang zh-CN] [--model <id>] [--dry-run]",
+    "Usage: node scripts/translate.mjs <locales|docs|crosslink> [--check] [--lang zh-CN] [--model <id>] [--dry-run] [--provider anthropic|gemini|openai]",
   );
   console.error(
-    "  locales: gap-fill packages/drawio-mcp-extension/public/_locales/<lang>/messages.json from en.",
+    "  locales:   gap-fill packages/drawio-mcp-extension/public/_locales/<lang>/messages.json from en.",
   );
   console.error(
-    "  docs:    translate README.md/TOOLS.md/CONFIG.md/TROUBLESHOOTING.md to <name>.<lang>.md.",
+    "  docs:      translate README.md/TOOLS.md/CONFIG.md/TROUBLESHOOTING.md to <name>.<lang>.md.",
+  );
+  console.error(
+    "  crosslink: rewrite links inside existing translations to their translated counterparts.",
   );
   process.exit(2);
 }

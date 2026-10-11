@@ -76,12 +76,20 @@ global `fetch`):
 - `node scripts/translate.mjs locales` — gap-fill
   `public/_locales/zh_CN/messages.json` from `public/_locales/en/messages.json`
   (only missing keys are translated; existing keys untouched).
+- `node scripts/translate.mjs crosslink [files...]` — rewrite links inside
+  existing translations to their translated counterparts
+  (`./TOOLS.md` → `./TOOLS.zh-CN.md`) wherever that translation exists; the
+  README language-switch line is exempt. Also applied automatically at
+  docs-write time.
 - `--check` — CI mode: locales key parity + every registered doc has a
   `.zh-CN.md` with the snapshot banner. Exit 1 on drift. No API key needed.
-- `--model <id>` / `--dry-run` / `--lang zh-CN` flags.
-- Provider: Anthropic Messages API (`ANTHROPIC_API_KEY`), request-per-chunk
+- `--model <id>` / `--dry-run` / `--lang zh-CN` / `--provider` flags.
+- Providers: `anthropic` (default; `ANTHROPIC_API_KEY` / `ANTHROPIC_AUTH_TOKEN`,
+  optional `ANTHROPIC_BASE_URL` gateway), `gemini` (`GEMINI_API_KEY`, Google
+  AI Studio free tier), `openai` (OpenAI-compatible; `OPENAI_API_KEY` +
+  optional `OPENAI_BASE_URL` for Groq / Together / vLLM). Request-per-chunk
   with retry; structured JSON output for `locales`, raw markdown for `docs`.
-- `pnpm translate` alias. Absent API key → clear error (never silent pass).
+- `pnpm translate` alias. Absent provider key → clear error (never silent pass).
 
 Tool descriptions, schema descriptions, MCP error strings, and plugin command
 prompts are explicitly not wired into the pipeline.

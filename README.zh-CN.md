@@ -91,7 +91,7 @@ Draw.io MCP 服务器为 AI 智能体带来 Draw.io 的绘图能力。它提供�
 
 </details>
 
-其他 MCP 客户端及详细配置（包括 pnpm 选项）请参见[配置](./CONFIG.md)。
+其他 MCP 客户端及详细配置（包括 pnpm 选项）请参见[配置](./CONFIG.zh-CN.md)。
 
 ### 2. 打开编辑器
 
@@ -121,13 +121,13 @@ Draw.io MCP 服务器为 AI 智能体带来 Draw.io 的绘图能力。它提供�
 - **页面管理** - 列出页面、查看当前页面、创建页面、复制页面和重命名页面，且在受支持的运行时上不会强制切换当前可见页面
 - **图层管理** - 创建、切换和整理图层
 - **厂商图形覆盖** - AWS、GCP、Azure、Cisco19 和 CiscoSafe 图形模板在运行时从 drawio 的侧边栏自动发现，智能体无需手工维护图形目录即可放置 `mxgraph.gcp2.cloud_run` 或 `mxgraph.cisco19.router` 这类图标
-- **内置 TLS** — 可选启用 HTTPS + WSS，可手动提供证书/密钥，或通过每用户本地 CA 自动生成自签名材料。参见 [CONFIG.md → TLS](./CONFIG.md#tls-https--wss)。
+- **内置 TLS** — 可选启用 HTTPS + WSS，可手动提供证书/密钥，或通过每用户本地 CA 自动生成自签名材料。参见 [CONFIG.md → TLS](./CONFIG.zh-CN.md#tls-https--wss)。
 
-完整可用工具列表请参见[工具参考](./TOOLS.md)。
+完整可用工具列表请参见[工具参考](./TOOLS.zh-CN.md)。
 
 ## 安装
 
-服务器作为 MCP 宿主的一部分运行。所有受支持客户端（Claude Desktop、Claude Code、Zed、Codex、oterm）的详细配置（包括 npm 与 pnpm 选项）请参见[配置](./CONFIG.md)。
+服务器作为 MCP 宿主的一部分运行。所有受支持客户端（Claude Desktop、Claude Code、Zed、Codex、oterm）的详细配置（包括 npm 与 pnpm 选项）请参见[配置](./CONFIG.zh-CN.md)。
 
 ## 替代方案：浏览器扩展
 
@@ -162,11 +162,11 @@ Draw.io MCP 服务器为 AI 智能体带来 Draw.io 的绘图能力。它提供�
 
 ## 相关资源
 
-[配置](./CONFIG.md) - CLI 标志与高级选项
+[配置](./CONFIG.zh-CN.md) - CLI 标志与高级选项
 
-[工具参考](./TOOLS.md) - 完整的 MCP 工具文档
+[工具参考](./TOOLS.zh-CN.md) - 完整的 MCP 工具文档
 
-[故障排除](./TROUBLESHOOTING.md)
+[故障排除](./TROUBLESHOOTING.zh-CN.md)
 
 [提示词示例](./docs/examples/index.md)
 
