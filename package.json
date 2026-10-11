@@ -25,6 +25,6 @@
   "author": "Ladislav Gazo",
   "license": "MIT",
   "devDependencies": {
-    "ts-jest": "29.4.9"
+    "ts-jest": "29.4.14"
   }
 }
