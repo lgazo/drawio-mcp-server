@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import "./App.css";
 import { getWebSocketUrl } from "../../config";
 import type { ConnectedDocumentInfo } from "../../types";
+import { useI18n } from "../../utils/useI18n";
 import { CompatBanner } from "./CompatBanner.js";
 
 type ConnectionState = "connected" | "connecting" | "disconnected";
@@ -14,6 +15,7 @@ type CompatState =
   | { kind: "no-version"; reason: "missing" | "unparseable" };
 
 function App() {
+  const { t } = useI18n();
   const [connectionState, setConnectionState] = useState<ConnectionState>("disconnected");
   const [compatState, setCompatState] = useState<CompatState>({ kind: "unknown" });
   const [documents, setDocuments] = useState<ConnectedDocumentInfo[]>([]);
@@ -75,6 +77,11 @@ function App() {
 
   const logoSrc = `/icon/logo_${connectionState}_128.png`;
 
+  const stateLabel = (state: ConnectionState) =>
+    t(
+      state === "connected" ? "state_connected" : state === "connecting" ? "state_connecting" : "state_disconnected",
+    );
+
   const copyId = (id: string) => {
     navigator.clipboard.writeText(id).catch((err) =>
       console.error("clipboard write failed:", err),
@@ -89,36 +96,31 @@ function App() {
           <img src={logoSrc} className="logo" alt="Draw.io MCP logo" />
         </a>
       </div>
-      <h1>Draw.io MCP</h1>
+      <h1>{t("popup_title")}</h1>
       <div className="header-actions">
         <button
           onClick={() => browser.runtime.openOptionsPage()}
           className="settings-button"
-          title="Open Settings"
+          title={t("popup_open_settings")}
         >
-          ⚙️ Settings
+          {t("popup_settings_button")}
         </button>
       </div>
       <div className="connection-status">
         <div className={`status-indicator ${connectionState}`}></div>
-        <span>Status: {connectionState.charAt(0).toUpperCase() + connectionState.slice(1)}</span>
+        <span>{t("popup_status_label", stateLabel(connectionState))}</span>
       </div>
       <div className="card">
         <p>
-          The WebSocket connection is currently <strong>{connectionState}</strong>
-          {currentUrl && (
-            <>
-              {" at "}
-              <strong className="connection-url">{currentUrl}</strong>
-            </>
-          )}
-          .
+          {currentUrl
+            ? t("ws_current_with_url", stateLabel(connectionState), currentUrl)
+            : t("ws_current_no_url", stateLabel(connectionState))}
         </p>
         {connectionState !== "connected" && (
           <p>
             {connectionState === "connecting"
-              ? "Attempting to connect to the MCP server..."
-              : "Not connected to the MCP server. The server may be offline."}
+              ? t("ws_connecting_hint")
+              : t("ws_disconnected_hint")}
           </p>
         )}
       </div>
@@ -133,7 +135,7 @@ function App() {
             disabled={connectionState !== "connected"}
             className="ping-button"
           >
-            Ping Server
+            {t("popup_ping_server")}
           </button>
 
           {connectionState === "disconnected" && (
@@ -144,43 +146,51 @@ function App() {
               }}
               className="connect-button"
             >
-              Connect
+              {t("popup_connect")}
             </button>
           )}
         </div>
       </div>
 
       <div className="card">
-        <p>Please open <a href="https://app.diagrams.net/" target="_blank">Draw.io</a> website to use MCP features</p>
+        <p>
+          {t("open_drawio_before")}
+          <a href="https://app.diagrams.net/" target="_blank">Draw.io</a>
+          {t("open_drawio_after")}
+        </p>
       </div>
 
       <div className="card align-left documents-section">
         <h3 className="documents-heading">
-          Connected Documents ({documents.length})
+          {t("documents_heading", String(documents.length))}
         </h3>
         {documents.length === 0 ? (
-          <p className="empty">No documents connected</p>
+          <p className="empty">{t("documents_empty")}</p>
         ) : (
           <ul className="documents-list">
             {documents.map((doc) => (
               <li key={doc.id} className="document-row">
                 <div className="document-title-line">
-                  <strong>{doc.title ?? "(untitled)"}</strong>
+                  <strong>{doc.title ?? t("document_untitled")}</strong>
                   <span className="document-id" title={doc.id}>
                     {doc.id.slice(0, 8)}…
                   </span>
                   <button
                     type="button"
                     className="copy-id-button"
-                    title="Copy full id"
+                    title={t("document_copy_id_title")}
                     onClick={() => copyId(doc.id)}
                   >
                     📋
                   </button>
                 </div>
                 <div className="document-meta">
-                  mode: {doc.mode ?? "—"} · {doc.page_count} pages · current:{" "}
-                  {doc.current_page?.name ?? "—"}
+                  {t(
+                    "document_meta",
+                    doc.mode ?? "—",
+                    String(doc.page_count),
+                    doc.current_page?.name ?? "—",
+                  )}
                 </div>
                 {doc.file_url && (
                   <div className="document-url" title={doc.file_url}>

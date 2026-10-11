@@ -1,17 +1,15 @@
 import { defineConfig } from "wxt";
 
-const bg =
-  process.env.MODE === "plugin" ? "background-plugin.js" : "background.js";
-console.log("BACKGROUND:", bg);
-
 // See https://wxt.dev/api/config.html
+// Note: WXT 0.20 derives every background output name from its entrypoint
+// file (background.ts -> background.js, background-plugin.ts ->
+// background-plugin.js), so both ship in every build and no `background`
+// config key exists in UserConfig.
 export default defineConfig({
   modules: ["@wxt-dev/module-react"],
-  background: {
-    service_worker: bg,
-  },
   manifest: ({ browser }) => ({
     name: "Draw.io MCP Extension",
+    default_locale: "en",
     permissions: ["storage", "scripting"],
     host_permissions: ["<all_urls>"],
     options_ui: {

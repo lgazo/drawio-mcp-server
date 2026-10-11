@@ -1,5 +1,7 @@
 import type { CSSProperties } from "react";
 
+import { useI18n } from "../../utils/useI18n";
+
 type CompatState =
   | { kind: "unknown" }
   | { kind: "ok"; version: string }
@@ -22,6 +24,8 @@ const VARIANTS = {
 } as const;
 
 export function CompatBanner({ state }: { state: CompatState }) {
+  const { t } = useI18n();
+
   if (state.kind === "ok" || state.kind === "unknown") return null;
 
   if (state.kind === "below-floor") {
@@ -31,9 +35,8 @@ export function CompatBanner({ state }: { state: CompatState }) {
         style={{ ...BASE_STYLE, ...VARIANTS.error }}
         data-variant="error"
       >
-        <strong>drawio v{state.version}</strong> predates the supported floor
-        v{state.floor}. MCP tools that need v{state.floor}+ will return errors.
-        Reload drawio with cache cleared, or upgrade your self-hosted drawio.
+        <strong>drawio v{state.version}</strong>{" "}
+        {t("compat_below_floor", state.floor, state.floor)}
       </div>
     );
   }
@@ -45,9 +48,8 @@ export function CompatBanner({ state }: { state: CompatState }) {
         style={{ ...BASE_STYLE, ...VARIANTS.warning }}
         data-variant="warning"
       >
-        <strong>drawio v{state.version}</strong> is newer than the tested window
-        (last tested min: v{state.lastSupportedMin}). Tools run on the closest
-        impl; please report issues.
+        <strong>drawio v{state.version}</strong>{" "}
+        {t("compat_above_window", state.lastSupportedMin)}
       </div>
     );
   }
@@ -58,7 +60,9 @@ export function CompatBanner({ state }: { state: CompatState }) {
       style={{ ...BASE_STYLE, ...VARIANTS.info }}
       data-variant="info"
     >
-      Cannot detect drawio version (<code>{state.reason}</code>).
+      {t("compat_no_version", state.reason)}
     </div>
   );
 }
+
+export type { CompatState };

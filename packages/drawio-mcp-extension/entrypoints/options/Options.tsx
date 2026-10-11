@@ -1,10 +1,26 @@
 import { useState, useEffect, useMemo } from "react";
 import { getConfig, saveConfig, resetConfigToDefaults, isValidExtensionWebSocketUrl, DEFAULT_CONFIG, type ExtensionConfig } from "../../config";
 import { validateMV3Pattern, isValidPatternList, deduplicatePatterns, patternsAreEquivalent } from "../../utils/urlPatternValidator";
+import { useI18n } from "../../utils/useI18n";
+import type { Language } from "../../utils/i18n";
 
 const DEFAULT_WS_URL = `ws://localhost:${DEFAULT_CONFIG.websocketPort}`;
 
+// The pattern validator returns English strings; map them to catalog keys
+// so the options UI can localize them. Unknown strings pass through.
+const PATTERN_ERROR_KEYS: Record<string, string> = {
+  "Invalid scheme. Use *, http, https, file, or ftp": "patterns_error_scheme",
+  "Invalid URL pattern format": "patterns_error_format",
+  "Invalid host pattern. Use *, *.example.com, or example.com": "patterns_error_host",
+  "Path must start with /": "patterns_error_path",
+  "Invalid URL pattern": "patterns_error_invalid",
+  "URL pattern cannot be empty": "patterns_error_empty",
+};
+
+const LANGUAGE_OPTIONS: Language[] = ["auto", "en", "zh-CN"];
+
 function Options() {
+  const { t, language, setLanguage } = useI18n();
   const [config, setConfig] = useState<ExtensionConfig>({ websocketPort: DEFAULT_CONFIG.websocketPort, urlPatterns: ["*://app.diagrams.net/*"], injectIntoIframes: false });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -15,11 +31,15 @@ function Options() {
   const [newPatternInput, setNewPatternInput] = useState('');
   const [patternsError, setPatternsError] = useState<string>('');
   const [injectIntoIframes, setInjectIntoIframes] = useState(false);
+  const [languageSaved, setLanguageSaved] = useState(false);
 
   useEffect(() => {
     // Load current configuration
     loadConfig();
   }, []);
+
+  const patternError = (raw?: string): string | undefined =>
+    raw ? (PATTERN_ERROR_KEYS[raw] ? t(PATTERN_ERROR_KEYS[raw]) : raw) : undefined;
 
   const loadConfig = async () => {
     try {
@@ -30,7 +50,7 @@ function Options() {
       setInjectIntoIframes(currentConfig.injectIntoIframes);
     } catch (error) {
       console.error('Failed to load config:', error);
-      setMessage({ type: 'error', text: 'Failed to load current configuration' });
+      setMessage({ type: 'error', text: t('ws_url_error_load') });
     } finally {
       setLoading(false);
     }
@@ -39,15 +59,15 @@ function Options() {
   const handleSave = async () => {
     const trimmedUrl = urlInput.trim();
     if (trimmedUrl.length > 0 && !isValidExtensionWebSocketUrl(trimmedUrl)) {
-      setUrlError('URL must start with ws:// or wss://');
-      setMessage({ type: 'error', text: 'Invalid WebSocket URL' });
+      setUrlError(t('ws_url_error_start'));
+      setMessage({ type: 'error', text: t('ws_url_error_invalid') });
       return;
     }
     setUrlError('');
 
     // Validate patterns
     if (!isValidPatternList(patterns)) {
-      setMessage({ type: 'error', text: 'Invalid URL patterns detected. Please fix errors and try again.' });
+      setMessage({ type: 'error', text: t('ws_url_error_patterns') });
       return;
     }
 
@@ -63,10 +83,10 @@ function Options() {
       await saveConfig(newConfig);
       setConfig(newConfig);
       setPatterns(uniquePatterns);
-      setMessage({ type: 'success', text: 'Settings saved successfully! Extension will reload content scripts for new URLs.' });
+      setMessage({ type: 'success', text: t('ws_url_saved') });
     } catch (error) {
       console.error('Failed to save config:', error);
-      setMessage({ type: 'error', text: 'Failed to save settings' });
+      setMessage({ type: 'error', text: t('ws_url_error_save') });
     } finally {
       setSaving(false);
     }
@@ -82,13 +102,19 @@ function Options() {
       setUrlError('');
       setPatterns(defaultConfig.urlPatterns);
       setInjectIntoIframes(defaultConfig.injectIntoIframes);
-      setMessage({ type: 'success', text: 'Settings reset to defaults! Connection will reconnect automatically.' });
+      setMessage({ type: 'success', text: t('ws_url_reset') });
     } catch (error) {
       console.error('Failed to reset config:', error);
-      setMessage({ type: 'error', text: 'Failed to reset settings' });
+      setMessage({ type: 'error', text: t('ws_url_error_reset') });
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleLanguageChange = async (next: Language) => {
+    setLanguageSaved(false);
+    await setLanguage(next);
+    setLanguageSaved(true);
   };
 
   // Pattern management functions
@@ -102,13 +128,13 @@ function Options() {
 
   const handleAddPattern = () => {
     if (!newPatternInput.trim()) {
-      setPatternsError('URL pattern cannot be empty');
+      setPatternsError(t('patterns_error_empty'));
       return;
     }
 
     const validation = validateMV3Pattern(newPatternInput.trim());
     if (!validation.isValid) {
-      setPatternsError(validation.error || 'Invalid URL pattern');
+      setPatternsError(patternError(validation.error) || '');
       return;
     }
 
@@ -139,15 +165,15 @@ function Options() {
   if (loading) {
     return (
       <div className="options-container">
-        <h1>Draw.io MCP Extension - Settings</h1>
-        <div className="loading">Loading settings...</div>
+        <h1>{t('options_title')}</h1>
+        <div className="loading">{t('options_loading')}</div>
       </div>
     );
   }
 
   return (
     <div className="options-container">
-      <h1>Draw.io MCP Extension - Settings</h1>
+      <h1>{t('options_title')}</h1>
 
       {message && (
         <div className={`message ${message.type}`}>
@@ -157,12 +183,35 @@ function Options() {
 
       <div className="card main-settings-card">
         <form onSubmit={(e) => { e.preventDefault(); handleSave(); }}>
-          {/* WebSocket Server Configuration */}
+          {/* Language */}
           <div className="settings-section">
-            <h3>WebSocket Server Configuration</h3>
+            <h3>{t('language_heading')}</h3>
 
             <div className="form-group">
-              <label htmlFor="url-input">WebSocket URL:</label>
+              <select
+                value={language ?? 'auto'}
+                onChange={(e) => handleLanguageChange(e.target.value as Language)}
+              >
+                {LANGUAGE_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option === 'auto' ? t('language_auto_option') : option === 'en' ? t('language_english_option') : t('language_chinese_option')}
+                  </option>
+                ))}
+              </select>
+              {languageSaved && (
+                <span className="input-hint">{t('language_changed_hint')}</span>
+              )}
+            </div>
+          </div>
+
+          <div className="section-separator"></div>
+
+          {/* WebSocket Server Configuration */}
+          <div className="settings-section">
+            <h3>{t('ws_section_heading')}</h3>
+
+            <div className="form-group">
+              <label htmlFor="url-input">{t('ws_url_label')}</label>
               <input
                 id="url-input"
                 type="text"
@@ -177,8 +226,7 @@ function Options() {
                 placeholder={DEFAULT_WS_URL}
               />
               <span className="input-hint">
-                Leave blank to use the default ({DEFAULT_WS_URL}). Must start with ws:// or wss://.
-                Use wss:// when the MCP server sits behind an HTTPS reverse proxy.
+                {t('ws_url_hint', DEFAULT_WS_URL)}
               </span>
               {urlError && <span className="error-text">{urlError}</span>}
             </div>
@@ -189,22 +237,21 @@ function Options() {
 
           {/* URL Patterns for Content Script Injection */}
           <div className="settings-section">
-            <h3>URL Patterns for Content Script Injection</h3>
+            <h3>{t('patterns_section_heading')}</h3>
             <p className="card-description">
-              Configure URL patterns where the Draw.io MCP Extension should inject its content scripts.
-              These follow Chrome's MV3 match pattern format.
+              {t('patterns_description')}
             </p>
 
             <div className="pattern-input-section">
               <div className="form-group">
-                <label htmlFor="pattern-input">Add URL Pattern:</label>
+                <label htmlFor="pattern-input">{t('patterns_add_label')}</label>
                 <div className="pattern-input-group">
                   <input
                     id="pattern-input"
                     type="text"
                     value={newPatternInput}
                     onChange={(e) => handlePatternInputChange(e.target.value)}
-                    placeholder="e.g., *://app.diagrams.net/* or https://example.com/*"
+                    placeholder={t('patterns_input_placeholder')}
                     className={`pattern-input ${newPatternValidation.isValid && newPatternInput.trim() ? 'valid' : !newPatternValidation.isValid && newPatternInput.trim() ? 'invalid' : ''}`}
                     disabled={saving}
                   />
@@ -214,42 +261,42 @@ function Options() {
                     className="add-pattern-button"
                     type="button"
                   >
-                    Add
+                    {t('patterns_add_button')}
                   </button>
                 </div>
                 {patternsError && <span className="error-text">{patternsError}</span>}
                 {newPatternInput.trim() && !newPatternValidation.isValid && (
-                  <span className="error-text">{newPatternValidation.error}</span>
+                  <span className="error-text">{patternError(newPatternValidation.error)}</span>
                 )}
                 {newPatternInput.trim() && newPatternValidation.isValid && (
-                  <span className="success-text">Valid MV3 pattern</span>
+                  <span className="success-text">{t('patterns_valid')}</span>
                 )}
               </div>
             </div>
 
             <div className="patterns-list">
-              <h4>Current URL Patterns ({patterns.length})</h4>
+              <h4>{t('patterns_current_heading', String(patterns.length))}</h4>
               {patterns.length === 0 ? (
-                <p className="no-patterns">No URL patterns configured. Add at least one pattern for the extension to work.</p>
+                <p className="no-patterns">{t('patterns_empty')}</p>
               ) : (
                 <ul className="pattern-list">
                   {patternsListValidation.map((item, index) => (
                     <li key={index} className={`pattern-item ${item.isValid ? 'valid' : 'invalid'}`}>
                       <span className="pattern-text">{item.pattern}</span>
                       {patternsAreEquivalent(item.pattern, "*://app.diagrams.net/*") && (
-                        <span className="default-badge">default</span>
+                        <span className="default-badge">{t('patterns_default_badge')}</span>
                       )}
                       <button
                         onClick={() => handleRemovePattern(index)}
                         disabled={saving}
                         className="remove-pattern-button"
-                        title="Remove pattern"
+                        title={t('patterns_remove_title')}
                         type="button"
                       >
                         ×
                       </button>
                       {!item.isValid && (
-                        <div className="pattern-error">{item.error}</div>
+                        <div className="pattern-error">{patternError(item.error)}</div>
                       )}
                     </li>
                   ))}
@@ -258,12 +305,12 @@ function Options() {
             </div>
 
             <div className="pattern-examples">
-              <h5>Example Patterns:</h5>
+              <h5>{t('patterns_examples_heading')}</h5>
               <ul>
-                <li><code>*://app.diagrams.net/*</code> - Default (matches app.diagrams.net)</li>
-                <li><code>*://*.diagrams.net/*</code> - Self-hosted on diagrams.net subdomain</li>
-                <li><code>https://draw.example.com/*</code> - Custom domain</li>
-                <li><code>https://draw.example.com/drawio/*</code> - Specific path</li>
+                <li><code>*://app.diagrams.net/*</code> - {t('patterns_example_default')}</li>
+                <li><code>*://*.diagrams.net/*</code> - {t('patterns_example_subdomain')}</li>
+                <li><code>https://draw.example.com/*</code> - {t('patterns_example_custom_domain')}</li>
+                <li><code>https://draw.example.com/drawio/*</code> - {t('patterns_example_specific_path')}</li>
               </ul>
             </div>
 
@@ -275,13 +322,10 @@ function Options() {
                   onChange={(e) => setInjectIntoIframes(e.target.checked)}
                   disabled={saving}
                 />
-                {' '}Inject into iframes (support embedded Draw.io)
+                {' '}{t('patterns_iframe_label')}
               </label>
               <span className="input-hint">
-                Enable when Draw.io is embedded as an iframe on a host page
-                (e.g. Confluence, wiki, custom app). Matches still follow the
-                URL patterns above &mdash; they are evaluated against the
-                iframe&apos;s URL, not the host page.
+                {t('patterns_iframe_hint')}
               </span>
             </div>
           </div>
@@ -293,7 +337,7 @@ function Options() {
               disabled={saving}
               className="save-button"
             >
-              {saving ? 'Saving...' : 'Save All Settings'}
+              {saving ? t('save_button_saving') : t('save_button')}
             </button>
 
             <button
@@ -302,15 +346,15 @@ function Options() {
               className="reset-button"
               type="button"
             >
-              Reset to Defaults
+              {t('reset_button')}
             </button>
           </div>
         </form>
       </div>
 
       <div className="card notice">
-        <p><strong>Note:</strong> Changes to URL patterns take effect immediately. Content scripts will be re-registered for the new URL patterns.</p>
-        <p><strong>Security:</strong> The extension only injects scripts on the URLs you configure here.</p>
+        <p><strong>{t('options_note_title')}</strong> {t('options_note_text')}</p>
+        <p><strong>{t('options_security_title')}</strong> {t('options_security_text')}</p>
       </div>
     </div>
   );
