@@ -36,6 +36,43 @@ Additional: `roam health` (0-100 score), `roam impact <name>` (what breaks),
 
 Run `roam --help` for all commands. Use `roam --json <cmd>` for structured output.
 
+## Localization (zh-CN)
+
+Human-facing surfaces are localized to Simplified Chinese through the
+automated pipeline `scripts/translate.mjs` (`pnpm translate`). English is the
+source of truth; translated files are generated artifacts. Tool descriptions,
+schema descriptions, MCP error strings, and plugin command prompts are
+agent-facing and must stay English.
+
+When you touch a localized component:
+
+1. **Extension UI strings** — add the new string (English) to
+   `packages/drawio-mcp-extension/public/_locales/en/messages.json` and make
+   sure it exists in `public/_locales/zh_CN/messages.json`. Either fill it
+   yourself (preferred for small diffs) or run `pnpm translate locales` with
+   a provider credential to machine-fill missing keys. Every en key must
+   have a zh_CN counterpart — `node scripts/translate.mjs locales --check`
+   (runs in CI) fails on parity drift. The gap-fill never overwrites
+   existing zh_CN translations.
+2. **Docs** (`README.md`, `TOOLS.md`, `CONFIG.md`, `TROUBLESHOOTING.md`) —
+   each has a `<name>.zh-CN.md` snapshot. After a substantive edit, refresh
+   the affected translation with `pnpm translate docs <file>` (needs a
+   provider credential: Anthropic by default, or `--provider gemini|openai` —
+   see the script header comments for env vars). Snapshots carry a
+   machine-translated banner and may lag English; CI checks presence and the
+   banner, not freshness. Links between translated pages are rewritten to
+   their translated counterparts automatically (`crosslink` subcommand).
+3. **New docs** — register the file in `SOURCE_DOCS` in
+   `scripts/translate.mjs`; otherwise translation and the CI check ignore it.
+4. **Byte-identical content** — never translate code blocks, config snippets,
+   URLs, link targets, filenames, or the manifest name. The pipeline prompts
+   enforce this; if you translate by hand, preserve them.
+5. **New locale** — the scaffold is locale-ready: add
+   `public/_locales/<dir>/messages.json` and run the pipeline subs with
+   `--lang <locale>` (docs become `<name>.<locale>.md`).
+6. **After touching any translation**, run `node scripts/translate.mjs
+   --check` locally — it is the keyless CI gate both workflows invoke.
+
 ## drawio version compatibility
 
 Plugin-side runtime version detection + per-tool dispatch lives in
