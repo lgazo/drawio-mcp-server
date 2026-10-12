@@ -1,21 +1,45 @@
 name: Server Publish
 
+# Reusable publish job invoked by release.yml after the release commit and
+# tag exist (GITHUB_TOKEN-created releases do not fire release events, so
+# release.yml calls this directly). Also manually dispatchable.
 on:
-  release:
-    types: created
-    paths:
-      - 'packages/drawio-mcp-server/**'
-      - '.github/workflows/server-publish.yml'
+  workflow_call:
+    inputs:
+      version:
+        description: "Released version (X.Y.Z)"
+        type: string
+        required: true
+      ref:
+        description: "Tag/ref to build and publish"
+        type: string
+        required: true
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Released version (X.Y.Z)"
+        type: string
+        required: true
+      ref:
+        description: "Tag/ref to build and publish"
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: server-publish-${{ inputs.ref }}
+  cancel-in-progress: false
 
 jobs:
   publish:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ inputs.ref }}
       - name: Install pnpm
         uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5
 
@@ -26,6 +50,9 @@ jobs:
           registry-url: "https://registry.npmjs.org"
           cache: "pnpm"
           cache-dependency-path: pnpm-lock.yaml
+
+      - name: Version parity gate
+        run: node scripts/release.mjs check-parity --version "${{ inputs.version }}"
 
       - name: Install dependencies
         run: pnpm install
@@ -44,6 +71,18 @@ jobs:
 
       - name: Build server
         run: pnpm --filter drawio-mcp-server run build
+
+      - name: Pack smoke test (fresh install from tarball)
+        working-directory: packages/drawio-mcp-server
+        run: |
+          set -euo pipefail
+          pnpm pack --pack-destination .
+          tarball=$(ls drawio-mcp-server-*.tgz)
+          tmp=$(mktemp -d)
+          npm install --prefix "$tmp" "$PWD/$tarball"
+          # The version banner is printed to stderr, so merge streams before grep.
+          "$tmp/node_modules/.bin/drawio-mcp-server" --help 2>&1 | grep -F "Draw.io MCP Server (${{ inputs.version }})"
+          rm -rf "$tmp" "$tarball"
 
       - name: Publish
         run: pnpm --filter drawio-mcp-server publish --provenance --access public
