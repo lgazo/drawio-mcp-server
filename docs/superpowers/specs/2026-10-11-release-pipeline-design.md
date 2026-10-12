@@ -125,6 +125,9 @@ components:
 - Only components with commits since their previous release are bumped. A
   server-only change produces a release PR that bumps the server component
   only; no extension tag, no extension publish, no store submission.
+- Both components configured with `separate-pull-requests: true`, so each
+  component has its own release PR and can be merged (released) on its own
+  timeline.
 - Action and bootstrap pinned to a commit SHA, matching the repo's existing
   supply-chain policy (`security-scan.yml` already pins all Actions).
 - **Claude plugin stays decoupled**: not a release-please component. Its
@@ -179,16 +182,45 @@ The human's job in the PR (all optional except the merge):
 CI runs on the release PR branch like any other PR, so the exact tree that
 will be tagged is what CI validated.
 
-### Server-only releases
+### Release scenarios
 
-The normal case per the issue's question. A `fix:`/`feat:` commit touching
-only `packages/drawio-mcp-server/**` (plus plugin/compat, which ride the
-server component) yields a release PR bumping
-`packages/drawio-mcp-server/package.json` only. On merge: tag `vX.Y.Z` →
-GitHub Release → `server-publish.yml` → npm. No extension tag exists, so
-nothing on the extension side runs — the extension's version line and store
-listings stay untouched. The inverse (extension-only release) works the same
-way: extension tag → zips + store upload, no npm publish.
+The two components support the three release situations natively —
+release-please's default behavior is to bump only components with commits
+since their previous release, so the situation is decided by what changed
+since the last release, not by a mode switch:
+
+| Situation | Trigger | What happens on merge |
+|---|---|---|
+| Server only | Changes only in `packages/drawio-mcp-server/**` (plus plugin/compat, which ride the server component) | Release PR bumps server only → tag `vX.Y.Z` → GitHub Release → `server-publish.yml` → npm. No extension tag, so nothing on the extension side runs — the extension's version line and store listings stay untouched. |
+| Extension only | Changes only in `packages/drawio-mcp-extension/**` | Extension tag → `extension-publish.yml` → zips + store upload. No npm publish. |
+| Both together | Both components have pending changes | Both tags/releases fire, each publish workflow runs for its own tag. |
+
+**Aligned versions in the "both together" case** (owner preference: keep the
+two version lines equal when co-releasing):
+
+- The `linked-versions` plugin is deliberately **not** used: per the
+  release-please docs, when any component in a linked group is updated, the
+  whole group is bumped to the same version — which would force an extension
+  release (zip build + store submission of an unchanged extension) on every
+  server-only release, defeating the server-only scenario.
+- Instead: with `separate-pull-requests: true`, each component's release PR
+  is open at the same time. Each version is computed independently from that
+  component's own conventional commits. If both moved the same bump level
+  from an aligned base (e.g. a feature touching both), the proposed versions
+  already align — merge both PRs as-is.
+- When the computed versions differ, **align by hand in the extension's
+  release PR before merging**: set the extension version (in
+  `packages/drawio-mcp-extension/package.json`, the
+  `.release-please-manifest.json` entry, and the changelog heading) to the
+  server's proposed `X.Y.Z`, then merge. Caveats: release-please regenerates
+  an open release PR on the next push to `main`, overwriting un-merged
+  manual edits — so align and merge in one sitting; and whether the created
+  tag takes its version from the merged manifest or the PR title must be
+  verified during implementation (the parity gate would catch a mismatch at
+  publish time either way).
+- The extension is `private` and off npm; its version only names zips and
+  store submissions, so a drifted version in a combined release is a
+  cosmetic concern, not a correctness one.
 
 ### Post-merge: tag → Release → existing publish workflows
 
@@ -288,8 +320,10 @@ workflows — a release with a new advisory fails there rather than on `main`
    publish in the store dashboard? Default proposal: auto-submit — the merge
    of the release PR is the human approval of the release itself.
 3. The extension version line now drifts from the server's (both are
-   `2.3.0` today by convention). From the first decoupled release, the zip
-   naming and store submissions follow the extension's own version.
-   Confirm that is acceptable, or whether the components should be
-   `linked-versions`-locked (which reintroduces the coupling that
-   server-releases-bump-extension).
+   `2.3.0` today by convention). "Release scenarios" defines the alignment
+   mechanism for combined releases: versions align automatically when both
+   components move one bump level, and a manual edit in the extension's
+   release PR aligns the rest. Confirm that level of convenience is enough,
+   or whether the rare combined release should instead be forced through a
+   single combined release PR (`separate-pull-requests: false` for those
+   merges) with both versions edited by hand.
