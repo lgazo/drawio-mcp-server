@@ -55,7 +55,8 @@ export function resolveVersion({ scope, explicit, current, commits }) {
   let source;
   if (explicit) {
     const parsed = parseSemver(explicit);
-    if (!parsed) throw new Error(`invalid semver: "${explicit}" (expected X.Y.Z)`);
+    if (!parsed)
+      throw new Error(`invalid semver: "${explicit}" (expected X.Y.Z)`);
     version = `${parsed.major}.${parsed.minor}.${parsed.patch}`;
     const base = scope === "extension" ? currentExtension : currentServer;
     level = bumpLevelBetween(base, parsed);
@@ -74,10 +75,13 @@ export function resolveVersion({ scope, explicit, current, commits }) {
   const parsed = parseSemver(version);
   const floors = [];
   if (scope !== "extension") floors.push(["drawio-mcp-server", current.server]);
-  if (scope !== "server") floors.push(["drawio-mcp-extension", current.extension]);
+  if (scope !== "server")
+    floors.push(["drawio-mcp-extension", current.extension]);
   for (const [name, cur] of floors) {
     if (cmpSemver(parsed, parseSemver(cur)) <= 0) {
-      throw new Error(`version ${version} is not greater than ${name}'s current ${cur}`);
+      throw new Error(
+        `version ${version} is not greater than ${name}'s current ${cur}`,
+      );
     }
   }
   return { version, level, source };
@@ -88,6 +92,7 @@ export function validateTags({ scope, version, existingTags }) {
   if (scope !== "extension") wanted.push(`v${version}`);
   if (scope !== "server") wanted.push(`drawio-mcp-extension-v${version}`);
   for (const tag of wanted) {
-    if (existingTags.includes(tag)) throw new Error(`tag ${tag} already exists`);
+    if (existingTags.includes(tag))
+      throw new Error(`tag ${tag} already exists`);
   }
 }

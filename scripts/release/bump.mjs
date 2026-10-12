@@ -28,7 +28,9 @@ export function setVersionConst(file, version) {
   const src = readFileSync(file, "utf8");
   const matches = src.match(new RegExp(VERSION_CONST.source, "g"));
   if (!matches || matches.length !== 1) {
-    throw new Error(`VERSION fallback constant not found exactly once in ${file}`);
+    throw new Error(
+      `VERSION fallback constant not found exactly once in ${file}`,
+    );
   }
   writeFileSync(
     file,
@@ -53,7 +55,9 @@ export function applyBumps({ root, scope, version, compatChanged }) {
     write("packages/drawio-mcp-plugin/package.json", (f) =>
       setPackageVersion(f, version),
     );
-    write("packages/drawio-mcp-server/src/index.ts", (f) => setVersionConst(f, version));
+    write("packages/drawio-mcp-server/src/index.ts", (f) =>
+      setVersionConst(f, version),
+    );
     copyFileSync(
       join(root, "README.md"),
       join(root, "packages/drawio-mcp-server/README.md"),
@@ -63,7 +67,10 @@ export function applyBumps({ root, scope, version, compatChanged }) {
       const compatFile = join(root, "packages/drawio-mcp-compat/package.json");
       const cur = getPackageVersion(compatFile);
       const parts = cur.split(".");
-      setPackageVersion(compatFile, `${parts[0]}.${parts[1]}.${Number(parts[2]) + 1}`);
+      setPackageVersion(
+        compatFile,
+        `${parts[0]}.${parts[1]}.${Number(parts[2]) + 1}`,
+      );
       changed.push("packages/drawio-mcp-compat/package.json");
     }
   }

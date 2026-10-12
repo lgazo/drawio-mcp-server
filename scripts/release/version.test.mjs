@@ -28,8 +28,14 @@ test("bumpLevel reads conventional commit subjects", () => {
   assert.equal(bumpLevel([{ subject: "feat: x" }]), "minor");
   assert.equal(bumpLevel([{ subject: "fix(server): y" }]), "patch");
   assert.equal(bumpLevel([{ subject: "feat!: breaking" }]), "major");
-  assert.equal(bumpLevel([{ subject: "feat: a" }, { subject: "fix: b" }]), "minor");
-  assert.equal(bumpLevel([{ subject: "feat!: a" }, { subject: "fix: b" }]), "major");
+  assert.equal(
+    bumpLevel([{ subject: "feat: a" }, { subject: "fix: b" }]),
+    "minor",
+  );
+  assert.equal(
+    bumpLevel([{ subject: "feat!: a" }, { subject: "fix: b" }]),
+    "major",
+  );
   assert.equal(bumpLevel([{ subject: "docs: a" }]), "patch");
   assert.equal(bumpLevel([]), "patch");
 });
@@ -52,7 +58,10 @@ test("resolveVersion computed for server scope bumps the server line", () => {
     explicit: null,
     current: { server: "2.3.0", extension: "2.3.0" },
     commits: [
-      { subject: "feat: new tool", files: ["packages/drawio-mcp-server/src/x.ts"] },
+      {
+        subject: "feat: new tool",
+        files: ["packages/drawio-mcp-server/src/x.ts"],
+      },
     ],
   });
   assert.deepEqual(r, { version: "2.4.0", level: "minor", source: "computed" });
@@ -76,7 +85,10 @@ test("resolveVersion both scope computes from the server line", () => {
     explicit: null,
     current: { server: "2.4.0", extension: "2.3.0" },
     commits: [
-      { subject: "feat: shared", files: ["packages/drawio-mcp-plugin/src/x.ts"] },
+      {
+        subject: "feat: shared",
+        files: ["packages/drawio-mcp-plugin/src/x.ts"],
+      },
     ],
   });
   assert.equal(r.version, "2.5.0");
@@ -89,7 +101,11 @@ test("resolveVersion explicit override wins and validates monotonicity", () => {
     current: { server: "2.4.0", extension: "2.3.0" },
     commits: [],
   });
-  assert.deepEqual(ok, { version: "3.0.0", level: "major", source: "explicit" });
+  assert.deepEqual(ok, {
+    version: "3.0.0",
+    level: "major",
+    source: "explicit",
+  });
 
   assert.throws(() =>
     resolveVersion({
@@ -155,5 +171,9 @@ test("validateTags rejects existing tags for the scope", () => {
     }),
   );
   validateTags({ scope: "server", version: "2.4.0", existingTags: ["v2.3.0"] });
-  validateTags({ scope: "extension", version: "2.4.0", existingTags: ["v2.4.0"] });
+  validateTags({
+    scope: "extension",
+    version: "2.4.0",
+    existingTags: ["v2.4.0"],
+  });
 });

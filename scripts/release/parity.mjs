@@ -35,8 +35,9 @@ export function checkParity({ root, version }) {
   const pluginJsonVersion = readJson(
     join(root, "packages/drawio-mcp-claude-plugin/.claude-plugin/plugin.json"),
   ).version;
-  const marketplaceVersion = readJson(join(root, ".claude-plugin/marketplace.json"))
-    .plugins[0].version;
+  const marketplaceVersion = readJson(
+    join(root, ".claude-plugin/marketplace.json"),
+  ).plugins[0].version;
   if (pluginJsonVersion !== marketplaceVersion) {
     errors.push(
       `claude plugin version drift: plugin.json ${pluginJsonVersion} != marketplace.json ${marketplaceVersion}`,

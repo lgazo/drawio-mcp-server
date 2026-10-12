@@ -65,7 +65,12 @@ test("compat bumps on its own line only when changed", () => {
   );
 
   const root2 = fixture({ compatVersion: "0.1.0" });
-  applyBumps({ root: root2, scope: "server", version: "2.4.0", compatChanged: false });
+  applyBumps({
+    root: root2,
+    scope: "server",
+    version: "2.4.0",
+    compatChanged: false,
+  });
   assert.equal(
     getPackageVersion(join(root2, "packages/drawio-mcp-compat/package.json")),
     "0.1.0",
@@ -74,7 +79,12 @@ test("compat bumps on its own line only when changed", () => {
 
 test("extension scope only touches the extension package", () => {
   const root = fixture();
-  applyBumps({ root, scope: "extension", version: "2.4.0", compatChanged: false });
+  applyBumps({
+    root,
+    scope: "extension",
+    version: "2.4.0",
+    compatChanged: false,
+  });
   assert.equal(
     getPackageVersion(join(root, "packages/drawio-mcp-extension/package.json")),
     "2.4.0",
