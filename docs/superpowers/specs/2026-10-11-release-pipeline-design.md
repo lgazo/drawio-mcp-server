@@ -24,19 +24,23 @@ publish with provenance, extension zips) automated.
 
 ## Non-goals
 
-- No change to what gets published or where (npm for the server, zips for the
-  extension, marketplace served from `main` for the Claude plugin).
-- No auto-publish to Chrome Web Store / AMO in v1 (kept as a phase-2 option;
-  store-side human review cannot be removed anyway).
-- No new versioning scheme. Tags stay flat `vX.Y.Z`; version-coupling rules in
-  `docs/release.md` stay exactly as they are — the pipeline enforces them
-  instead of a human remembering them.
+- No change to what gets published or where (npm for the server, zips + store
+  upload for the extension, marketplace served from `main` for the Claude
+  plugin).
+- No new versioning scheme for the server: server tags stay flat `vX.Y.Z`.
+  The extension moves from version-lockstep with the server to an independent
+  version line (see "Two release components" below) — it is `private`, not on
+  npm, and its version only names the zips and the store submissions.
 - No replacement of the existing CI workflows; the pipeline composes with them.
+- The pipeline submits new extension versions to the stores; the stores' own
+  review queues (CWS review, AMO automated review) are external and cannot be
+  automated away — "limited human involvement" ends at submission.
 
 ## Constraints (from the current repo)
 
 1. **Version coupling** (`docs/release.md`): server, plugin, and compat bump
-   in lockstep; extension `package.json` version names the CI-produced zips;
+   in lockstep (server build embeds their `dist/`); extension `package.json`
+   version names the CI-produced zips;
    `packages/drawio-mcp-server/src/index.ts` has a literal `VERSION` fallback
    that must match; `plugin.json` and `.claude-plugin/marketplace.json` share
    a version that is independent of the server.
@@ -57,18 +61,18 @@ publish with provenance, extension zips) automated.
 ### A. release-please (recommended)
 
 Google's release-please bot watches `main`, collects conventional commits, and
-maintains a single **release PR** containing: version bumps, generated
-changelog, and — via `extra-files` / custom updater config — the coupled-file
-edits (VERSION fallback constant, server README copy). When the PR merges,
-the bot tags `vX.Y.Z` and creates the GitHub Release, which fires the existing
-publish workflows.
+maintains a **release PR per releaseable component** containing: version
+bumps, generated changelog, and — via `extra-files` / custom updater config —
+the coupled-file edits (VERSION fallback constant, server README copy). When
+a PR merges, the bot tags that component and creates the GitHub Release,
+which fires the matching publish workflow.
 
 - Human involvement: review + merge the release PR (one click), optionally
   editing the Highlights prose inside it first.
 - Fits an already-conventional-commit repo with zero contributor overhead —
   no per-PR ritual.
-- Lockstep bumps are configuration, not code: one release component with
-  `extra-files`.
+- Version math and the coupled-file bumps are configuration (per-component
+  `extra-files`), not code.
 - Weakness: version intent is inferred from commit types; a badly typed commit
   produces a wrong bump. Mitigated by reviewing the release PR before merge
   (the human gate) and by commit-lint discipline already in place culturally.
@@ -97,7 +101,7 @@ for a human to sanity-check the version delta before it becomes immutable.
 
 ## Design
 
-### New workflow: `release-please.yml`
+### New workflow: `release-please.yml` — two release components
 
 ```yaml
 on:
@@ -107,35 +111,56 @@ on:
 permissions:
   contents: write        # maintain release PR, create tag + Release
   pull-requests: write   # release PR management
-
-# release-please with a single root component:
-#   "release-type": "node"
-#   "packages": { ".": { "component": "drawio-mcp" } }
-#   extra-files:
-#     - packages/drawio-mcp-plugin/package.json
-#     - packages/drawio-mcp-compat/package.json
-#     - packages/drawio-mcp-extension/package.json
-#     - packages/drawio-mcp-server/src/index.ts   (VERSION fallback literal)
 ```
 
+release-please runs in **manifest mode** with a
+`release-please-config.json` defining two independently releasable
+components:
+
+| Component | Path (trigger scope) | Tag | Publishes |
+|---|---|---|---|
+| `drawio-mcp-server` | `packages/drawio-mcp-server/**` (+ extra-files: plugin, compat, VERSION constant) | `vX.Y.Z` (`include-component-in-tag: false`) | npm via `server-publish.yml` |
+| `drawio-mcp-extension` | `packages/drawio-mcp-extension/**` | `drawio-mcp-extension-vX.Y.Z` | zips + store upload via `extension-publish.yml` |
+
+- Only components with commits since their previous release are bumped. A
+  server-only change produces a release PR that bumps the server component
+  only; no extension tag, no extension publish, no store submission.
 - Action and bootstrap pinned to a commit SHA, matching the repo's existing
   supply-chain policy (`security-scan.yml` already pins all Actions).
-- **Lockstep bumping**: server, plugin, compat, extension all get the same
-  `X.Y.Z` in the release PR, mirroring the "repo-wide release" intent
-  documented in `docs/release.md` (one Release produces npm publish *and*
-  extension zips).
-- **Claude plugin stays decoupled**: not part of the root release. Its
-  version bumps continue to be manual commits (they are rare, metadata-only,
-  and the marketplace reads from `main`). If they become a chore, add a second
-  release-please component with tag `drawio-mcp-claude-plugin-vX.Y.Z` later —
-  `docs/release.md` already reserves that tag name.
+- **Claude plugin stays decoupled**: not a release-please component. Its
+  version bumps continue to be manual commits (rare, metadata-only; the
+  marketplace reads from `main`).
+- **plugin/compat routing** (`packages/drawio-mcp-plugin`, `-compat`): their
+  code is embedded in both the server and the extension builds. Both
+  components must release when they change. Exact mechanism (component path
+  ownership vs `extra-files` globs, and whether release-please treats
+  extra-file changes as release triggers) is an implementation detail to
+  settle while writing the config; the fallback if per-component routing
+  proves unreliable is a combined release for shared-code changes — which is
+  the current behavior anyway.
+- The `linked-versions` plugin is deliberately NOT used: decoupled version
+  lines are the point (server deploys without touching the extension).
+
+### The release branch
+
+release-please does create a branch — one per component, maintained by the
+bot, not by humans: `release-please--branches--main--components--<component>`
+(e.g. `...--drawio-mcp-extension`). It is not a long-lived release branch in
+the gitflow sense and its name is load-bearing (release-please parses it to
+find its PRs); it is never renamed or reused for other work. It holds the
+pending release commits for the component. New commits on `main` that touch
+that component are folded into the same open PR; merging the PR is the
+release event, and the bot then tags from the merged commit and deletes the
+branch. Humans interact with it only as a normal PR in the review UI.
 
 ### Release PR as the single human gate
 
 The release PR contains, generated:
 
-1. `package.json` version bumps (server, plugin, compat, extension; root
-   package untouched — it is `private`).
+1. `package.json` version bumps — only for components with changes: the
+   server component PR bumps `drawio-mcp-server` (plus plugin/compat
+   lockstep, per the coupling rules); the extension component PR bumps
+   `drawio-mcp-extension`. The root package is untouched — it is `private`.
 2. The `VERSION` fallback literal in
    `packages/drawio-mcp-server/src/index.ts`, updated in lockstep via a
    targeted custom updater (JSON-string literal replacement, not a regex over
@@ -147,22 +172,32 @@ The release PR contains, generated:
 The human's job in the PR (all optional except the merge):
 
 - Update README "Key Highlights" prose + version chips (release notes stay
-  human prose, per constraint 5).
+  human prose, per constraint 5) — only in a server-component release PR.
 - Sanity-check the proposed version delta.
 - Merge. That is the entire ceremony.
 
 CI runs on the release PR branch like any other PR, so the exact tree that
 will be tagged is what CI validated.
 
+### Server-only releases
+
+The normal case per the issue's question. A `fix:`/`feat:` commit touching
+only `packages/drawio-mcp-server/**` (plus plugin/compat, which ride the
+server component) yields a release PR bumping
+`packages/drawio-mcp-server/package.json` only. On merge: tag `vX.Y.Z` →
+GitHub Release → `server-publish.yml` → npm. No extension tag exists, so
+nothing on the extension side runs — the extension's version line and store
+listings stay untouched. The inverse (extension-only release) works the same
+way: extension tag → zips + store upload, no npm publish.
+
 ### Post-merge: tag → Release → existing publish workflows
 
-release-please tags `vX.Y.Z` and creates the GitHub Release with the generated
-changelog. Existing workflows then fire unchanged in content, with these
-edits:
+release-please tags and creates the GitHub Release with the generated
+changelog, per component. Existing workflows then fire, with these edits:
 
-- **`server-publish.yml`**: drop the invalid `paths:` filter on the
-  `release: created` trigger (constraint 4). Insert two steps between build
-  and publish:
+- **`server-publish.yml`**: trigger on release of tag `vX.Y.Z` (release event;
+  the invalid `paths:` filter from constraint 4 is dropped). Insert two steps
+  between build and publish:
   1. **Version-parity gate** — fail if `packages/drawio-mcp-server` version ≠
      release tag, `plugin.json` vs `marketplace.json` parity, `VERSION`
      fallback constant matches `package.json`. A plain `set -euo pipefail`
@@ -173,10 +208,27 @@ edits:
      expecting the new version string. Automates manual procedure steps
      6a–6c so the release PR's tree is proven installable *before* the npm
      publish step in the same job (blocking audit already runs there).
-- **`extension-publish.yml`**: after zipping, upload the chrome/firefox zips
-  as Release assets so the Release page is the single artifact download
-  point, and attach the smoke-test receipt (zip contains
-  `manifest.json` with the released version) to the job summary.
+- **`extension-publish.yml`**: trigger on release of tag
+  `drawio-mcp-extension-vX.Y.Z`. After zipping:
+  1. **Upload zips as Release assets** — `gh release upload "$TAG" <zips>`
+     step (needs `contents: write`), so the Release page is the single
+     artifact download point. This is standard and already part of the
+     design; it just needs the workflow to have write permission.
+  2. **Store upload** — submit the new version to both stores automatically:
+     - **Chrome Web Store**: Chrome Web Store Publish API (via
+       `chrome-webstore-upload` or the BPP action). Requires repo secrets
+       `CWS_CLIENT_ID`, `CWS_CLIENT_SECRET`, `CWS_REFRESH_TOKEN`, and the
+       extension's app ID. Uploads the chrome zip and submits it to the
+       review queue; the store's own review (hours to days) follows and is
+       outside the pipeline.
+     - **Mozilla Add-ons**: `web-ext sign --channel listed --source-dir …`
+       with `WEB_EXT_API_KEY` / `WEB_EXT_API_SECRET` from AMO. Automated
+       review; the signed `.xpi` is the published artifact. The firefox zip
+       can also be attached to the Release.
+  3. The store-upload steps are **hard-gated on the extension tag** — they
+     only run for `drawio-mcp-extension-vX.Y.Z` releases, never on a
+     server-only release. Failing store upload does not fail the zip build;
+     the zips on the Release page are the fallback for a manual submission.
 
 The blocking `pnpm audit --audit-level=moderate` stays in both publish
 workflows — a release with a new advisory fails there rather than on `main`
@@ -209,23 +261,35 @@ workflows — a release with a new advisory fails there rather than on `main`
 
 ## Migration
 
-1. Add `release-please.yml` + config; fix `server-publish.yml` trigger; add
-   parity script + smoke-test steps; attach zips to the Release.
-2. Update `docs/release.md` to the new procedure (human steps: keep writing
+1. **Secrets (owner setup, one-time)**: `CWS_CLIENT_ID`,
+   `CWS_CLIENT_SECRET`, `CWS_REFRESH_TOKEN` (Google Cloud OAuth for the
+   Chrome Web Store API) and `WEB_EXT_API_KEY`, `WEB_EXT_API_SECRET` (AMO
+   developer API keys). `NPM_TOKEN` already exists. Until the store secrets
+   exist, the store-upload steps run behind a "skip if secrets absent"
+   guard and the zips on the Release page serve as the manual path.
+2. Add `release-please.yml` + manifest config; fix `server-publish.yml`
+   trigger; add parity script + smoke-test steps; retrigger
+   `extension-publish.yml` on the extension tag, attach zips to the
+   Release, add store-upload steps.
+3. Update `docs/release.md` to the new procedure (human steps: keep writing
   Highlights, merge the release PR, re-run failed publish workflows).
-3. Supervised patch release validates end-to-end.
-4. (Optional, later) Phase 2: CWS API upload + AMO `web-ext sign` with stored
-   credentials; second component for the Claude plugin if its bumps get
-   frequent.
+4. Supervised patch release validates the server path end-to-end; a
+   supervised extension release validates zips + store submission.
+5. (Optional, later) A second component for the Claude plugin if its
+   version bumps get frequent.
 
 ## Open questions for review
 
 1. Release **cadence**: does release-please open a PR per `feat`/`fix` batch
    (immediate) or should it be throttled (e.g. weekly) so one release PR
    accumulates? Default proposal: immediate, merge when you want to ship.
-2. Should the **extension zips' version** stay lockstep-bumped with the
-   server, or is a silent-extension release (server-only bump) acceptable
-   when only the server changed? Lockstep proposed for v1 (matches current
-   behavior); can split into a component later.
-3. Phase-2 store upload: wanted at all, or is "zips on the Release page +
-   manual store upload" the steady state?
+2. **Store submission mode**: auto-submit the uploaded CWS version to the
+   review queue immediately, or upload as a draft for a one-click human
+   publish in the store dashboard? Default proposal: auto-submit — the merge
+   of the release PR is the human approval of the release itself.
+3. The extension version line now drifts from the server's (both are
+   `2.3.0` today by convention). From the first decoupled release, the zip
+   naming and store submissions follow the extension's own version.
+   Confirm that is acceptable, or whether the components should be
+   `linked-versions`-locked (which reintroduces the coupling that
+   server-releases-bump-extension).
