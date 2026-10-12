@@ -110,5 +110,5 @@ jobs:
             --source ".output/drawio-mcp-extension-${{ inputs.version }}-chrome.zip"
 
       - name: Report CWS upload result
-        if: ${{ always() && steps.cws.conclusion == 'failure' }}
+        if: ${{ always() && steps.cws.outcome == 'failure' }}
         run: echo "CWS draft upload failed (non-fatal); submit manually from the Release page zips."
