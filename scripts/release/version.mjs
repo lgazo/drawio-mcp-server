@@ -38,6 +38,18 @@ export function bumpVersion(parsed, level) {
 }
 
 export function resolveVersion({ scope, explicit, current, commits }) {
+  const currentServer = parseSemver(current.server);
+  if (!currentServer) {
+    throw new Error(
+      `invalid current version for drawio-mcp-server: "${current.server}" (expected X.Y.Z)`,
+    );
+  }
+  const currentExtension = parseSemver(current.extension);
+  if (!currentExtension) {
+    throw new Error(
+      `invalid current version for drawio-mcp-extension: "${current.extension}" (expected X.Y.Z)`,
+    );
+  }
   let level = bumpLevel(commits);
   let version;
   let source;
@@ -45,10 +57,7 @@ export function resolveVersion({ scope, explicit, current, commits }) {
     const parsed = parseSemver(explicit);
     if (!parsed) throw new Error(`invalid semver: "${explicit}" (expected X.Y.Z)`);
     version = `${parsed.major}.${parsed.minor}.${parsed.patch}`;
-    const base =
-      scope === "extension"
-        ? parseSemver(current.extension)
-        : parseSemver(current.server);
+    const base = scope === "extension" ? currentExtension : currentServer;
     level = bumpLevelBetween(base, parsed);
     source = "explicit";
   } else {
@@ -57,10 +66,7 @@ export function resolveVersion({ scope, explicit, current, commits }) {
         `no commits found for scope "${scope}" since the last release; pass an explicit --version if you really want to release`,
       );
     }
-    const base =
-      scope === "extension"
-        ? parseSemver(current.extension)
-        : parseSemver(current.server);
+    const base = scope === "extension" ? currentExtension : currentServer;
     version = bumpVersion(base, level);
     source = "computed";
   }

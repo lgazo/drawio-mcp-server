@@ -109,6 +109,29 @@ test("resolveVersion explicit override wins and validates monotonicity", () => {
   );
 });
 
+test("resolveVersion rejects malformed current versions with a human message", () => {
+  assert.throws(
+    () =>
+      resolveVersion({
+        scope: "server",
+        explicit: null,
+        current: { server: "abc", extension: "2.3.0" },
+        commits: [{ subject: "feat: x" }],
+      }),
+    /invalid current version for drawio-mcp-server: "abc"/,
+  );
+  assert.throws(
+    () =>
+      resolveVersion({
+        scope: "both",
+        explicit: "3.0.0",
+        current: { server: "2.4.0", extension: "0.beta" },
+        commits: [],
+      }),
+    /invalid current version for drawio-mcp-extension: "0\.beta"/,
+  );
+});
+
 test("resolveVersion computed with zero relevant commits fails", () => {
   assert.throws(() =>
     resolveVersion({
