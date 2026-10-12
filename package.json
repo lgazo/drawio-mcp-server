@@ -4,7 +4,7 @@
   "description": "Draw.io MCP - A monorepo containing the MCP server and browser plugin",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@10.8.1",
+  "packageManager": "pnpm@10.34.7",
   "scripts": {
     "build": "pnpm -r build",
     "dev": "pnpm -r dev",
