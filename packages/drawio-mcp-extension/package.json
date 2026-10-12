@@ -44,6 +44,7 @@
     "@types/react": "19.1.2",
     "@types/react-dom": "19.1.2",
     "@wxt-dev/module-react": "1.2.2",
+    "chrome-webstore-upload-cli": "4.0.2",
     "jest": "30.2.0",
     "ts-jest": "29.4.14",
     "tsx": "^4.19.2",

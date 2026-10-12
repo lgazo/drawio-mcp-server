@@ -1,14 +1,44 @@
 name: Publish Extension
 
+# Reusable publish job invoked by release.yml after the extension tag and
+# Release exist. Uploads the CWS zip as a DRAFT only (no auto-publish);
+# AMO submission stays manual from the zips on the Release page (v1).
 on:
-  release:
-    types: [created]
+  workflow_call:
+    inputs:
+      version:
+        description: "Released version (X.Y.Z)"
+        type: string
+        required: true
+      ref:
+        description: "Tag/ref to build"
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Released version (X.Y.Z)"
+        type: string
+        required: true
+      ref:
+        description: "Tag/ref to build"
+        type: string
+        required: true
+
+permissions:
+  contents: write # attach zips to the GitHub Release
+
+concurrency:
+  group: extension-publish-${{ inputs.ref }}
+  cancel-in-progress: false
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ inputs.ref }}
       - name: Install pnpm
         uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5
 
@@ -29,8 +59,7 @@ jobs:
         run: pnpm --filter drawio-mcp-compat run build
 
       - name: Build plugin
-        run: pnpm run build
-        working-directory: packages/drawio-mcp-plugin
+        run: pnpm --filter drawio-mcp-plugin run build
 
       - name: Build extension (chrome)
         run: pnpm run build
@@ -43,3 +72,43 @@ jobs:
       - name: Package extension (firefox)
         run: pnpm run zip:firefox
         working-directory: packages/drawio-mcp-extension
+
+      - name: Attach zips to the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: drawio-mcp-extension-v${{ inputs.version }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" \
+              "packages/drawio-mcp-extension/.output/drawio-mcp-extension-${{ inputs.version }}-chrome.zip" \
+              "packages/drawio-mcp-extension/.output/drawio-mcp-extension-${{ inputs.version }}-firefox.zip" \
+              --clobber
+          else
+            echo "Release $TAG not found; zips stay as build outputs:"
+            ls -la packages/drawio-mcp-extension/.output
+          fi
+
+      - name: Upload CWS draft (skipped without store credentials)
+        id: cws
+        continue-on-error: true
+        env:
+          CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+          CWS_EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
+        working-directory: packages/drawio-mcp-extension
+        run: |
+          if [ -z "$CWS_CLIENT_ID" ] || [ -z "$CWS_CLIENT_SECRET" ] || [ -z "$CWS_REFRESH_TOKEN" ] || [ -z "$CWS_EXTENSION_ID" ]; then
+            echo "CWS_* secrets not configured; skipping draft upload (manual submission from the Release page zips)."
+            exit 0
+          fi
+          pnpm exec chrome-webstore-upload upload \
+            --extension-id "$CWS_EXTENSION_ID" \
+            --client-id "$CWS_CLIENT_ID" \
+            --client-secret "$CWS_CLIENT_SECRET" \
+            --refresh-token "$CWS_REFRESH_TOKEN" \
+            --source ".output/drawio-mcp-extension-${{ inputs.version }}-chrome.zip"
+
+      - name: Report CWS upload result
+        if: ${{ always() && steps.cws.conclusion == 'failure' }}
+        run: echo "CWS draft upload failed (non-fatal); submit manually from the Release page zips."
