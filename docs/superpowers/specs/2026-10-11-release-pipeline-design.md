@@ -1,7 +1,7 @@
 # Release Pipeline with Limited Human Involvement — Design
 
 Date: 2026-10-11 (revised 2026-10-12)
-Status: proposed (awaiting review)
+Status: review decisions settled; awaiting approval to implement
 Scope: release automation for the whole monorepo; design only, no implementation yet.
 
 ## Problem
@@ -160,11 +160,16 @@ branch picker is left on `main` — releasing anything else is out of scope):
    - **extension job** (`extension-publish.yml` becomes reusable): build,
      zip chrome + firefox, `gh release upload` the zips as Release assets
      (single download point), then submit to the stores:
-     - **Chrome Web Store** Publish API (`chrome-webstore-upload`): secrets
-       `CWS_CLIENT_ID`, `CWS_CLIENT_SECRET`, `CWS_REFRESH_TOKEN`, app ID;
-       upload + submit to the review queue (store review itself is external).
-     - **Mozilla Add-ons**: `web-ext sign --channel listed` with
-       `WEB_EXT_API_KEY` / `WEB_EXT_API_SECRET`; automated review.
+     - **Chrome Web Store** (`chrome-webstore-upload`): secrets
+       `CWS_CLIENT_ID`, `CWS_CLIENT_SECRET`, `CWS_REFRESH_TOKEN`, app ID.
+       Upload the new version as a **draft only** — no auto-publish. The
+       release goes live when a human clicks "Submit for review" in the
+       dashboard (decision from review).
+     - **Mozilla Add-ons**: no draft state exists in the AMO signing API
+       (`web-ext sign --channel listed` publishes after automated review),
+       so v1 does not auto-upload to AMO at all — the zips on the Release
+       page are the manual submission path. Revisit once the CWS draft flow
+       has proven itself.
      - A failed store submission does not fail the job — the zips on the
        Release page remain the manual fallback. A failed store upload also
        does not lose anything: re-run the job.
@@ -207,11 +212,11 @@ branch picker is left on `main` — releasing anything else is out of scope):
 ## Migration
 
 1. **Secrets (owner setup, one-time)**: `CWS_CLIENT_ID`, `CWS_CLIENT_SECRET`,
-   `CWS_REFRESH_TOKEN` (Google Cloud OAuth for the Chrome Web Store API) and
-   `WEB_EXT_API_KEY`, `WEB_EXT_API_SECRET` (AMO developer API keys);
-   `NPM_TOKEN` already exists. Until the store secrets exist, the
-   store-upload steps run behind a "skip if secrets absent" guard and the
-   zips on the Release page serve as the manual path.
+   `CWS_REFRESH_TOKEN` (Google Cloud OAuth for the Chrome Web Store API);
+   `NPM_TOKEN` already exists. (AMO keys are not needed in v1 — no
+   auto-upload.) Until the CWS secrets exist, the store-upload step runs
+   behind a "skip if secrets absent" guard and the zips on the Release page
+   serve as the manual path.
 2. Add `release.yml`; write the version/changelog script + tests; add the
    parity-gate script; refactor `server-publish.yml` /
    `extension-publish.yml` into `workflow_call` form.
@@ -222,17 +227,31 @@ branch picker is left on `main` — releasing anything else is out of scope):
 5. (Optional, later) Claude-plugin releases through the same form as a third
    scope if its version bumps get frequent.
 
-## Open questions for review
+## Decisions (settled in review)
 
-1. **Auto-compute default**: when the `version` field is left empty, is
-   conventional-commit-derived versioning a wanted convenience, or should the
-   form always require an explicit version (simpler mental model, no
-   wrong-bump risk)?
-2. **Store submission mode**: auto-submit the uploaded CWS version to the
-   review queue immediately, or upload as a draft for a one-click human
-   publish in the store dashboard? Default proposal: auto-submit — clicking
-   Run on the form is the human approval of the release itself.
-3. Who may run the form: anyone with write access to the repo (GitHub's
-   default for `workflow_dispatch`). Confirm that is the right gate, or
-   restrict via a required reviewers / environment approval on the release
-   job.
+1. **Version input**: keep auto-compute when the `version` field is left
+   empty, with explicit override when filled. (As designed.)
+2. **Store submission**: draft mode. CWS versions are auto-uploaded as
+   drafts only; a human clicks "Submit for review" in the store dashboard to
+   go live. AMO has no draft state in its API, so AMO submission stays
+   manual from the Release-page zips in v1.
+3. **Who may run the form**: anyone with write access to the repo (GitHub's
+   default for `workflow_dispatch`). No additional approval gate.
+
+## Corrections — no release branch by design
+
+There is no release branch in this pipeline; `main` is the only integration
+point. Corrections work as ordinary commits:
+
+- **Before running the form** (e.g. a README.md fix or a Highlights edit):
+  push the correction to `main` as a normal commit/PR — the workflow reads
+  whatever `main` HEAD is at run time, so the fix is included in the release
+  (and the generated server-README sync picks it up).
+- **After a release**: the correction lands on `main` the same way and ships
+  with the next release. The one wrinkle is the npm-displayed server README:
+  the registry shows the copy from the published version, so a post-release
+  README fix only reaches npm with the next server release. GitHub's copy is
+  correct immediately (it reads the repo root README).
+- **Nothing is ever committed to a branch other than `main`** — the workflow's
+  release commit is bot-authored directly on `main`, and there is no
+  post-merge cleanup to forget.
