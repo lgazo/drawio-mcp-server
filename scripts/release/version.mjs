@@ -14,10 +14,15 @@ export function cmpSemver(a, b) {
   return 0;
 }
 
+// Conventional-commit BREAKING CHANGE footer (also the "BREAKING-CHANGE:"
+// keying used by some tooling); matches anywhere in the body at a line start.
+const BREAKING_FOOTER = /(^|\n)BREAKING[ -]CHANGE:?/im;
+
 export function bumpLevel(commits) {
   let level = "patch";
-  for (const { subject } of commits) {
-    const m = /^(\w+)(\([^)]*\))?(!)?:/.exec(subject);
+  for (const { subject, body } of commits) {
+    if (BREAKING_FOOTER.test(body ?? "")) return "major";
+    const m = /^(\w+)(\([^)]*\))?(!)?:/.exec(subject ?? "");
     if (!m) continue;
     if (m[3] === "!") return "major";
     if (m[1] === "feat") level = "minor";

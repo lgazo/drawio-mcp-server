@@ -51,21 +51,51 @@ function logArgs(range) {
   return range === null ? ["--max-count=1000000", "HEAD"] : [range];
 }
 
+// %x1f starts a record, %x1e separates fields. %b (commit body) is multi-line
+// and shares newlines with the --name-only file list, so the file section is
+// recovered as everything before/after the last blank line (git always
+// separates the message block from the file list with a blank line, and git
+// normalized messages end in a non-blank line).
+function parseCommitRecord(record) {
+  const lines = record.split("\n");
+  while (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
+  const headParts = lines[0].split("\x1e");
+  const subject = headParts[1];
+  const hash = headParts[2];
+  const bodyFirstLine = headParts[3] ?? "";
+  const rest = lines.slice(1);
+  let body = "";
+  let fileStart = 0;
+  if (bodyFirstLine !== "") {
+    let lastBlank = -1;
+    for (let i = 0; i < rest.length; i++) {
+      if (rest[i].trim() === "") lastBlank = i;
+    }
+    body = [bodyFirstLine, ...rest.slice(0, lastBlank === -1 ? 0 : lastBlank)]
+      .join("\n")
+      .replace(/\n+$/, "");
+    fileStart = lastBlank === -1 ? 0 : lastBlank + 1;
+  }
+  const files = rest
+    .slice(fileStart)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  return { subject, hash, body, files };
+}
+
 function commitsSince(range, prefixes) {
   const raw = git(
     "log",
     ...logArgs(range),
     "--name-only",
-    "--pretty=format:%x1f%x1e%s%x1e%h",
+    "--pretty=format:%x1f%x1e%s%x1e%h%x1e%b",
   );
   const commits = [];
   for (const record of raw.split("\x1f")) {
     if (!record.trim()) continue;
-    const [meta, ...fileLines] = record.split("\n");
-    const [, subject, hash] = meta.split("\x1e");
-    const files = fileLines.map((l) => l.trim()).filter(Boolean);
+    const { subject, hash, body, files } = parseCommitRecord(record);
     if (files.some((f) => prefixes.some((p) => f.startsWith(p)))) {
-      commits.push({ subject, hash, files });
+      commits.push({ subject, hash, body, files });
     }
   }
   return commits;

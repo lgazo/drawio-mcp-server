@@ -45,6 +45,48 @@ test("bumpLevel handles scoped breaking changes", () => {
   assert.equal(bumpLevel([{ subject: "fix(api): x" }]), "patch");
 });
 
+test("bumpLevel honors BREAKING CHANGE footers in the body", () => {
+  assert.equal(
+    bumpLevel([{ subject: "fix: x", body: "BREAKING CHANGE: y" }]),
+    "major",
+  );
+  assert.equal(
+    bumpLevel([{ subject: "fix: x", body: "text\n\nBREAKING CHANGE: boom\n" }]),
+    "major",
+  );
+  assert.equal(
+    bumpLevel([{ subject: "fix: x", body: "BREAKING-CHANGE: y" }]),
+    "major",
+  );
+});
+
+test("bumpLevel treats bodies without a breaking footer by their subject", () => {
+  assert.equal(
+    bumpLevel([{ subject: "fix: x", body: "no marker here\n" }]),
+    "patch",
+  );
+  // Footer text not at a line start does not count as a footer.
+  assert.equal(
+    bumpLevel([
+      { subject: "fix: x", body: "this mentions BREAKING CHANGE mid-line" },
+    ]),
+    "patch",
+  );
+  assert.equal(
+    bumpLevel([{ subject: "feat: x", body: "regular note\n" }]),
+    "minor",
+  );
+});
+
+test("bumpLevel keeps subject-only records working alongside body records", () => {
+  assert.equal(bumpLevel([{ subject: "fix: x" }]), "patch");
+  assert.equal(bumpLevel([{ subject: "feat!: x" }]), "major");
+  assert.equal(
+    bumpLevel([{ subject: "docs: a" }, { subject: "fix: x", body: "" }]),
+    "patch",
+  );
+});
+
 test("bumpVersion increments the right digit", () => {
   const base = parseSemver("2.3.4");
   assert.equal(bumpVersion(base, "patch"), "2.3.5");
