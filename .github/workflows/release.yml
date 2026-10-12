@@ -1,0 +1,181 @@
+name: Release
+
+# One human gate: fill the form (scope + optional version), click Run.
+# Validates, bumps coupled files, runs gates, commits to main, tags,
+# creates GitHub Releases, then invokes the publish jobs directly
+# (GITHUB_TOKEN-created releases do not fire release events).
+on:
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: "What to release"
+        type: choice
+        options: [server, extension, both]
+        default: server
+      version:
+        description: "X.Y.Z — leave empty to auto-compute from commits"
+        type: string
+        required: false
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0 # full history for changelog + tag ranges
+      - name: Install pnpm
+        uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5
+
+      - name: Use Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: "24.x"
+          cache: "pnpm"
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Resolve version
+        id: resolve
+        run: |
+          set -euo pipefail
+          args=(--scope "${{ inputs.scope }}")
+          if [ -n "${{ inputs.version }}" ]; then args+=(--version "${{ inputs.version }}"); fi
+          node scripts/release.mjs resolve "${args[@]}" | tee resolve.json
+          echo "version=$(node -p "JSON.parse(require('fs').readFileSync('resolve.json','utf8')).version")" >> "$GITHUB_OUTPUT"
+
+      - name: Bump coupled files
+        run: |
+          set -euo pipefail
+          version="${{ steps.resolve.outputs.version }}"
+          node scripts/release.mjs bump --scope "${{ inputs.scope }}" --version "$version"
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Release script unit tests
+        run: pnpm run test:release
+
+      - name: Blocking dependency audit
+        run: pnpm audit --audit-level=moderate
+
+      - name: Build all packages
+        run: |
+          pnpm --filter drawio-mcp-compat run build
+          pnpm --filter drawio-mcp-plugin run build
+          pnpm --filter drawio-mcp-dev-proxy run build
+          pnpm --filter drawio-mcp-server run build
+          pnpm --filter drawio-mcp-extension run build
+
+      - name: Lint server
+        if: ${{ inputs.scope != 'extension' }}
+        run: |
+          pnpm --filter drawio-mcp-server run lint
+          pnpm --filter drawio-mcp-server run format:check
+
+      - name: Cache Playwright browsers
+        if: ${{ inputs.scope != 'extension' }}
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Cache draw.io assets
+        if: ${{ inputs.scope != 'extension' }}
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ~/.cache/drawio-mcp-server
+          key: drawio-assets-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install Playwright browser
+        if: ${{ inputs.scope != 'extension' }}
+        run: pnpm --filter drawio-mcp-server exec playwright install --with-deps chromium
+
+      - name: Server tests
+        if: ${{ inputs.scope != 'extension' }}
+        run: |
+          pnpm --filter drawio-mcp-server run prefetch-assets
+          pnpm --filter drawio-mcp-server test
+
+      - name: Extension tests
+        if: ${{ inputs.scope != 'server' }}
+        run: pnpm --filter drawio-mcp-extension test
+
+      - name: Plugin tests
+        run: pnpm --filter drawio-mcp-plugin test
+
+      - name: Generate changelog
+        run: |
+          node scripts/release.mjs changelog \
+            --scope "${{ inputs.scope }}" \
+            --version "${{ steps.resolve.outputs.version }}" > changelog.md
+
+      - name: Commit version bumps to main
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add packages/drawio-mcp-server/package.json \
+                  packages/drawio-mcp-plugin/package.json \
+                  packages/drawio-mcp-compat/package.json \
+                  packages/drawio-mcp-extension/package.json \
+                  packages/drawio-mcp-server/src/index.ts \
+                  packages/drawio-mcp-server/README.md
+          if git diff --cached --quiet; then
+            echo "ERROR: nothing staged for the release commit" >&2
+            exit 1
+          fi
+          git commit -m "chore(release): ${{ steps.resolve.outputs.version }} ${{ inputs.scope }}"
+          git push origin HEAD:main
+
+      - name: Tag and create GitHub Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.resolve.outputs.version }}
+          SCOPE: ${{ inputs.scope }}
+        run: |
+          set -euo pipefail
+          if [ "$SCOPE" != "extension" ]; then
+            git tag "v$VERSION"
+            git push origin "v$VERSION"
+            gh release create "v$VERSION" --title "v$VERSION" --notes-file changelog.md
+          fi
+          if [ "$SCOPE" != "server" ]; then
+            git tag "drawio-mcp-extension-v$VERSION"
+            git push origin "drawio-mcp-extension-v$VERSION"
+            gh release create "drawio-mcp-extension-v$VERSION" \
+              --title "drawio-mcp-extension v$VERSION" --notes-file changelog.md
+          fi
+
+  publish-server:
+    needs: release
+    if: ${{ inputs.scope != 'extension' }}
+    uses: ./.github/workflows/server-publish.yml
+    with:
+      version: ${{ needs.release.outputs.version }}
+      ref: v${{ needs.release.outputs.version }}
+    secrets: inherit
+    permissions:
+      contents: read
+      id-token: write
+
+  publish-extension:
+    needs: release
+    if: ${{ inputs.scope != 'server' }}
+    uses: ./.github/workflows/extension-publish.yml
+    with:
+      version: ${{ needs.release.outputs.version }}
+      ref: drawio-mcp-extension-v${{ needs.release.outputs.version }}
+    secrets: inherit
+    permissions:
+      contents: write
+      id-token: none
