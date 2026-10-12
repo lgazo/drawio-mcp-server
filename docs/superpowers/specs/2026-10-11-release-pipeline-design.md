@@ -1,7 +1,7 @@
 # Release Pipeline with Limited Human Involvement — Design
 
 Date: 2026-10-11 (revised 2026-10-12)
-Status: review decisions settled; awaiting approval to implement
+Status: implemented (see docs/release.md); awaiting supervised patch release
 Scope: release automation for the whole monorepo; design only, no implementation yet.
 
 ## Problem
@@ -137,11 +137,11 @@ branch picker is left on `main` — releasing anything else is out of scope):
 4. **Generate the changelog** from conventional commits since the component's
    last tag (same script), grouped feat/fix/docs.
 5. **Gates before anything is tagged**: `pnpm install`, full lint + typecheck
-   + tests, blocking `pnpm audit --audit-level=moderate` (a release with a
-   new advisory fails here, not on `main`), and for server scope the pack
-   smoke test — `pnpm pack` the server, `npm install` the tarball into a temp
-   dir, `npx drawio-mcp-server --editor` must report the new version
-   (automates manual procedure steps 6a–6c).
+   - tests, blocking `pnpm audit --audit-level=moderate` (a release with a
+     new advisory fails here, not on `main`), and for server scope the pack
+     smoke test — `pnpm pack` the server, `npm install` the tarball into a temp
+     dir, `npx drawio-mcp-server --editor` must report the new version
+     (automates manual procedure steps 6a–6c).
 6. **Commit** the bumps as `chore(release): <version> [<scope>]` to `main`
    (github-script with `GITHUB_TOKEN`; author `github-actions[bot]`).
 7. **Tag + GitHub Release**: `vX.Y.Z` (server), `drawio-mcp-extension-vX.Y.Z`
@@ -155,7 +155,7 @@ branch picker is left on `main` — releasing anything else is out of scope):
      checked-out tree's versions match the chosen version and the coupling
      rules hold — a plain `set -euo pipefail` script under `scripts/`, same
      home as `check-audit-overrides.sh`), then `pnpm --filter
-     drawio-mcp-server publish --provenance --access public`
+drawio-mcp-server publish --provenance --access public`
      (`id-token: write` for provenance, `NPM_TOKEN` as today).
    - **extension job** (`extension-publish.yml` becomes reusable): build,
      zip chrome + firefox, `gh release upload` the zips as Release assets
@@ -178,11 +178,11 @@ branch picker is left on `main` — releasing anything else is out of scope):
 
 ### The three release situations
 
-| Situation | Form input | Result |
-|---|---|---|
-| Server only | scope=`server` | Server bump + `vX.Y.Z` → npm. Extension untouched. |
-| Extension only | scope=`extension` | Extension bump + `drawio-mcp-extension-vX.Y.Z` → zips + stores. npm untouched. |
-| Both together | scope=`both`, one `version` | One version applied to both; both tags; npm + zips + stores. Aligned versions by construction. |
+| Situation      | Form input                  | Result                                                                                         |
+| -------------- | --------------------------- | ---------------------------------------------------------------------------------------------- |
+| Server only    | scope=`server`              | Server bump + `vX.Y.Z` → npm. Extension untouched.                                             |
+| Extension only | scope=`extension`           | Extension bump + `drawio-mcp-extension-vX.Y.Z` → zips + stores. npm untouched.                 |
+| Both together  | scope=`both`, one `version` | One version applied to both; both tags; npm + zips + stores. Aligned versions by construction. |
 
 ### Failure and retry behavior
 
