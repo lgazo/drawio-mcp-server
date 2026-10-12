@@ -12,8 +12,9 @@
     "translate": "node scripts/translate.mjs",
     "translate:check": "node scripts/translate.mjs locales --check",
     "test": "pnpm -r test",
-    "test:watch": "pnpm -r test:watch",
     "test:coverage": "pnpm -r test:coverage",
+    "test:release": "node --test scripts/release/*.test.mjs",
+    "test:watch": "pnpm -r test:watch",
     "check-audit-overrides": "./scripts/check-audit-overrides.sh"
   },
   "keywords": [
