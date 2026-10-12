@@ -18,8 +18,7 @@ on:
         required: false
 
 permissions:
-  contents: write
-  id-token: write
+  contents: write # the release job only bumps, commits, and tags; publishes declare their own
 
 concurrency:
   group: release
@@ -46,18 +45,23 @@ jobs:
 
       - name: Resolve version
         id: resolve
+        env:
+          SCOPE: ${{ inputs.scope }}
+          VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
-          args=(--scope "${{ inputs.scope }}")
-          if [ -n "${{ inputs.version }}" ]; then args+=(--version "${{ inputs.version }}"); fi
+          args=(--scope "$SCOPE")
+          if [ -n "$VERSION" ]; then args+=(--version "$VERSION"); fi
           node scripts/release.mjs resolve "${args[@]}" | tee resolve.json
           echo "version=$(node -p "JSON.parse(require('fs').readFileSync('resolve.json','utf8')).version")" >> "$GITHUB_OUTPUT"
 
       - name: Bump coupled files
+        env:
+          SCOPE: ${{ inputs.scope }}
+          VERSION: ${{ steps.resolve.outputs.version }}
         run: |
           set -euo pipefail
-          version="${{ steps.resolve.outputs.version }}"
-          node scripts/release.mjs bump --scope "${{ inputs.scope }}" --version "$version"
+          node scripts/release.mjs bump --scope "$SCOPE" --version "$VERSION"
 
       - name: Install dependencies
         run: pnpm install
@@ -76,11 +80,35 @@ jobs:
           pnpm --filter drawio-mcp-server run build
           pnpm --filter drawio-mcp-extension run build
 
+      # Spec binding: the smoke test gates BEFORE anything is tagged. The
+      # same check runs again in server-publish.yml as a pre-publish
+      # double-check.
+      - name: Pack smoke test (fresh install from tarball)
+        if: ${{ inputs.scope != 'extension' }}
+        working-directory: packages/drawio-mcp-server
+        env:
+          VERSION: ${{ steps.resolve.outputs.version }}
+        run: |
+          set -euo pipefail
+          pnpm pack --pack-destination .
+          tarball=$(ls drawio-mcp-server-*.tgz)
+          tmp=$(mktemp -d)
+          npm install --prefix "$tmp" "$PWD/$tarball"
+          # The version banner is printed to stderr, so merge streams before grep.
+          "$tmp/node_modules/.bin/drawio-mcp-server" --help 2>&1 | grep -F "Draw.io MCP Server ($VERSION)"
+          rm -rf "$tmp" "$tarball"
+
       - name: Lint server
         if: ${{ inputs.scope != 'extension' }}
         run: |
           pnpm --filter drawio-mcp-server run lint
           pnpm --filter drawio-mcp-server run format:check
+
+      - name: Check translations
+        if: ${{ inputs.scope != 'extension' }}
+        run: |
+          node scripts/translate.mjs locales --check
+          node scripts/translate.mjs docs --check
 
       - name: Cache Playwright browsers
         if: ${{ inputs.scope != 'extension' }}
@@ -110,16 +138,26 @@ jobs:
         if: ${{ inputs.scope != 'server' }}
         run: pnpm --filter drawio-mcp-extension test
 
+      - name: Extension typecheck
+        if: ${{ inputs.scope != 'server' }}
+        run: pnpm --filter drawio-mcp-extension run compile
+
       - name: Plugin tests
         run: pnpm --filter drawio-mcp-plugin test
 
       - name: Generate changelog
+        env:
+          SCOPE: ${{ inputs.scope }}
+          VERSION: ${{ steps.resolve.outputs.version }}
         run: |
           node scripts/release.mjs changelog \
-            --scope "${{ inputs.scope }}" \
-            --version "${{ steps.resolve.outputs.version }}" > changelog.md
+            --scope "$SCOPE" \
+            --version "$VERSION" > changelog.md
 
       - name: Commit version bumps to main
+        env:
+          SCOPE: ${{ inputs.scope }}
+          VERSION: ${{ steps.resolve.outputs.version }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
@@ -134,7 +172,7 @@ jobs:
             echo "ERROR: nothing staged for the release commit" >&2
             exit 1
           fi
-          git commit -m "chore(release): ${{ steps.resolve.outputs.version }} ${{ inputs.scope }}"
+          git commit -m "chore(release): $VERSION $SCOPE"
           git push origin HEAD:main
 
       - name: Tag and create GitHub Releases

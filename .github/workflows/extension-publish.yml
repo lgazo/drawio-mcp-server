@@ -77,11 +77,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: drawio-mcp-extension-v${{ inputs.version }}
+          VERSION: ${{ inputs.version }}
         run: |
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" \
-              "packages/drawio-mcp-extension/.output/drawio-mcp-extension-${{ inputs.version }}-chrome.zip" \
-              "packages/drawio-mcp-extension/.output/drawio-mcp-extension-${{ inputs.version }}-firefox.zip" \
+              "packages/drawio-mcp-extension/.output/drawio-mcp-extension-${VERSION}-chrome.zip" \
+              "packages/drawio-mcp-extension/.output/drawio-mcp-extension-${VERSION}-firefox.zip" \
               --clobber
           else
             echo "Release $TAG not found; zips stay as build outputs:"
@@ -96,6 +97,7 @@ jobs:
           CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
           CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
           CWS_EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
+          VERSION: ${{ inputs.version }}
         working-directory: packages/drawio-mcp-extension
         run: |
           if [ -z "$CWS_CLIENT_ID" ] || [ -z "$CWS_CLIENT_SECRET" ] || [ -z "$CWS_REFRESH_TOKEN" ] || [ -z "$CWS_EXTENSION_ID" ]; then
@@ -107,7 +109,7 @@ jobs:
             --client-id "$CWS_CLIENT_ID" \
             --client-secret "$CWS_CLIENT_SECRET" \
             --refresh-token "$CWS_REFRESH_TOKEN" \
-            --source ".output/drawio-mcp-extension-${{ inputs.version }}-chrome.zip"
+            --source ".output/drawio-mcp-extension-${VERSION}-chrome.zip"
 
       - name: Report CWS upload result
         if: ${{ always() && steps.cws.outcome == 'failure' }}

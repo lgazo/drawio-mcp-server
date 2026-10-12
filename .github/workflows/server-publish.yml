@@ -52,7 +52,9 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Version parity gate
-        run: node scripts/release.mjs check-parity --version "${{ inputs.version }}"
+        env:
+          VERSION: ${{ inputs.version }}
+        run: node scripts/release.mjs check-parity --version "$VERSION"
 
       - name: Install dependencies
         run: pnpm install
@@ -74,6 +76,8 @@ jobs:
 
       - name: Pack smoke test (fresh install from tarball)
         working-directory: packages/drawio-mcp-server
+        env:
+          VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
           pnpm pack --pack-destination .
@@ -81,7 +85,7 @@ jobs:
           tmp=$(mktemp -d)
           npm install --prefix "$tmp" "$PWD/$tarball"
           # The version banner is printed to stderr, so merge streams before grep.
-          "$tmp/node_modules/.bin/drawio-mcp-server" --help 2>&1 | grep -F "Draw.io MCP Server (${{ inputs.version }})"
+          "$tmp/node_modules/.bin/drawio-mcp-server" --help 2>&1 | grep -F "Draw.io MCP Server ($VERSION)"
           rm -rf "$tmp" "$tarball"
 
       - name: Publish
