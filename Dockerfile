@@ -10,7 +10,7 @@
 # ---------------------------------------------------------------------------
 # Stage 1: Install production dependencies
 # ---------------------------------------------------------------------------
-FROM node:26.7.0-slim AS deps
+FROM node:26.7.0-alpine3.24 AS deps
 
 WORKDIR /app
 
@@ -24,7 +24,7 @@ RUN pnpm install --frozen-lockfile
 # ---------------------------------------------------------------------------
 # Stage 2: Build TypeScript
 # ---------------------------------------------------------------------------
-FROM node:26.7.0-slim AS build
+FROM node:26.7.0-alpine3.24 AS build
 
 WORKDIR /app
 
@@ -47,7 +47,7 @@ RUN pnpm --filter drawio-mcp-compat run build \
 # ---------------------------------------------------------------------------
 # Stage 3: Runtime — install production deps and run
 # ---------------------------------------------------------------------------
-FROM node:26.7.0-slim AS runtime
+FROM node:26.7.0-alpine3.24 AS runtime
 
 WORKDIR /app
 
