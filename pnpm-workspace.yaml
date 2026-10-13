@@ -23,3 +23,11 @@ overrides:
   "brace-expansion@>=1 <1.1.21": "1.1.21"
   "brace-expansion@>=2 <2.1.7": "2.1.7"
   "brace-expansion@>=5 <5.0.12": "5.0.12"
+
+# Audit findings with no patched release available yet.
+# Remove each GHSA once its advisory gets a fixed version.
+auditConfig:
+  ignoreGhsas:
+    - GHSA-86w9-cpqp-85rv # node-forge <=1.4.0, high, no fix released
+    - GHSA-vfj7-8cjw-p6xm # braces <=3.0.3, high, no fix released
+    - GHSA-hp3w-g68c-fv3c # sprintf-js <=1.1.3, moderate, no fix released
