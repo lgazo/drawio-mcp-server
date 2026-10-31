@@ -84,14 +84,19 @@ describe("MCP Apps: show-diagram tool", () => {
     });
     const client = await connectClientForApp(app);
 
-    // No documents are connected, so the handler's document routing must
-    // reject with the intended auto-target error. Regression: the
-    // document-scoped registerTool shim dropped the callback argument,
+    // No documents are connected and an explicit unknown target_document is
+    // passed, so the handler's document routing must reject. Regression:
+    // the document-scoped registerTool shim dropped the callback argument,
     // leaving tool.handler undefined and making tools/call throw
     // `Cannot use 'in' operator to search for 'createTask' in undefined`.
+    // With no explicit target_document the same call now cold-starts with
+    // a blank diagram instead of erroring.
     const result = (await client.callTool({
       name: "show-diagram",
-      arguments: { target_page: { index: 0 } },
+      arguments: {
+        target_page: { index: 0 },
+        target_document: { id: "does-not-exist" },
+      },
     })) as {
       isError?: boolean;
       content?: Array<{ type: string; text?: string }>;
@@ -101,8 +106,67 @@ describe("MCP Apps: show-diagram tool", () => {
     const text = (result.content ?? [])
       .map((item) => item.text ?? "")
       .join("\n");
-    expect(text).toContain("No connected Draw.io documents");
+    expect(text).toContain("does-not-exist");
     expect(text).not.toContain("createTask");
+
+    await client.close();
+  });
+});
+
+describe("MCP Apps: show-diagram cold start", () => {
+  let app: DrawioMcpApp;
+
+  afterEach(async () => {
+    if (app) await app.close();
+  });
+
+  it("returns a blank diagram when no documents are connected", async () => {
+    app = createDrawioMcpApp({
+      config: defaultConfig(),
+      log: new MemoryLogger(),
+    });
+    const client = await connectClientForApp(app);
+
+    const result = await client.callTool({
+      name: "show-diagram",
+      arguments: { target_page: { index: 0 } },
+    });
+    const text =
+      (result.content as Array<{ type: string; text?: string }>).find(
+        (c) => c.type === "text",
+      )?.text ?? "";
+    expect(text).toContain("<mxfile");
+    expect(text).toContain("<mxGraphModel");
+    expect(text).not.toContain("No connected");
+
+    await client.close();
+  });
+
+  it("still errors for an explicit unknown target_document", async () => {
+    app = createDrawioMcpApp({
+      config: defaultConfig(),
+      log: new MemoryLogger(),
+    });
+    const client = await connectClientForApp(app);
+
+    // The SDK surfaces handler-thrown errors as an isError tool result,
+    // not a rejected callTool promise.
+    const result = (await client.callTool({
+      name: "show-diagram",
+      arguments: {
+        target_document: { id: "does-not-exist" },
+        target_page: { index: 0 },
+      },
+    })) as {
+      isError?: boolean;
+      content?: Array<{ type: string; text?: string }>;
+    };
+    expect(result.isError).toBe(true);
+    const text = (result.content ?? [])
+      .map((item) => item.text ?? "")
+      .join("\n");
+    expect(text).not.toContain("No connected");
+    expect(text).toContain("does-not-exist");
 
     await client.close();
   });

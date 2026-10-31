@@ -123,7 +123,7 @@ Draw.io MCP 服务器提供以下 MCP 工具，用于以编程方式与图表交
 
 对话内编辑器由 `ui://drawio/editor.html` 这个 MCP 应用资源提供，它是一个自包含的 HTML 外壳，内嵌本地托管的 draw.io 编辑器。服务器必须使用 `--editor` 启动，以便提供被内嵌的编辑器；同时 MCP 宿主必须能够访问 `http://localhost:<http-port>`。
 
-与所有实时工具一样，该工具要求已连接文档；在连接了多个文档时需传入 `target_document`。
+与所有实时工具一样，该工具面向已连接的文档，但也可以冷启动：在没有连接任何 Draw.io 文档（且未传入 `target_document`）时，它会返回一张空白图表而不是报错，应用因此会打开一张空白画布供用户直接开始绘制；在连接了多个文档时需传入 `target_document`。传入的 `target_document` 指向未知 ID 时仍然会报错。
 
 *参数*：
 - `target_page`：要显示的页面的选择器；必须且只能使用 `{ index }` 或 `{ id }` 之一

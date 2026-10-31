@@ -121,7 +121,7 @@ Returns the current diagram XML. On MCP Apps-capable hosts (Claude Desktop, Quix
 
 The in-chat editor is served by the `ui://drawio/editor.html` MCP app resource, a self-contained HTML shell that frames the locally served draw.io editor. The server must run with `--editor` so the framed editor can be served, and the MCP host must be able to reach `http://localhost:<http-port>`.
 
-Like all live tools, it requires a connected document; with several connected documents pass `target_document`.
+Like all live tools, it targets a connected document, but it also works cold: with no connected Draw.io documents (and no `target_document` passed), it returns a blank diagram instead of an error, so the app opens an empty canvas to start drawing from; with several connected documents pass `target_document`. An explicit `target_document` with an unknown id still errors.
 
 *Parameters*:
 - `target_page`: Page selector for the page to show; use exactly one of `{ index }` or `{ id }`
