@@ -121,6 +121,8 @@ Returns the current diagram XML. On MCP Apps-capable hosts (Claude Desktop, Quix
 
 The in-chat editor is served by the `ui://drawio/editor.html` MCP app resource, a self-contained HTML shell that frames the locally served draw.io editor. The server must run with `--editor` so the framed editor can be served, and the MCP host must be able to reach `http://localhost:<http-port>`.
 
+**Host support:** live embedded editing requires a host that honors `_meta.ui.csp.frameDomains` (MCPJam default, ChatGPT, Cursor, Copilot, VS Code, Gemini, and the official ext-apps basic-host do). Hosts that don't (Claude Desktop / claude.ai, Slack, Notion, …) get a read-only preview of the current diagram instead, plus a link to open the editor in a normal browser tab — where diagram editing and the tools keep working; the tools themselves are unaffected either way.
+
 Like all live tools, it targets a connected document, but it also works cold: with no connected Draw.io documents (and no `target_document` passed), it returns a blank diagram instead of an error, so the app opens an empty canvas to start drawing from; with several connected documents pass `target_document`. An explicit `target_document` with an unknown id still errors.
 
 *Parameters*:

@@ -1,9 +1,17 @@
+import { readFileSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 
 import { createDrawioMcpApp, type DrawioMcpApp } from "./index.js";
 import { defaultConfig } from "./config.js";
 import { MemoryLogger } from "./real-environment/logger.js";
+import {
+  build_editor_url,
+  build_editor_standalone_url,
+} from "./app-resource.js";
 
 async function connectClientForApp(app: DrawioMcpApp): Promise<Client> {
   const [clientTransport, serverTransport] =
@@ -248,5 +256,61 @@ describe("MCP Apps: editor resource", () => {
 
     await client.close();
     await app.close();
+  });
+});
+
+describe("MCP Apps: adaptive shell fallback", () => {
+  it("exposes the framed embed URL and an embed-params-free standalone URL", () => {
+    const config = defaultConfig();
+    const embed = build_editor_url(config);
+    const standalone = build_editor_standalone_url(config);
+
+    expect(embed).toBe(
+      "http://localhost:3000/index.html?embed=1&proto=json&local=1",
+    );
+    // The standalone link opens the normal editor tab, where the draw.io
+    // plugin boots and the MCP tools keep working — it must not contain any
+    // of the embed-mode parameters.
+    expect(standalone).toBe("http://localhost:3000/index.html?local=1");
+    expect(standalone).toContain("index.html?local=1");
+    expect(standalone).not.toContain("embed=1");
+    expect(standalone).not.toContain("proto=json");
+  });
+
+  it("replaces the standalone URL placeholder in the rendered shell", async () => {
+    const app = createDrawioMcpApp({
+      config: defaultConfig(),
+      log: new MemoryLogger(),
+    });
+    const client = await connectClientForApp(app);
+
+    const result = await client.readResource({
+      uri: "ui://drawio/editor.html",
+    });
+    const text = (result.contents as Array<{ text?: string }>)[0]?.text ?? "";
+    expect(text?.includes("__EDITOR_STANDALONE_URL__")).toBe(false);
+    expect(text).toContain("http://localhost:3000/index.html?local=1");
+
+    await client.close();
+    await app.close();
+  });
+
+  it("shell detects frame-src CSP violations and offers the preview panel", () => {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const shell = readFileSync(join(here, "app-shell", "shell.html"), "utf-8");
+    // Blocked-frame detection: a securitypolicyviolation listener for the
+    // frame-src directive (feature-detected — must not throw on hosts that
+    // never deliver CSP violations).
+    expect(shell).toContain("securitypolicyviolation");
+    expect(shell).toContain("frame-src");
+    // The preview panel replaces the old fallback copy.
+    expect(shell.includes("Draw.io editor unreachable.")).toBe(false);
+    // Read-only preview rides the server-tool bridge: callServerTool with
+    // the export-diagram tool, never a fetch (no connectDomains).
+    expect(shell).toContain("callServerTool");
+    expect(shell).toContain('"export-diagram"');
+    expect(shell.includes("connectDomains")).toBe(false);
+    // The 8s init backstop routes into the same panel.
+    expect(shell).toContain("showBlocked");
   });
 });

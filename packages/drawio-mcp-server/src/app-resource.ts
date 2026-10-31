@@ -19,12 +19,19 @@ export function editor_origin(config: ServerConfig): string {
   return `${scheme}://localhost:${config.httpPort}`;
 }
 
-function build_editor_url(config: ServerConfig): string {
+export function build_editor_url(config: ServerConfig): string {
   // No `offline=1`: drawio's App.start skips its entire plugin-loading block
   // (App.initPluginCallback — what assigns window.Draw) when offline=1 is
   // set, so mcp-plugin.js would never boot and the framed editor would
   // never connect to the WebSocket bridge.
   return `${editor_origin(config)}/index.html?embed=1&proto=json&local=1`;
+}
+
+export function build_editor_standalone_url(config: ServerConfig): string {
+  // No embed params: this link opens the normal editor tab (the pre-MCP-Apps
+  // workflow), where the draw.io plugin bootstraps and connects as before,
+  // and the MCP tools keep working on the live document.
+  return `${editor_origin(config)}/index.html?local=1`;
 }
 
 /**
@@ -43,6 +50,9 @@ function escape_inline_script(js: string): string {
  *
  * - `__EDITOR_URL__` is replaced with the framed draw.io editor URL
  *   derived from the server configuration (http/https + port).
+ * - `__EDITOR_STANDALONE_URL__` is replaced with the embed-params-free
+ *   editor URL the fallback panel links to (see shell.html's `#blocked`
+ *   panel for when it is shown).
  * - `/*__APP_CLIENT__*` (the sole content of the first `<script>` element)
  *   is replaced with the escaped bundled ext-apps browser client, and
  *   `/*__EMBED_PROTOCOL__*` (the sole content of the second `<script>`
@@ -80,7 +90,10 @@ function read_shell_html(config: ServerConfig): string {
     .replace("/*__EMBED_PROTOCOL__*/", () =>
       escape_inline_script(embedProtocol),
     )
-    .replaceAll("__EDITOR_URL__", () => build_editor_url(config));
+    .replaceAll("__EDITOR_URL__", () => build_editor_url(config))
+    .replaceAll("__EDITOR_STANDALONE_URL__", () =>
+      build_editor_standalone_url(config),
+    );
 }
 
 export function registerAppShellResource(
