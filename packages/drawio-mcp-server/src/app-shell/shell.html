@@ -25,12 +25,14 @@
   a remote/browser-only host, the local editor cannot be displayed.</p>
 </div>
 <script>/*__APP_CLIENT__*/</script>
+<script>/*__EMBED_PROTOCOL__*/</script>
 <script>
 (function () {
   "use strict";
   var editor = document.getElementById("editor");
   var fallback = document.getElementById("fallback");
   var AppCtor = globalThis.McpAppsApp;
+  var embed = globalThis.DrawioEmbedProtocol;
   var lastXml = null;
   var editorReady = false;
   var initTimer = setTimeout(showFallback, 8000);
@@ -61,17 +63,20 @@
   }
 
   // draw.io embed mode (proto=json): the editor posts lifecycle events to
-  // its parent window (this shell); we reply with load/configure actions.
+  // its parent window (this shell) as JSON strings; every action sent to
+  // the editor must likewise be a JSON string (see embed-protocol.ts for
+  // why). We reply with a load action once the editor reports init.
   window.addEventListener("message", function (event) {
-    var msg = event.data;
-    if (!msg || typeof msg.event !== "string") return;
+    if (!embed) return;
+    var msg = embed.parseEditorMessage(event.data);
+    if (!msg) return;
     if (msg.event === "init") {
       editorReady = true;
       clearTimeout(initTimer);
       sendLoad();
     } else if (msg.event === "configure") {
       editor.contentWindow.postMessage(
-        { action: "configure", config: {} },
+        embed.encodeEditorAction("configure", { config: {} }),
         "*"
       );
     } else if (msg.event === "save" || msg.event === "export") {
@@ -80,10 +85,18 @@
     }
   });
 
+  // Always sends a load once the editor is ready: with lastXml when a tool
+  // result already delivered a diagram, otherwise as a bare load. The editor
+  // defaults a bare load to its empty diagram and — crucially for
+  // list-documents — materializes an EmbedFile via setCurrentFile in its
+  // initializeEmbedMode handler, which is what mcp-plugin.js needs for a
+  // non-null ui.getCurrentFile() in embed mode.
   function sendLoad() {
-    if (!editorReady || lastXml === null || !editor.contentWindow) return;
+    if (!editorReady || !editor.contentWindow || !embed) return;
+    var fields = { autosave: 1 };
+    if (lastXml !== null) fields.xml = lastXml;
     editor.contentWindow.postMessage(
-      { action: "load", xml: lastXml, autosave: 1 },
+      embed.encodeEditorAction("load", fields),
       "*"
     );
   }

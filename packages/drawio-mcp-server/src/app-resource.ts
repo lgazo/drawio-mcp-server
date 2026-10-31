@@ -44,8 +44,10 @@ function escape_inline_script(js: string): string {
  * - `__EDITOR_URL__` is replaced with the framed draw.io editor URL
  *   derived from the server configuration (http/https + port).
  * - `/*__APP_CLIENT__*` (the sole content of the first `<script>` element)
- *   is replaced with the escaped bundled ext-apps browser client, so the
- *   client is spliced into exactly one script element — the document stays
+ *   is replaced with the escaped bundled ext-apps browser client, and
+ *   `/*__EMBED_PROTOCOL__*` (the sole content of the second `<script>`
+ *   element) with the bundled draw.io embed postMessage protocol helpers —
+ *   each is spliced into exactly one script element so the document stays
  *   a single self-contained HTML file with no nested/duplicated script
  *   markers.
  */
@@ -61,11 +63,23 @@ function read_shell_html(config: ServerConfig): string {
       `app shell is missing the app client marker: ${join(here, "app-shell", "shell.html")}`,
     );
   }
+  const embedProtocol = readFileSync(
+    join(here, "app-shell", "embed-protocol.iife.js"),
+    "utf-8",
+  );
+  if (!shell.includes("/*__EMBED_PROTOCOL__*/")) {
+    throw new Error(
+      `app shell is missing the embed protocol marker: ${join(here, "app-shell", "shell.html")}`,
+    );
+  }
   // The replacement MUST go through a function: the bundled client is
   // minified JS that contains `$&`-style sequences, and string-replacement
   // patterns would re-inject the matched marker for every one of them.
   return shell
     .replace("/*__APP_CLIENT__*/", () => escape_inline_script(appClient))
+    .replace("/*__EMBED_PROTOCOL__*/", () =>
+      escape_inline_script(embedProtocol),
+    )
     .replaceAll("__EDITOR_URL__", () => build_editor_url(config));
 }
 

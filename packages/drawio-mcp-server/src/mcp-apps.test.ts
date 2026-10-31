@@ -197,6 +197,13 @@ describe("MCP Apps: editor resource", () => {
     // drawio's App.start skips plugin loading (window.Draw assignment) when
     // offline=1 is set, so the framed editor must boot with plugins running.
     expect(contents[0]?.text?.includes("offline=1")).toBe(false);
+    // The shell must speak drawio's embed JSON-string protocol on both
+    // message directions (see embed-protocol.ts for the root cause): the
+    // protocol helper bundle is spliced inline and every action posted to
+    // the editor goes through it as a JSON string.
+    expect(contents[0]?.text).toContain("DrawioEmbedProtocol");
+    expect(contents[0]?.text).toContain("encodeEditorAction");
+    expect(contents[0]?.text?.includes("__EMBED_PROTOCOL__")).toBe(false);
     const meta = (
       result as unknown as {
         _meta?: { ui?: { csp?: { frameDomains?: string[] } } };

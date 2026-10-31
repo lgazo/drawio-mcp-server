@@ -18,6 +18,19 @@ await build({
   platform: "browser",
 });
 
+await build({
+  entryPoints: [`${packageRoot}src/app-shell/embed-protocol-entry.ts`],
+  bundle: true,
+  format: "iife",
+  minify: true,
+  // Named `*.iife.js` so it does not collide with the tsc output of
+  // src/app-shell/embed-protocol.ts at build/app-shell/embed-protocol.js
+  // (tsc runs first, esbuild runs last and would otherwise overwrite the
+  // compiled module with the browser IIFE).
+  outfile: `${packageRoot}build/app-shell/embed-protocol.iife.js`,
+  platform: "browser",
+});
+
 await cp(
   `${packageRoot}src/app-shell/shell.html`,
   `${packageRoot}build/app-shell/shell.html`,
