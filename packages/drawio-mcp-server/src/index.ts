@@ -726,9 +726,14 @@ export function createDrawioMcpApp(options?: {
           };
         }
 
-        // server.registerTool(name, config) — used by ext-apps'
-        // registerAppTool for MCP Apps tools like show-diagram.
-        return (name: string, config: Record<string, unknown>) => {
+        // server.registerTool(name, config, cb) — used by ext-apps'
+        // registerAppTool for MCP Apps tools like show-diagram. The
+        // callback MUST be forwarded: ext-apps calls
+        // registerTool(name, config, cb) and dropping cb leaves
+        // tool.handler undefined, crashing tools/call with
+        // `Cannot use 'in' operator to search for 'createTask' in
+        // undefined`.
+        return (name: string, config: Record<string, unknown>, cb: unknown) => {
           const rawShape =
             (
               config.inputSchema as
@@ -747,9 +752,9 @@ export function createDrawioMcpApp(options?: {
                 };
           return (
             target.registerTool as (
-              ...args: [string, Record<string, unknown>]
+              ...args: [string, Record<string, unknown>, unknown]
             ) => unknown
-          ).call(target, name, scopedConfig);
+          ).call(target, name, scopedConfig, cb);
         };
       },
     }) as McpServer;

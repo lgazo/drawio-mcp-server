@@ -76,6 +76,36 @@ describe("MCP Apps: show-diagram tool", () => {
 
     await client.close();
   });
+
+  it("runs the tool handler on tools/call (document-routing error, not a broken handler)", async () => {
+    app = createDrawioMcpApp({
+      config: defaultConfig(),
+      log: new MemoryLogger(),
+    });
+    const client = await connectClientForApp(app);
+
+    // No documents are connected, so the handler's document routing must
+    // reject with the intended auto-target error. Regression: the
+    // document-scoped registerTool shim dropped the callback argument,
+    // leaving tool.handler undefined and making tools/call throw
+    // `Cannot use 'in' operator to search for 'createTask' in undefined`.
+    const result = (await client.callTool({
+      name: "show-diagram",
+      arguments: { target_page: { index: 0 } },
+    })) as {
+      isError?: boolean;
+      content?: Array<{ type: string; text?: string }>;
+    };
+
+    expect(result.isError).toBe(true);
+    const text = (result.content ?? [])
+      .map((item) => item.text ?? "")
+      .join("\n");
+    expect(text).toContain("No connected Draw.io documents");
+    expect(text).not.toContain("createTask");
+
+    await client.close();
+  });
 });
 
 describe("MCP Apps: editor resource", () => {
