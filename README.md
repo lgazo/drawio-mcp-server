@@ -125,6 +125,16 @@ The server provides MCP tools for:
 
 See [Tools Reference](./TOOLS.md) for the complete list of available tools.
 
+## MCP Apps support
+
+On MCP Apps-capable hosts (Claude Desktop, QuixiDesk, MCPJam, VS Code Copilot), the `show-diagram` tool opens the diagram as an interactive draw.io editor directly inside the conversation. You edit it by hand while the agent edits it through its tools — both act on the same live document via the server's WebSocket bridge.
+
+Enable it by running the server with the `--editor` flag; no other configuration is needed. On hosts without MCP Apps support, `show-diagram` falls back to returning plain diagram XML text.
+
+Limitation: the MCP host must be able to reach `http://localhost:<http-port>`, where the locally served draw.io editor is framed. Native desktop hosts like Claude Desktop work; remote browser sessions may not be able to.
+
+See the [`show-diagram` tool](./TOOLS.md#mcp-apps-tools) for details.
+
 ## Installation
 
 The server runs as part of your MCP host. Detailed configuration for all supported clients (Claude Desktop, Claude Code, Zed, Codex, oterm) including npm and pnpm options is available in [Configuration](./CONFIG.md).

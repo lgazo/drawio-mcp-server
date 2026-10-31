@@ -115,6 +115,22 @@ Draw.io MCP 服务器提供以下 MCP 工具，用于以编程方式与图表交
 - `page_size`：返回单元格的最大数量
 - `filter`：可选的过滤条件
 
+## MCP Apps 工具
+
+### `show-diagram`
+
+返回当前图表的 XML。在支持 MCP Apps 的宿主（Claude Desktop、QuixiDesk、MCPJam、VS Code Copilot）上，图表会在对话内渲染为交互式 draw.io 编辑器：用户的手动编辑与智能体的工具调用都作用于同一个实时文档，二者通过服务器的 WebSocket 桥接保持同步。在其他客户端上，则以纯文本形式返回原始 XML。
+
+对话内编辑器由 `ui://drawio/editor.html` 这个 MCP 应用资源提供，它是一个自包含的 HTML 外壳，内嵌本地托管的 draw.io 编辑器。服务器必须使用 `--editor` 启动，以便提供被内嵌的编辑器；同时 MCP 宿主必须能够访问 `http://localhost:<http-port>`。
+
+与所有实时工具一样，该工具要求已连接文档；在连接了多个文档时需传入 `target_document`。
+
+*参数*：
+- `target_page`：要显示的页面的可选选择器
+- `target_document`：来自 `list-documents` 的可选文档选择器；在连接了多个文档时必填
+
+*返回*：当前图表的 XML（与使用 `format: "xml"` 和 `size: "diagram"` 的 `export-diagram` 调用返回的 XML 相同，但不包含导出状态行）
+
 ## 图表修改工具
 
 ### `add-rectangle`

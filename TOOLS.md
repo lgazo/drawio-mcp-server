@@ -113,6 +113,22 @@ Retrieves a paginated view of all cells (vertices and edges) on the target page.
 - `page_size`: Maximum number of returned cells
 - `filter`: Optional filter criteria
 
+## MCP Apps Tools
+
+### `show-diagram`
+
+Returns the current diagram XML. On MCP Apps-capable hosts (Claude Desktop, QuixiDesk, MCPJam, VS Code Copilot) the diagram is rendered as an interactive draw.io editor inside the conversation: user edits and agent tool calls act on the same live document via the server's WebSocket bridge. On other clients, the raw XML text is returned as plain text.
+
+The in-chat editor is served by the `ui://drawio/editor.html` MCP app resource, a self-contained HTML shell that frames the locally served draw.io editor. The server must run with `--editor` so the framed editor can be served, and the MCP host must be able to reach `http://localhost:<http-port>`.
+
+Like all live tools, it requires a connected document; with several connected documents pass `target_document`.
+
+*Parameters*:
+- `target_page`: Optional page selector for the page to show
+- `target_document`: Optional document selector from `list-documents`; required when multiple documents are connected
+
+*Returns*: The current diagram XML (the same XML an `export-diagram` call with `format: "xml"` and `size: "diagram"` returns, without the export status line)
+
 ## Diagram Modification Tools
 
 ### `add-rectangle`
