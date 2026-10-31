@@ -126,7 +126,7 @@ Draw.io MCP 服务器提供以下 MCP 工具，用于以编程方式与图表交
 与所有实时工具一样，该工具要求已连接文档；在连接了多个文档时需传入 `target_document`。
 
 *参数*：
-- `target_page`：要显示的页面的可选选择器
+- `target_page`：要显示的页面的选择器；必须且只能使用 `{ index }` 或 `{ id }` 之一
 - `target_document`：来自 `list-documents` 的可选文档选择器；在连接了多个文档时必填
 
 *返回*：当前图表的 XML（与使用 `format: "xml"` 和 `size: "diagram"` 的 `export-diagram` 调用返回的 XML 相同，但不包含导出状态行）

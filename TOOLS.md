@@ -124,7 +124,7 @@ The in-chat editor is served by the `ui://drawio/editor.html` MCP app resource, 
 Like all live tools, it requires a connected document; with several connected documents pass `target_document`.
 
 *Parameters*:
-- `target_page`: Optional page selector for the page to show
+- `target_page`: Page selector for the page to show; use exactly one of `{ index }` or `{ id }`
 - `target_document`: Optional document selector from `list-documents`; required when multiple documents are connected
 
 *Returns*: The current diagram XML (the same XML an `export-diagram` call with `format: "xml"` and `size: "diagram"` returns, without the export status line)
