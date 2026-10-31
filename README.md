@@ -127,7 +127,7 @@ See [Tools Reference](./TOOLS.md) for the complete list of available tools.
 
 ## MCP Apps support
 
-On MCP Apps-capable hosts (Claude Desktop, QuixiDesk, MCPJam, VS Code Copilot), the `show-diagram` tool opens the diagram as an interactive draw.io editor directly inside the conversation. The framed editor displays the diagram and connects to the server's WebSocket bridge; agent-side live collaboration against this framed document (hand edits and agent tool calls acting on the same document) is pending real-browser verification.
+On MCP Apps-capable hosts (Claude Desktop, QuixiDesk, MCPJam, VS Code Copilot), the `show-diagram` tool opens the diagram as an interactive draw.io editor directly inside the conversation. The framed editor displays the diagram, connects to the server's WebSocket bridge, and registers there as a live document: it appears in `list-documents` (in embed mode) and agent tool calls (e.g. `add-rectangle`) apply to it, verified in headless E2E. Syncing user-side edits made in the framed editor so the agent sees them remains pending real-browser verification.
 
 Enable it by running the server with the `--editor` flag; no other configuration is needed. On hosts without MCP Apps support, `show-diagram` falls back to returning plain diagram XML text.
 

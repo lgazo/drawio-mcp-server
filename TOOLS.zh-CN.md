@@ -119,7 +119,7 @@ Draw.io MCP 服务器提供以下 MCP 工具，用于以编程方式与图表交
 
 ### `show-diagram`
 
-返回当前图表的 XML。在支持 MCP Apps 的宿主（Claude Desktop、QuixiDesk、MCPJam、VS Code Copilot）上，图表会在对话内渲染为交互式 draw.io 编辑器：该内嵌编辑器会展示图表并连接到服务器的 WebSocket 桥接；智能体侧针对该内嵌文档的实时协作尚待真实浏览器验证。在其他客户端上，则以纯文本形式返回原始 XML。
+返回当前图表的 XML。在支持 MCP Apps 的宿主（Claude Desktop、QuixiDesk、MCPJam、VS Code Copilot）上，图表会在对话内渲染为交互式 draw.io 编辑器：该内嵌编辑器会展示图表、连接到服务器的 WebSocket 桥接，并注册为活动文档——它会出现在 `list-documents`（embed 模式）中，智能体的工具调用（例如 `add-rectangle`）也会作用于该文档，以上均已在无头（headless）E2E 中验证；而同步内嵌编辑器中用户手动编辑的机制仍待真实浏览器验证。在其他客户端上，则以纯文本形式返回原始 XML。
 
 对话内编辑器由 `ui://drawio/editor.html` 这个 MCP 应用资源提供，它是一个自包含的 HTML 外壳，内嵌本地托管的 draw.io 编辑器。服务器必须使用 `--editor` 启动，以便提供被内嵌的编辑器；同时 MCP 宿主必须能够访问 `http://localhost:<http-port>`。
 

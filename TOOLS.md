@@ -117,7 +117,7 @@ Retrieves a paginated view of all cells (vertices and edges) on the target page.
 
 ### `show-diagram`
 
-Returns the current diagram XML. On MCP Apps-capable hosts (Claude Desktop, QuixiDesk, MCPJam, VS Code Copilot) the diagram is rendered as an interactive draw.io editor inside the conversation: the framed editor displays the diagram and connects to the server's WebSocket bridge; agent-side live collaboration against the framed document is pending real-browser verification. On other clients, the raw XML text is returned as plain text.
+Returns the current diagram XML. On MCP Apps-capable hosts (Claude Desktop, QuixiDesk, MCPJam, VS Code Copilot) the diagram is rendered as an interactive draw.io editor inside the conversation: the framed editor displays the diagram, connects to the server's WebSocket bridge, and registers there as a live document — it appears in `list-documents` (in embed mode) and agent tool calls (e.g. `add-rectangle`) apply to it, verified in headless E2E. Syncing user-side edits made in the framed editor remains pending real-browser verification. On other clients, the raw XML text is returned as plain text.
 
 The in-chat editor is served by the `ui://drawio/editor.html` MCP app resource, a self-contained HTML shell that frames the locally served draw.io editor. The server must run with `--editor` so the framed editor can be served, and the MCP host must be able to reach `http://localhost:<http-port>`.
 
