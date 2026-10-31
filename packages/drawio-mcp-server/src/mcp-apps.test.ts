@@ -272,7 +272,6 @@ describe("MCP Apps: adaptive shell fallback", () => {
     // plugin boots and the MCP tools keep working — it must not contain any
     // of the embed-mode parameters.
     expect(standalone).toBe("http://localhost:3000/index.html?local=1");
-    expect(standalone).toContain("index.html?local=1");
     expect(standalone).not.toContain("embed=1");
     expect(standalone).not.toContain("proto=json");
   });
@@ -311,6 +310,6 @@ describe("MCP Apps: adaptive shell fallback", () => {
     expect(shell).toContain('"export-diagram"');
     expect(shell.includes("connectDomains")).toBe(false);
     // The 8s init backstop routes into the same panel.
-    expect(shell).toContain("showBlocked");
+    expect(shell).toContain("setTimeout(showBlocked, 8000)");
   });
 });

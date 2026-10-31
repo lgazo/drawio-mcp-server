@@ -74,7 +74,8 @@
   // initTimer below stays as the backstop route into the same panel
   // (covers the server-unreachable case).
   document.addEventListener("securitypolicyviolation", function (event) {
-    if (event && event.effectiveDirective === "frame-src") {
+    if (event && (event.effectiveDirective === "frame-src" ||
+                  event.effectiveDirective === "child-src")) {
       showBlocked();
     }
   });
@@ -121,6 +122,7 @@
           var blocks = (result && result.content) || [];
           for (var i = 0; i < blocks.length; i++) {
             if (blocks[i].type === "image" && blocks[i].data) {
+              preview.onerror = showPreviewUnavailable;
               preview.src = "data:image/png;base64," + blocks[i].data;
               preview.style.display = "block";
               previewHint.textContent =
@@ -152,7 +154,9 @@
         // blocked panel up over a working frame.
         blockedShown = false;
         blocked.classList.remove("visible");
+        preview.src = "";
         preview.style.display = "none";
+        previewHint.textContent = "";
         editor.style.display = "block";
       }
       editorReady = true;
