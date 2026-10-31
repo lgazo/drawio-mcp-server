@@ -1,32 +1,36 @@
 # Draw.io MCP server
 
+[English](./README.md) · [简体中文](./README.zh-CN.md)
+
 Let's do some Vibe Diagramming with the most wide-spread diagramming tool called Draw.io (Diagrams.net).
 
 [![Discord channel](https://shields.io/static/v1?logo=discord&message=draw.io%20mcp&label=chat&color=5865F2&logoColor=white)](https://discord.gg/dM4PWdf42q)
 [![Build project](https://github.com/lgazo/drawio-mcp-server/actions/workflows/server-ci.yml/badge.svg)](https://github.com/lgazo/drawio-mcp-server/actions/workflows/server-ci.yml)
 [![Verified on MseeP](https://mseep.ai/badge.svg)](https://mseep.ai/app/5fc2b7fe-8ceb-4683-97bd-6d31e07b5888)
 [![Version](https://img.shields.io/npm/v/drawio-mcp-server)](https://npmjs.com/package/drawio-mcp-server)
+[![Bundle size](https://img.shields.io/bundlephobia/minzip/drawio-mcp-server)](https://bundlephobia.com/package/drawio-mcp-server)
 
 ## Key Highlights
 
+- Browser extension UI and documentation localized to Simplified Chinese (zh-CN) ![v2.4.0](https://img.shields.io/badge/v2.4.0-blue)
 - Claude Code plugin: `/plugin marketplace add lgazo/drawio-mcp-server` then `/plugin install drawio`, with `/drawio-open` and `/drawio-status` slash commands ![v2.3.0](https://img.shields.io/badge/v2.3.0-blue)
 - `npx drawio-mcp-server install <host>` writes the MCP config for `claude-code`, `claude-desktop`, `codex`, `zed`, `opencode`, or `all` ![v2.3.0](https://img.shields.io/badge/v2.3.0-blue)
 - Document persistence tools: `set-document-title` and `save-document` ![v2.3.0](https://img.shields.io/badge/v2.3.0-blue)
-- Draw.io library API version compatibility mechanism ![v2.2.0](https://img.shields.io/badge/v2.2.0-blue)
+- Draw.io library API version compatibility mechanism
 - Enable Draw.io MCP in IFrames
 - AWS, GCP, Azure, Cisco19, and CiscoSafe stencils auto-discovered at runtime from drawio's sidebar
 - Multi-document targeting with `list-documents` and `target_document` selectors for multi-tab workflows
 - Multi-page targeting with required `target_page` selectors for page-scoped tools
 - Per-document FIFO serialization for live operations, so multiple agents can work on different files safely
 - Page management tools: `list-pages`, `get-current-page`, `create-page`, `copy-page`, `rename-page`
-- Import, embed, or expand [Mermaid](https://mermaid.js.org/) diagrams ![v2.1.0](https://img.shields.io/badge/v2.1.0-blue)
-- Firefox support is back, TLS mode is necessary ![v2.1.0](https://img.shields.io/badge/v2.1.0-blue)
-- Server supports TLS mode and optionally generates self-signed certificates ![v2.1.0](https://img.shields.io/badge/v2.1.0-blue)
+- Import, embed, or expand [Mermaid](https://mermaid.js.org/) diagrams
+- Firefox support is back, TLS mode is necessary
+- Server supports TLS mode and optionally generates self-signed certificates
 
-- Import and export diagrams from/to XML, SVG (with embedded XML), or PNG (with embedded XML) ![v2.0.0](https://img.shields.io/badge/v2.0.0-blue)
-- Edge geometry control with waypoints and automatic self-connector routing ![v2.0.0](https://img.shields.io/badge/v2.0.0-blue)
-- Parent-child relationships for nested shapes and grouping ![v2.0.0](https://img.shields.io/badge/v2.0.0-blue)
-- Unified Server and Extension in the same mono-repo ![v2.0.0](https://img.shields.io/badge/v2.0.0-blue)
+- Import and export diagrams from/to XML, SVG (with embedded XML), or PNG (with embedded XML)
+- Edge geometry control with waypoints and automatic self-connector routing
+- Parent-child relationships for nested shapes and grouping
+- Unified Server and Extension in the same mono-repo
 - Built-in Draw.io editor - no browser extension required
 - MCP server that lets AI agents control Draw.io diagrams
 - Programmatic diagram creation, inspection, and modification via MCP tools
