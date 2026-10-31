@@ -89,6 +89,8 @@ jobs:
           rm -rf "$tmp" "$tarball"
 
       - name: Publish
-        run: pnpm --filter drawio-mcp-server publish --provenance --access public
+        # --no-git-checks: the checkout is the tag ref (detached HEAD), so
+        # pnpm's publish-branch check (master|main) can never pass here.
+        run: pnpm --filter drawio-mcp-server publish --provenance --access public --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
