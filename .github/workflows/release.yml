@@ -182,6 +182,11 @@ jobs:
           SCOPE: ${{ inputs.scope }}
         run: |
           set -euo pipefail
+          # Tags: v$VERSION for server/both, extension tag whenever the
+          # extension is in scope (it anchors the extension changelog range).
+          # Release ITEMS: exactly one per release — v$VERSION when the server
+          # is in scope; the extension-only scope gets its own item. For scope
+          # `both`, extension assets attach to the v$VERSION Release.
           if [ "$SCOPE" != "extension" ]; then
             git tag "v$VERSION"
             git push origin "v$VERSION"
@@ -190,8 +195,10 @@ jobs:
           if [ "$SCOPE" != "server" ]; then
             git tag "drawio-mcp-extension-v$VERSION"
             git push origin "drawio-mcp-extension-v$VERSION"
-            gh release create "drawio-mcp-extension-v$VERSION" \
-              --title "drawio-mcp-extension v$VERSION" --notes-file changelog.md
+            if [ "$SCOPE" = "extension" ]; then
+              gh release create "drawio-mcp-extension-v$VERSION" \
+                --title "drawio-mcp-extension v$VERSION" --notes-file changelog.md
+            fi
           fi
 
   publish-server:

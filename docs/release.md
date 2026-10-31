@@ -15,18 +15,18 @@ One click starts the pipeline, which runs end to end on `main`:
 2. **Bump the coupled files** via `scripts/release.mjs bump`: server and plugin `package.json` in lockstep, the `VERSION` fallback constant in `packages/drawio-mcp-server/src/index.ts`, the server README (synced from the root README), and the extension `package.json`. The compat package gets a patch bump of its own line only when its files actually changed since the last server tag.
 3. **Generate the changelog** from the conventional commits since the component's last tag.
 4. **Run the gates.** Release-script unit tests, a blocking `pnpm audit --audit-level=moderate`, a full build, lint and format checks, and the package tests — server tests (including Playwright and asset prefetch), extension tests, and plugin tests, each run only for the components in scope.
-5. **Commit and tag.** The version bumps are committed to `main` as `chore(release): <version> <scope>` by `github-actions[bot]`, `main` is pushed, and tags are created: `vX.Y.Z` for server/both and `drawio-mcp-extension-vX.Y.Z` for extension/both. A GitHub Release with the changelog as notes is created for each tag.
+5. **Commit and tag.** The version bumps are committed to `main` as `chore(release): <version> <scope>` by `github-actions[bot]`, `main` is pushed, and tags are created: `vX.Y.Z` for server/both and `drawio-mcp-extension-vX.Y.Z` for extension/both. A GitHub Release with the changelog as notes is created as a single item per release: `vX.Y.Z` for server/both scopes, the extension tag's item only for an extension-only release.
 6. **Publish.** The workflow calls the publish jobs directly (a release created with the `GITHUB_TOKEN` does not fire a release event, so the workflow must invoke them itself):
    - `server-publish.yml` runs the parity gate, installs, audits again, builds, smoke-tests the packed tarball, then runs `pnpm publish --provenance --access public` to npm using the `NPM_TOKEN` secret.
-   - `extension-publish.yml` builds and zips the extension for Chrome and Firefox, uploads the zips as assets of the extension's GitHub Release, and — when the `CWS_*` secrets are configured — uploads a draft to the Chrome Web Store. Any CWS failure surfaces as a workflow warning; the release itself is not blocked.
+   - `extension-publish.yml` builds and zips the extension for Chrome and Firefox, zips the tagged commit as the source archive, and uploads all three zips as assets of the release's GitHub Release item (the shared `vX.Y.Z` Release for scope `both`, the extension's own item for an extension-only release). When the `CWS_*` secrets are configured it also uploads a draft to the Chrome Web Store. Any CWS failure surfaces as a workflow warning; the release itself is not blocked.
 
 ## Release scenarios
 
-| Scope       | Version applies to                 | Tags created                               | Published to                          |
-| ----------- | ---------------------------------- | ------------------------------------------ | ------------------------------------- |
-| `server`    | Server (`drawio-mcp-server`)       | `vX.Y.Z`                                   | npm                                   |
-| `extension` | Extension (`drawio-mcp-extension`) | `drawio-mcp-extension-vX.Y.Z`              | GitHub Release zips + CWS draft       |
-| `both`      | Server and extension, same version | `vX.Y.Z` and `drawio-mcp-extension-vX.Y.Z` | npm + GitHub Release zips + CWS draft |
+| Scope       | Version applies to                 | Tags created                               | Release item                  | Published to                          |
+| ----------- | ---------------------------------- | ------------------------------------------ | ----------------------------- | ------------------------------------- |
+| `server`    | Server (`drawio-mcp-server`)       | `vX.Y.Z`                                   | `vX.Y.Z`                      | npm                                   |
+| `extension` | Extension (`drawio-mcp-extension`) | `drawio-mcp-extension-vX.Y.Z`              | `drawio-mcp-extension-vX.Y.Z` | GitHub Release zips + CWS draft       |
+| `both`      | Server and extension, same version | `vX.Y.Z` and `drawio-mcp-extension-vX.Y.Z` | `vX.Y.Z` only                 | npm + GitHub Release zips + CWS draft |
 
 ## What stays manual
 
@@ -74,17 +74,18 @@ All of these rules are enforced by the pipeline — it computes which files must
 
 ## Workflow inventory
 
-| Workflow                | Trigger                                                                                                 | What it does                                                                                                                                                                                 |
-| ----------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `release.yml`           | `workflow_dispatch` form (scope + optional version)                                                     | The entry point: validates, bumps coupled files, runs the gates, commits `chore(release): <version> <scope>` to `main`, tags, creates GitHub Releases, and calls the two publish jobs below. |
-| `server-publish.yml`    | Reusable (`workflow_call`) — called by `release.yml`; also manually dispatchable with `version` + `ref` | Parity gate → install → blocking audit → build → pack smoke test → `pnpm publish --provenance --access public` to npm.                                                                       |
-| `extension-publish.yml` | Reusable (`workflow_call`) — called by `release.yml`; also manually dispatchable with `version` + `ref` | Builds and zips the extension for Chrome and Firefox, uploads the zips as GitHub Release assets, and uploads a CWS draft when the `CWS_*` secrets exist.                                     |
-| `extension-package.yml` | Manual only (unchanged)                                                                                 | Builds + zips the extension and uploads the artifacts, reading the extension's own `package.json` version for naming. Useful for ad-hoc zips that are not releases.                          |
-| `claude-plugin-ci.yml`  | Push/PR touching `packages/drawio-mcp-claude-plugin/**` or `.claude-plugin/**` (unchanged)              | Audit, lint, and test the plugin package. Not a publish workflow — the marketplace serves the plugin straight from the repo.                                                                 |
+| Workflow                | Trigger                                                                                                 | What it does                                                                                                                                                                                                          |
+| ----------------------- | ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `release.yml`           | `workflow_dispatch` form (scope + optional version)                                                     | The entry point: validates, bumps coupled files, runs the gates, commits `chore(release): <version> <scope>` to `main`, tags, creates GitHub Releases, and calls the two publish jobs below.                          |
+| `server-publish.yml`    | Reusable (`workflow_call`) — called by `release.yml`; also manually dispatchable with `version` + `ref` | Parity gate → install → blocking audit → build → pack smoke test → `pnpm publish --provenance --access public` to npm.                                                                                                |
+| `extension-publish.yml` | Reusable (`workflow_call`) — called by `release.yml`; also manually dispatchable with `version` + `ref` | Builds and zips the extension for Chrome and Firefox plus a source zip of the tagged commit, uploads the zips as assets of the release's GitHub Release item, and uploads a CWS draft when the `CWS_*` secrets exist. |
+| `extension-package.yml` | Manual only (unchanged)                                                                                 | Builds + zips the extension and uploads the artifacts, reading the extension's own `package.json` version for naming. Useful for ad-hoc zips that are not releases.                                                   |
+| `claude-plugin-ci.yml`  | Push/PR touching `packages/drawio-mcp-claude-plugin/**` or `.claude-plugin/**` (unchanged)              | Audit, lint, and test the plugin package. Not a publish workflow — the marketplace serves the plugin straight from the repo.                                                                                          |
 
 Two conventions changed with this pipeline:
 
-- **Tagging:** extension releases are tagged `drawio-mcp-extension-vX.Y.Z`; the flat `vX.Y.Z` is server-only. There are no package-scoped `drawio-mcp-server-vX.Y.Z` tags.
+- **Tagging:** extension releases are tagged `drawio-mcp-extension-vX.Y.Z`; the flat `vX.Y.Z` is server-only. There are no package-scoped `drawio-mcp-server-vX.Y.Z` tags. Tags mark versions; the tag list is plumbing — GitHub Release **items** are what users see, and there is exactly one item per release.
+- **One Release item per release.** For scope `both`, the extension's zips (chrome, firefox, source) attach to the shared `vX.Y.Z` Release; the extension tag gets no Release item of its own. Only an extension-only release creates a `drawio-mcp-extension-vX.Y.Z` item.
 - **The old "a GitHub Release triggers the publishes" behavior is gone.** Releases created by the workflow's `GITHUB_TOKEN` do not fire `release` events, so `release.yml` calls the publish jobs directly via `workflow_call`. A manually created Release therefore publishes nothing — the form is the only way to publish.
 
 Server publishes need `NPM_TOKEN` configured; provenance is produced through the release flow's `id-token: write` OIDC permissions.

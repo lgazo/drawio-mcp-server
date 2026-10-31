@@ -73,19 +73,34 @@ jobs:
         run: pnpm run zip:firefox
         working-directory: packages/drawio-mcp-extension
 
+      - name: Package extension source (zip of the tagged commit)
+        run: |
+          git archive --format=zip \
+            -o "packages/drawio-mcp-extension/.output/drawio-mcp-extension-${VERSION}-source.zip" \
+            HEAD
+        env:
+          VERSION: ${{ inputs.version }}
+
       - name: Attach zips to the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: drawio-mcp-extension-v${{ inputs.version }}
           VERSION: ${{ inputs.version }}
         run: |
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" \
+          # One Release item per release: when the server released too, the
+          # extension assets live on the shared v$VERSION Release; an
+          # extension-only release uses the extension's own item.
+          RELEASE="v$VERSION"
+          if ! gh release view "$RELEASE" >/dev/null 2>&1; then
+            RELEASE="drawio-mcp-extension-v$VERSION"
+          fi
+          if gh release view "$RELEASE" >/dev/null 2>&1; then
+            gh release upload "$RELEASE" \
               "packages/drawio-mcp-extension/.output/drawio-mcp-extension-${VERSION}-chrome.zip" \
               "packages/drawio-mcp-extension/.output/drawio-mcp-extension-${VERSION}-firefox.zip" \
+              "packages/drawio-mcp-extension/.output/drawio-mcp-extension-${VERSION}-source.zip" \
               --clobber
           else
-            echo "Release $TAG not found; zips stay as build outputs:"
+            echo "Release $RELEASE not found; zips stay as build outputs:"
             ls -la packages/drawio-mcp-extension/.output
           fi
 
