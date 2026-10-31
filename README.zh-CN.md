@@ -129,7 +129,7 @@ Draw.io MCP 服务器为 AI 智能体带来 Draw.io 的绘图能力。它提供�
 
 ## MCP Apps 支持
 
-在支持 MCP Apps 的宿主（Claude Desktop、QuixiDesk、MCPJam、VS Code Copilot）上，`show-diagram` 工具会在对话内直接打开一个交互式 draw.io 编辑器来展示图表。你可以手动编辑图表，智能体则通过其工具进行编辑——二者通过服务器的 WebSocket 桥接作用于同一个实时文档。
+在支持 MCP Apps 的宿主（Claude Desktop、QuixiDesk、MCPJam、VS Code Copilot）上，`show-diagram` 工具会在对话内直接打开一个交互式 draw.io 编辑器来展示图表。该内嵌编辑器会展示图表并连接到服务器的 WebSocket 桥接；智能体侧针对该内嵌文档的实时协作（手动编辑与智能体工具调用作用于同一文档）尚待真实浏览器验证。
 
 使用 `--editor` 标志启动服务器即可启用，无需其他配置。在不支持 MCP Apps 的宿主上，`show-diagram` 会退化为返回纯文本的图表 XML。
 

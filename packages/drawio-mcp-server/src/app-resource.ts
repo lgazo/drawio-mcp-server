@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
@@ -10,6 +11,8 @@ import {
 
 import type { ServerConfig } from "./config.js";
 import { SHOW_DIAGRAM_RESOURCE_URI } from "./tools/show-diagram.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export function editor_origin(config: ServerConfig): string {
   const scheme = config.tlsEnabled ? "https" : "http";
@@ -47,7 +50,7 @@ function escape_inline_script(js: string): string {
  *   markers.
  */
 function read_shell_html(config: ServerConfig): string {
-  const here = import.meta.dirname;
+  const here = __dirname;
   const shell = readFileSync(join(here, "app-shell", "shell.html"), "utf-8");
   const appClient = readFileSync(
     join(here, "app-shell", "app-client.js"),
