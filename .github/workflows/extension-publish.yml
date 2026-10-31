@@ -93,23 +93,21 @@ jobs:
         id: cws
         continue-on-error: true
         env:
-          CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
-          CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
-          CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
-          CWS_EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
+          # chrome-webstore-upload-cli 4.x reads these exact env names; the
+          # old --client-id/--client-secret/--refresh-token flags were removed.
+          CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+          EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
+          PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
           VERSION: ${{ inputs.version }}
         working-directory: packages/drawio-mcp-extension
         run: |
-          if [ -z "$CWS_CLIENT_ID" ] || [ -z "$CWS_CLIENT_SECRET" ] || [ -z "$CWS_REFRESH_TOKEN" ] || [ -z "$CWS_EXTENSION_ID" ]; then
+          if [ -z "$CLIENT_ID" ] || [ -z "$CLIENT_SECRET" ] || [ -z "$REFRESH_TOKEN" ] || [ -z "$EXTENSION_ID" ] || [ -z "$PUBLISHER_ID" ]; then
             echo "CWS_* secrets not configured; skipping draft upload (manual submission from the Release page zips)."
             exit 0
           fi
-          pnpm exec chrome-webstore-upload upload \
-            --extension-id "$CWS_EXTENSION_ID" \
-            --client-id "$CWS_CLIENT_ID" \
-            --client-secret "$CWS_CLIENT_SECRET" \
-            --refresh-token "$CWS_REFRESH_TOKEN" \
-            --source ".output/drawio-mcp-extension-${VERSION}-chrome.zip"
+          pnpm exec chrome-webstore-upload upload --source ".output/drawio-mcp-extension-${VERSION}-chrome.zip"
 
       - name: Report CWS upload result
         if: ${{ always() && steps.cws.outcome == 'failure' }}

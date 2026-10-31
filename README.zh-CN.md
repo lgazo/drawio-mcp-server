@@ -14,24 +14,25 @@
 
 ## 核心亮点
 
+- 浏览器扩展界面与文档已本地化为简体中文 ![v2.4.0](https://img.shields.io/badge/v2.4.0-blue)
 - Claude Code 插件：执行 `/plugin marketplace add lgazo/drawio-mcp-server` 后执行 `/plugin install drawio`，附带 `/drawio-open` 和 `/drawio-status` 斜杠命令 ![v2.3.0](https://img.shields.io/badge/v2.3.0-blue)
 - `npx drawio-mcp-server install <host>` 会为 `claude-code`、`claude-desktop`、`codex`、`zed`、`opencode` 或 `all` 写入相应的 MCP 配置 ![v2.3.0](https://img.shields.io/badge/v2.3.0-blue)
 - 文档持久化工具：`set-document-title` 和 `save-document` ![v2.3.0](https://img.shields.io/badge/v2.3.0-blue)
-- Draw.io 图形库 API 版本兼容机制 ![v2.2.0](https://img.shields.io/badge/v2.2.0-blue)
+- Draw.io 图形库 API 版本兼容机制
 - 支持在 IFrame 中启用 Draw.io MCP
 - AWS、GCP、Azure、Cisco19 和 CiscoSafe 图形模板可在运行时从 drawio 的侧边栏自动发现
 - 通过 `list-documents` 和 `target_document` 选择器实现多文档定位，适用于多标签页工作流
 - 通过必填的 `target_page` 选择器实现多页面定位，适用于页面作用域的工具
 - 对实时操作按文档进行 FIFO 串行化，使多个智能体可以安全地处理不同文件
 - 页面管理工具：`list-pages`、`get-current-page`、`create-page`、`copy-page`、`rename-page`
-- 导入、嵌入或展开 [Mermaid](https://mermaid.js.org/) 图表 ![v2.1.0](https://img.shields.io/badge/v2.1.0-blue)
-- Firefox 支持已回归，必须启用 TLS 模式 ![v2.1.0](https://img.shields.io/badge/v2.1.0-blue)
-- 服务器支持 TLS 模式，并可选择自动生成自签名证书 ![v2.1.0](https://img.shields.io/badge/v2.1.0-blue)
+- 导入、嵌入或展开 [Mermaid](https://mermaid.js.org/) 图表
+- Firefox 支持已回归，必须启用 TLS 模式
+- 服务器支持 TLS 模式，并可选择自动生成自签名证书
 
-- 支持在 XML、SVG（内嵌 XML）或 PNG（内嵌 XML）之间导入和导出图表 ![v2.0.0](https://img.shields.io/badge/v2.0.0-blue)
-- 连线几何控制，支持路径点（waypoint）和自动自连接布线 ![v2.0.0](https://img.shields.io/badge/v2.0.0-blue)
-- 支持嵌套形状与分组的父子关系 ![v2.0.0](https://img.shields.io/badge/v2.0.0-blue)
-- 服务器与扩展统一在同一 mono-repo 中 ![v2.0.0](https://img.shields.io/badge/v2.0.0-blue)
+- 支持在 XML、SVG（内嵌 XML）或 PNG（内嵌 XML）之间导入和导出图表
+- 连线几何控制，支持路径点（waypoint）和自动自连接布线
+- 支持嵌套形状与分组的父子关系
+- 服务器与扩展统一在同一 mono-repo 中
 - 内置 Draw.io 编辑器 - 无需浏览器扩展
 - 让 AI 智能体控制 Draw.io 图表的 MCP 服务器
 - 通过 MCP 工具以编程方式创建、检查和修改图表
