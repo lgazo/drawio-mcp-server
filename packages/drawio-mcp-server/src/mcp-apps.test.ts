@@ -127,7 +127,12 @@ describe("MCP Apps: editor resource", () => {
     expect(contents[0]?.mimeType).toBe("text/html;profile=mcp-app");
     expect(contents[0]?.text).toContain("<iframe");
     expect(contents[0]?.text).toContain("McpAppsApp");
-    expect(contents[0]?.text).toContain("http://localhost:3000/index.html");
+    expect(contents[0]?.text).toContain(
+      "http://localhost:3000/index.html?embed=1&proto=json&local=1",
+    );
+    // drawio's App.start skips plugin loading (window.Draw assignment) when
+    // offline=1 is set, so the framed editor must boot with plugins running.
+    expect(contents[0]?.text?.includes("offline=1")).toBe(false);
     const meta = (
       result as unknown as {
         _meta?: { ui?: { csp?: { frameDomains?: string[] } } };
@@ -165,7 +170,10 @@ describe("MCP Apps: editor resource", () => {
     )._meta;
     expect(meta?.ui?.csp?.frameDomains).toContain("https://localhost:3443");
     const contents = result.contents as Array<{ text?: string }>;
-    expect(contents[0]?.text).toContain("https://localhost:3443/index.html");
+    expect(contents[0]?.text).toContain(
+      "https://localhost:3443/index.html?embed=1&proto=json&local=1",
+    );
+    expect(contents[0]?.text?.includes("offline=1")).toBe(false);
 
     await client.close();
     await app.close();

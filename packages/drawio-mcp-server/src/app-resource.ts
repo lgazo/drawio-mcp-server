@@ -17,7 +17,11 @@ export function editor_origin(config: ServerConfig): string {
 }
 
 function build_editor_url(config: ServerConfig): string {
-  return `${editor_origin(config)}/index.html?embed=1&proto=json&local=1&offline=1`;
+  // No `offline=1`: drawio's App.start skips its entire plugin-loading block
+  // (App.initPluginCallback — what assigns window.Draw) when offline=1 is
+  // set, so mcp-plugin.js would never boot and the framed editor would
+  // never connect to the WebSocket bridge.
+  return `${editor_origin(config)}/index.html?embed=1&proto=json&local=1`;
 }
 
 /**
