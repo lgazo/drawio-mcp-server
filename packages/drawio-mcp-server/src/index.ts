@@ -57,6 +57,7 @@ import {
   ensureAssets,
   type AssetConfig,
 } from "./assets/index.js";
+import { registerAppShellResource } from "./app-resource.js";
 import { registerTools } from "./tools/index.js";
 import { createServerWithSchemaStripping } from "./register-tool.js";
 import { target_document_field } from "./tools/shared.js";
@@ -785,6 +786,13 @@ export function createDrawioMcpApp(options?: {
       createDocumentScopedServer(createServerWithSchemaStripping(server)),
       context,
     );
+
+    // MCP Apps: serve the self-contained editor shell at
+    // ui://drawio/editor.html on the raw server — the doc-scoped proxy
+    // passes registerResource through untouched, but registering on the
+    // raw McpServer keeps the resource out of tool scoping entirely.
+    registerAppShellResource(server, config);
+
     mcpServers.add(server);
     return server;
   }

@@ -5,6 +5,18 @@ import { createDrawioMcpApp, type DrawioMcpApp } from "./index.js";
 import { defaultConfig } from "./config.js";
 import { MemoryLogger } from "./real-environment/logger.js";
 
+async function connectClientForApp(app: DrawioMcpApp): Promise<Client> {
+  const [clientTransport, serverTransport] =
+    InMemoryTransport.createLinkedPair();
+  const server = app.createMcpServer();
+  const client = new Client({ name: "apps-test", version: "1.0.0" });
+  await Promise.all([
+    server.connect(serverTransport),
+    client.connect(clientTransport),
+  ]);
+  return client;
+}
+
 describe("MCP Apps: show-diagram tool", () => {
   let app: DrawioMcpApp;
 
@@ -12,24 +24,12 @@ describe("MCP Apps: show-diagram tool", () => {
     if (app) await app.close();
   });
 
-  async function connectClient(config = defaultConfig()): Promise<Client> {
-    const [clientTransport, serverTransport] =
-      InMemoryTransport.createLinkedPair();
-    const server = app.createMcpServer();
-    const client = new Client({ name: "apps-test", version: "1.0.0" });
-    await Promise.all([
-      server.connect(serverTransport),
-      client.connect(clientTransport),
-    ]);
-    return client;
-  }
-
   it("advertises show-diagram with ui _meta and target_document", async () => {
     app = createDrawioMcpApp({
       config: defaultConfig(),
       log: new MemoryLogger(),
     });
-    const client = await connectClient();
+    const client = await connectClientForApp(app);
     const { tools } = await client.listTools();
 
     const tool = tools.find((t) => t.name === "show-diagram");
@@ -60,7 +60,7 @@ describe("MCP Apps: show-diagram tool", () => {
       config: defaultConfig(),
       log: new MemoryLogger(),
     });
-    const client = await connectClient();
+    const client = await connectClientForApp(app);
     const { tools } = await client.listTools();
 
     for (const tool of tools) {
@@ -75,5 +75,69 @@ describe("MCP Apps: show-diagram tool", () => {
     }
 
     await client.close();
+  });
+});
+
+describe("MCP Apps: editor resource", () => {
+  it("serves the shell with the MCP Apps mime type and CSP", async () => {
+    const app = createDrawioMcpApp({
+      config: defaultConfig(),
+      log: new MemoryLogger(),
+    });
+    const client = await connectClientForApp(app);
+
+    const result = await client.readResource({
+      uri: "ui://drawio/editor.html",
+    });
+    const contents = result.contents as Array<{
+      mimeType?: string;
+      text?: string;
+      uri: string;
+    }>;
+    expect(contents[0]?.mimeType).toBe("text/html;profile=mcp-app");
+    expect(contents[0]?.text).toContain("<iframe");
+    expect(contents[0]?.text).toContain("McpAppsApp");
+    expect(contents[0]?.text).toContain("http://localhost:3000/index.html");
+    const meta = (
+      result as unknown as {
+        _meta?: { ui?: { csp?: { frameDomains?: string[] } } };
+      }
+    )._meta;
+    expect(meta?.ui?.csp?.frameDomains).toContain("http://localhost:3000");
+    expect(contents[0]?.uri).toBe("ui://drawio/editor.html");
+    expect(contents[0]?.text?.includes("__EDITOR_URL__")).toBe(false);
+    expect(contents[0]?.text?.includes("/*__APP_CLIENT__*/")).toBe(false);
+
+    await client.close();
+    await app.close();
+  });
+
+  it("uses https origin when TLS is enabled", async () => {
+    const config = {
+      ...defaultConfig(),
+      tlsEnabled: true,
+      tlsAuto: true,
+      httpPort: 3443,
+    };
+    const app = createDrawioMcpApp({
+      config,
+      log: new MemoryLogger(),
+    });
+    const client = await connectClientForApp(app);
+
+    const result = await client.readResource({
+      uri: "ui://drawio/editor.html",
+    });
+    const meta = (
+      result as unknown as {
+        _meta?: { ui?: { csp?: { frameDomains?: string[] } } };
+      }
+    )._meta;
+    expect(meta?.ui?.csp?.frameDomains).toContain("https://localhost:3443");
+    const contents = result.contents as Array<{ text?: string }>;
+    expect(contents[0]?.text).toContain("https://localhost:3443/index.html");
+
+    await client.close();
+    await app.close();
   });
 });

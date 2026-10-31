@@ -1,3 +1,93 @@
 <!DOCTYPE html>
-<html><head><meta charset="utf-8" /><title>Draw.io</title></head>
-<body>placeholder — replaced in Task 3</body></html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Draw.io</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #fff; }
+  #editor { width: 100%; height: 100%; border: 0; display: block; }
+  #fallback {
+    display: none;
+    position: absolute; inset: 0;
+    padding: 2em; font: 14px/1.5 system-ui, sans-serif; color: #333;
+  }
+  #fallback.visible { display: block; }
+  code { background: #f4f4f4; padding: 2px 4px; border-radius: 3px; }
+</style>
+</head>
+<body>
+<iframe id="editor" src="__EDITOR_URL__"></iframe>
+<div id="fallback">
+  <p><strong>Draw.io editor unreachable.</strong></p>
+  <p>Could not load <code>__EDITOR_URL__</code>.</p>
+  <p>Start the server with <code>--editor</code> and make sure this MCP host
+  can reach the machine running drawio-mcp-server (localhost). If you are on
+  a remote/browser-only host, the local editor cannot be displayed.</p>
+</div>
+<script>/*__APP_CLIENT__*/</script>
+<script>
+(function () {
+  "use strict";
+  var editor = document.getElementById("editor");
+  var fallback = document.getElementById("fallback");
+  var AppCtor = globalThis.McpAppsApp;
+  var lastXml = null;
+  var editorReady = false;
+  var initTimer = setTimeout(showFallback, 8000);
+
+  function showFallback() {
+    if (!editorReady) {
+      fallback.classList.add("visible");
+      editor.style.display = "none";
+    }
+  }
+
+  if (AppCtor) {
+    var app = new AppCtor({ name: "drawio-mcp-server", version: "1" });
+    app.connect();
+    app.ontoolresult = function (result) {
+      var texts = (result && result.content) || [];
+      for (var i = 0; i < texts.length; i++) {
+        var item = texts[i];
+        if (item.type === "text" && item.text &&
+            (item.text.indexOf("<mxfile") !== -1 ||
+             item.text.indexOf("<mxGraphModel") !== -1)) {
+          lastXml = item.text;
+          sendLoad();
+          return;
+        }
+      }
+    };
+  }
+
+  // draw.io embed mode (proto=json): the editor posts lifecycle events to
+  // its parent window (this shell); we reply with load/configure actions.
+  window.addEventListener("message", function (event) {
+    var msg = event.data;
+    if (!msg || typeof msg.event !== "string") return;
+    if (msg.event === "init") {
+      editorReady = true;
+      clearTimeout(initTimer);
+      sendLoad();
+    } else if (msg.event === "configure") {
+      editor.contentWindow.postMessage(
+        { action: "configure", config: {} },
+        "*"
+      );
+    } else if (msg.event === "save" || msg.event === "export") {
+      // Live sync runs through mcp-plugin.js inside the framed editor
+      // (WebSocket bridge); saves need no handling in the shell.
+    }
+  });
+
+  function sendLoad() {
+    if (!editorReady || lastXml === null || !editor.contentWindow) return;
+    editor.contentWindow.postMessage(
+      { action: "load", xml: lastXml, autosave: 1 },
+      "*"
+    );
+  }
+})();
+</script>
+</body>
+</html>
