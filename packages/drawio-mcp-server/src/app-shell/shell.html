@@ -14,6 +14,7 @@
   }
   #blocked.visible { display: block; }
   code { background: #f4f4f4; padding: 2px 4px; border-radius: 3px; }
+  #preview { display: none; max-width: 100%; }
 </style>
 </head>
 <body>
@@ -28,7 +29,7 @@
   — diagram editing and the MCP tools keep working there.</p>
   <p>Standalone editor URL: <code id="standalone-url">__EDITOR_STANDALONE_URL__</code></p>
   <p id="preview-hint">Loading a read-only preview of the current diagram…</p>
-  <img id="preview" alt="Diagram preview" style="display:none;max-width:100%" />
+  <img id="preview" alt="Diagram preview" />
 </div>
 <script>/*__APP_CLIENT__*/</script>
 <script>/*__EMBED_PROTOCOL__*/</script>
@@ -119,6 +120,10 @@
       }
       pending.then(
         function (result) {
+          if (result && result.isError) {
+            showPreviewUnavailable();
+            return;
+          }
           var blocks = (result && result.content) || [];
           for (var i = 0; i < blocks.length; i++) {
             if (blocks[i].type === "image" && blocks[i].data) {
@@ -154,7 +159,8 @@
         // blocked panel up over a working frame.
         blockedShown = false;
         blocked.classList.remove("visible");
-        preview.src = "";
+        preview.onerror = null;
+        preview.removeAttribute("src");
         preview.style.display = "none";
         previewHint.textContent = "";
         editor.style.display = "block";
