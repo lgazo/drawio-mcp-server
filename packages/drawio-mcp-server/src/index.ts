@@ -21,6 +21,7 @@ import {
 import { AddressInfo } from "node:net";
 
 import { WebSocket, WebSocketServer } from "ws";
+import { z } from "zod";
 const VERSION = process.env.npm_package_version ?? "2.3.0";
 import {
   buildConfig,
@@ -696,29 +697,58 @@ export function createDrawioMcpApp(options?: {
   function createDocumentScopedServer(server: McpServer): McpServer {
     return new Proxy(server, {
       get(target, prop, receiver) {
-        if (prop !== "tool") {
+        if (prop !== "tool" && prop !== "registerTool") {
           return Reflect.get(target, prop, receiver);
         }
 
-        return (
-          name: string,
-          description: string,
-          params: Record<string, unknown>,
-          handler: unknown,
-        ) => {
-          const scopedParams =
-            name === "list-documents"
-              ? params
-              : {
-                  ...params,
-                  target_document: target_document_field().optional(),
-                };
-
+        // High-level server.tool(name, description, params, handler)
+        if (prop === "tool") {
           return (
-            target.tool as (
-              ...args: [string, string, Record<string, unknown>, unknown]
+            name: string,
+            description: string,
+            params: Record<string, unknown>,
+            handler: unknown,
+          ) => {
+            const scopedParams =
+              name === "list-documents"
+                ? params
+                : {
+                    ...params,
+                    target_document: target_document_field().optional(),
+                  };
+
+            return (
+              target.tool as (
+                ...args: [string, string, Record<string, unknown>, unknown]
+              ) => unknown
+            ).call(target, name, description, scopedParams, handler);
+          };
+        }
+
+        // server.registerTool(name, config) — used by ext-apps'
+        // registerAppTool for MCP Apps tools like show-diagram.
+        return (name: string, config: Record<string, unknown>) => {
+          const rawShape =
+            (
+              config.inputSchema as
+                | { shape?: Record<string, unknown> }
+                | undefined
+            )?.shape ?? {};
+          const scopedConfig =
+            name === "list-documents"
+              ? config
+              : {
+                  ...config,
+                  inputSchema: z.object({
+                    ...rawShape,
+                    target_document: target_document_field().optional(),
+                  }),
+                };
+          return (
+            target.registerTool as (
+              ...args: [string, Record<string, unknown>]
             ) => unknown
-          ).call(target, name, description, scopedParams, handler);
+          ).call(target, name, scopedConfig);
         };
       },
     }) as McpServer;
