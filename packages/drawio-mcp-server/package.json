@@ -9,7 +9,8 @@
   },
   "scripts": {
     "vendor:compat": "rimraf src/vendored/compat && mkdir -p src/vendored/compat && cp ../drawio-mcp-compat/src/index.ts src/vendored/compat/index.ts",
-    "build": "pnpm run vendor:compat && rimraf build && tsc && mkdir -p build/plugin && cp node_modules/drawio-mcp-plugin/dist/mcp-plugin.js build/plugin/mcp-plugin.js",
+    "build": "pnpm run vendor:compat && rimraf build && tsc && pnpm run build:app-shell && mkdir -p build/plugin && cp node_modules/drawio-mcp-plugin/dist/mcp-plugin.js build/plugin/mcp-plugin.js",
+    "build:app-shell": "node scripts/build-app-shell.mjs",
     "ci": "pnpm install --frozen-lockfile",
     "dev": "pnpm run vendor:compat && tsc --watch",
     "dev:server": "pnpm run vendor:compat && concurrently --kill-others-on-fail -n tsc,node -c cyan,green \"tsc --watch --preserveWatchOutput\" \"node --watch --watch-path=build build/index.js\"",
@@ -55,6 +56,7 @@
   "packageManager": "pnpm@10.8.1",
   "dependencies": {
     "@hono/node-server": "2.1.3",
+    "@modelcontextprotocol/ext-apps": "^2.0.4",
     "@modelcontextprotocol/sdk": "1.32.1",
     "cachedir": "2.4.0",
     "hono": "4.13.13",

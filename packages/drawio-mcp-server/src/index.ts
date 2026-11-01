@@ -21,6 +21,7 @@ import {
 import { AddressInfo } from "node:net";
 
 import { WebSocket, WebSocketServer } from "ws";
+import { z } from "zod";
 const VERSION = process.env.npm_package_version ?? "2.4.0";
 import {
   buildConfig,
@@ -56,6 +57,7 @@ import {
   ensureAssets,
   type AssetConfig,
 } from "./assets/index.js";
+import { registerAppShellResource } from "./app-resource.js";
 import { registerTools } from "./tools/index.js";
 import { createServerWithSchemaStripping } from "./register-tool.js";
 import { target_document_field } from "./tools/shared.js";
@@ -696,29 +698,63 @@ export function createDrawioMcpApp(options?: {
   function createDocumentScopedServer(server: McpServer): McpServer {
     return new Proxy(server, {
       get(target, prop, receiver) {
-        if (prop !== "tool") {
+        if (prop !== "tool" && prop !== "registerTool") {
           return Reflect.get(target, prop, receiver);
         }
 
-        return (
-          name: string,
-          description: string,
-          params: Record<string, unknown>,
-          handler: unknown,
-        ) => {
-          const scopedParams =
-            name === "list-documents"
-              ? params
-              : {
-                  ...params,
-                  target_document: target_document_field().optional(),
-                };
-
+        // High-level server.tool(name, description, params, handler)
+        if (prop === "tool") {
           return (
-            target.tool as (
-              ...args: [string, string, Record<string, unknown>, unknown]
+            name: string,
+            description: string,
+            params: Record<string, unknown>,
+            handler: unknown,
+          ) => {
+            const scopedParams =
+              name === "list-documents"
+                ? params
+                : {
+                    ...params,
+                    target_document: target_document_field().optional(),
+                  };
+
+            return (
+              target.tool as (
+                ...args: [string, string, Record<string, unknown>, unknown]
+              ) => unknown
+            ).call(target, name, description, scopedParams, handler);
+          };
+        }
+
+        // server.registerTool(name, config, cb) — used by ext-apps'
+        // registerAppTool for MCP Apps tools like show-diagram. The
+        // callback MUST be forwarded: ext-apps calls
+        // registerTool(name, config, cb) and dropping cb leaves
+        // tool.handler undefined, crashing tools/call with
+        // `Cannot use 'in' operator to search for 'createTask' in
+        // undefined`.
+        return (name: string, config: Record<string, unknown>, cb: unknown) => {
+          const rawShape =
+            (
+              config.inputSchema as
+                | { shape?: Record<string, unknown> }
+                | undefined
+            )?.shape ?? {};
+          const scopedConfig =
+            name === "list-documents"
+              ? config
+              : {
+                  ...config,
+                  inputSchema: z.object({
+                    ...rawShape,
+                    target_document: target_document_field().optional(),
+                  }),
+                };
+          return (
+            target.registerTool as (
+              ...args: [string, Record<string, unknown>, unknown]
             ) => unknown
-          ).call(target, name, description, scopedParams, handler);
+          ).call(target, name, scopedConfig, cb);
         };
       },
     }) as McpServer;
@@ -755,6 +791,13 @@ export function createDrawioMcpApp(options?: {
       createDocumentScopedServer(createServerWithSchemaStripping(server)),
       context,
     );
+
+    // MCP Apps: serve the self-contained editor shell at
+    // ui://drawio/editor.html on the raw server — the doc-scoped proxy
+    // passes registerResource through untouched, but registering on the
+    // raw McpServer keeps the resource out of tool scoping entirely.
+    registerAppShellResource(server, config);
+
     mcpServers.add(server);
     return server;
   }

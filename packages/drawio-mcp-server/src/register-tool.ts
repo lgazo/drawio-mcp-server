@@ -48,6 +48,25 @@ export function createServerWithSchemaStripping(server: McpServer): McpServer {
     return result;
   } as typeof originalTool;
 
+  // registerTool is generic in the SDK; bind() loses the type params, so
+  // pin it to a variadic signature we can forward transparently.
+  const originalRegisterTool = server.registerTool.bind(server) as (
+    ...args: unknown[]
+  ) => unknown;
+
+  server.registerTool = function registerTool(...args: unknown[]) {
+    const result = originalRegisterTool(...args);
+    // setToolRequestHandlers() also runs eagerly inside registerTool
+    // (via _createRegisteredTool), so the same patch applies here.
+    // This covers tools registered through ext-apps' registerAppTool,
+    // e.g. when show-diagram is the first tool registration.
+    if (!patched) {
+      patched = true;
+      patchToolsListHandler(server);
+    }
+    return result;
+  } as unknown as typeof server.registerTool;
+
   return server;
 }
 

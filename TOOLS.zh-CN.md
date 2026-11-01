@@ -115,6 +115,24 @@ Draw.io MCP 服务器提供以下 MCP 工具，用于以编程方式与图表交
 - `page_size`：返回单元格的最大数量
 - `filter`：可选的过滤条件
 
+## MCP Apps 工具
+
+### `show-diagram`
+
+返回当前图表的 XML。在支持 MCP Apps 的宿主（Claude Desktop、QuixiDesk、MCPJam、VS Code Copilot）上，图表会在对话内渲染为交互式 draw.io 编辑器：该内嵌编辑器会展示图表、连接到服务器的 WebSocket 桥接，并注册为活动文档——它会出现在 `list-documents`（embed 模式）中，智能体的工具调用（例如 `add-rectangle`）也会作用于该文档，以上均已在无头（headless）E2E 中验证；而同步内嵌编辑器中用户手动编辑的机制仍待真实浏览器验证。在其他客户端上，则以纯文本形式返回原始 XML。
+
+对话内编辑器由 `ui://drawio/editor.html` 这个 MCP 应用资源提供，它是一个自包含的 HTML 外壳，内嵌本地托管的 draw.io 编辑器。服务器必须使用 `--editor` 启动，以便提供被内嵌的编辑器；同时 MCP 宿主必须能够访问 `http://localhost:<http-port>`。
+
+**宿主支持：** 内嵌交互式编辑需要宿主遵守 `_meta.ui.csp.frameDomains`（MCPJam 默认视图、ChatGPT、Cursor、Copilot、VS Code、Gemini，以及官方的 ext-apps basic-host 均遵守）。不遵守的宿主（Claude Desktop / claude.ai、Slack、Notion 等）则会看到当前图表的只读预览，外加一个在普通浏览器标签页中打开编辑器的链接——图表编辑和工具在浏览器标签页中照常工作；无论哪种情况，工具本身都不受影响。
+
+与所有实时工具一样，该工具面向已连接的文档，但也可以冷启动：在没有连接任何 Draw.io 文档（且未传入 `target_document`）时，它会返回一张空白图表而不是报错，应用因此会打开一张空白画布供用户直接开始绘制；在连接了多个文档时需传入 `target_document`。传入的 `target_document` 指向未知 ID 时仍然会报错。
+
+*参数*：
+- `target_page`：要显示的页面的选择器；必须且只能使用 `{ index }` 或 `{ id }` 之一
+- `target_document`：来自 `list-documents` 的可选文档选择器；在连接了多个文档时必填
+
+*返回*：当前图表的 XML（与使用 `format: "xml"` 和 `size: "diagram"` 的 `export-diagram` 调用返回的 XML 相同，但不包含导出状态行）
+
 ## 图表修改工具
 
 ### `add-rectangle`

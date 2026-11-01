@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Draw.io</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #fff; }
+  #editor { width: 100%; height: 100%; border: 0; display: block; }
+  #blocked {
+    display: none;
+    position: absolute; inset: 0;
+    overflow: auto;
+    padding: 2em; font: 14px/1.5 system-ui, sans-serif; color: #333;
+  }
+  #blocked.visible { display: block; }
+  code { background: #f4f4f4; padding: 2px 4px; border-radius: 3px; }
+  #preview { display: none; max-width: 100%; }
+</style>
+</head>
+<body>
+<iframe id="editor" src="__EDITOR_URL__"></iframe>
+<div id="blocked">
+  <p><strong>The draw.io editor could not be embedded in this host.</strong></p>
+  <p>Either your MCP host does not allow apps to embed local content
+  (e.g. Claude), or the editor could not be loaded (start the server with
+  <code>--editor</code> and make sure the host can reach the machine running
+  drawio-mcp-server on localhost).</p>
+  <p><a id="open-editor" href="__EDITOR_STANDALONE_URL__">Open the editor in a browser tab</a>
+  — diagram editing and the MCP tools keep working there.</p>
+  <p>Standalone editor URL: <code id="standalone-url">__EDITOR_STANDALONE_URL__</code></p>
+  <p id="preview-hint">Loading a read-only preview of the current diagram…</p>
+  <img id="preview" alt="Diagram preview" />
+</div>
+<script>/*__APP_CLIENT__*/</script>
+<script>/*__EMBED_PROTOCOL__*/</script>
+<script>
+(function () {
+  "use strict";
+  var editor = document.getElementById("editor");
+  var blocked = document.getElementById("blocked");
+  var previewHint = document.getElementById("preview-hint");
+  var preview = document.getElementById("preview");
+  var openEditor = document.getElementById("open-editor");
+  var AppCtor = globalThis.McpAppsApp;
+  var app = null;
+  var embed = globalThis.DrawioEmbedProtocol;
+  var lastXml = null;
+  var editorReady = false;
+  var blockedShown = false;
+  var initTimer;
+
+  if (AppCtor) {
+    app = new AppCtor({ name: "drawio-mcp-server", version: "1" });
+    app.connect();
+    app.ontoolresult = function (result) {
+      var texts = (result && result.content) || [];
+      for (var i = 0; i < texts.length; i++) {
+        var item = texts[i];
+        if (item.type === "text" && item.text &&
+            (item.text.indexOf("<mxfile") !== -1 ||
+             item.text.indexOf("<mxGraphModel") !== -1)) {
+          lastXml = item.text;
+          sendLoad();
+          return;
+        }
+      }
+    };
+  }
+
+  // Blocked-frame detection. A frame-src CSP violation fires on THIS
+  // document (the one that attempted the iframe load), which makes it
+  // decisive — unlike a timeout. Hosts that never deliver CSP violations
+  // (shell served without such a header) simply never fire the event; the
+  // listener itself is safe to register unconditionally, and the 8s
+  // initTimer below stays as the backstop route into the same panel
+  // (covers the server-unreachable case).
+  document.addEventListener("securitypolicyviolation", function (event) {
+    if (event && (event.effectiveDirective === "frame-src" ||
+                  event.effectiveDirective === "child-src")) {
+      showBlocked();
+    }
+  });
+
+  initTimer = setTimeout(showBlocked, 8000);
+
+  function showBlocked() {
+    if (editorReady || blockedShown) return;
+    blockedShown = true;
+    clearTimeout(initTimer);
+    blocked.classList.add("visible");
+    editor.style.display = "none";
+    loadPreview();
+  }
+
+  function showPreviewUnavailable() {
+    previewHint.textContent =
+      "No connected diagram to preview — open the editor and start " +
+      "drawing; the agent can still create and edit diagrams through " +
+      "the tools.";
+  }
+
+  // Read-only preview rides the app→host→server tool bridge
+  // (callServerTool), never a network fetch — so it needs no extra
+  // network-origin allowance in the resource CSP. No documents connected
+  // (cold start) is a normal outcome here: the panel keeps the link and
+  // shows the hint.
+  function loadPreview() {
+    if (!app || typeof app.callServerTool !== "function") {
+      showPreviewUnavailable();
+      return;
+    }
+    try {
+      var pending = app.callServerTool({
+        name: "export-diagram",
+        arguments: { format: "png", target_page: { index: 0 } },
+      });
+      if (!pending || typeof pending.then !== "function") {
+        showPreviewUnavailable();
+        return;
+      }
+      pending.then(
+        function (result) {
+          if (result && result.isError) {
+            showPreviewUnavailable();
+            return;
+          }
+          var blocks = (result && result.content) || [];
+          for (var i = 0; i < blocks.length; i++) {
+            if (blocks[i].type === "image" && blocks[i].data) {
+              preview.onerror = showPreviewUnavailable;
+              preview.src = "data:image/png;base64," + blocks[i].data;
+              preview.style.display = "block";
+              previewHint.textContent =
+                "Read-only preview of the current diagram:";
+              return;
+            }
+          }
+          showPreviewUnavailable();
+        },
+        showPreviewUnavailable,
+      );
+    } catch (err) {
+      showPreviewUnavailable();
+    }
+  }
+
+  // draw.io embed mode (proto=json): the editor posts lifecycle events to
+  // its parent window (this shell) as JSON strings; every action sent to
+  // the editor must likewise be a JSON string (see embed-protocol.ts for
+  // why). We reply with a load action once the editor reports init.
+  window.addEventListener("message", function (event) {
+    if (!embed) return;
+    var msg = embed.parseEditorMessage(event.data);
+    if (!msg) return;
+    if (msg.event === "init") {
+      if (blockedShown) {
+        // The editor actually made it (slow load that raced the backstop
+        // timer): recover to the live editor instead of leaving the
+        // blocked panel up over a working frame.
+        blockedShown = false;
+        blocked.classList.remove("visible");
+        preview.onerror = null;
+        preview.removeAttribute("src");
+        preview.style.display = "none";
+        previewHint.textContent = "";
+        editor.style.display = "block";
+      }
+      editorReady = true;
+      clearTimeout(initTimer);
+      sendLoad();
+    } else if (msg.event === "configure") {
+      editor.contentWindow.postMessage(
+        embed.encodeEditorAction("configure", { config: {} }),
+        "*"
+      );
+    } else if (msg.event === "save" || msg.event === "export") {
+      // Live sync runs through mcp-plugin.js inside the framed editor
+      // (WebSocket bridge); saves need no handling in the shell.
+    }
+  });
+
+  // Always sends a load once the editor is ready: with lastXml when a tool
+  // result already delivered a diagram, otherwise as a bare load. The editor
+  // defaults a bare load to its empty diagram and — crucially for
+  // list-documents — materializes an EmbedFile via setCurrentFile in its
+  // initializeEmbedMode handler, which is what mcp-plugin.js needs for a
+  // non-null ui.getCurrentFile() in embed mode.
+  function sendLoad() {
+    if (!editorReady || !editor.contentWindow || !embed) return;
+    var fields = { autosave: 1 };
+    if (lastXml !== null) fields.xml = lastXml;
+    editor.contentWindow.postMessage(
+      embed.encodeEditorAction("load", fields),
+      "*"
+    );
+  }
+
+  // A sandboxed app may have anchor navigation blocked by the host; prefer
+  // the host-mediated openLink bridge when the app client provides it, and
+  // let the plain anchor stand otherwise. Even if both are denied, the URL
+  // is also printed as selectable text inside the <code> element above, so
+  // it stays copyable regardless.
+  openEditor.addEventListener("click", function (event) {
+    if (app && typeof app.openLink === "function") {
+      event.preventDefault();
+      try {
+        var pending = app.openLink({ url: openEditor.getAttribute("href") });
+        if (pending && typeof pending.catch === "function") {
+          pending.catch(function () {});
+        }
+      } catch (err) {}
+    }
+  });
+})();
+</script>
+</body>
+</html>

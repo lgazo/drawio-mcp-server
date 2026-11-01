@@ -29,6 +29,7 @@ import { registerSetCellDataTool } from "./set-cell-data.js";
 import { registerSetCellParentTool } from "./set-cell-parent.js";
 import { registerSetCellShapeTool } from "./set-cell-shape.js";
 import { registerSetDocumentTitleTool } from "./set-document-title.js";
+import { registerShowDiagramTool } from "./show-diagram.js";
 
 const registrars: ToolRegistrar[] = [
   registerGetSelectedCellTool,
@@ -61,6 +62,7 @@ const registrars: ToolRegistrar[] = [
   registerRenamePageTool,
   registerSetDocumentTitleTool,
   registerSaveDocumentTool,
+  registerShowDiagramTool,
 ];
 
 export function registerTools(...args: Parameters<ToolRegistrar>) {
