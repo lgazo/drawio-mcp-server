@@ -307,13 +307,54 @@ function registerEditorRoutes(app: Hono, config: ServerConfig, log: AppLogger) {
   log.debug(`Draw.io editor enabled at: http://localhost:${config.httpPort}/`);
 }
 
+const WILDCARD_HOSTS = new Set(["0.0.0.0", "::"]);
+
+/**
+ * Host-header allowlist for the MCP SDK's DNS-rebinding protection.
+ * SDK 1.32.1 compares the raw Host header including the port, so each
+ * name is emitted bare and with `:<port>`. IPv6 names are bracketed the
+ * way browsers send them. Wildcard binds add no entry — the SDK skips
+ * the Host check when the list would be empty of real identities.
+ */
+export function deriveAllowedHosts(
+  host: string | undefined,
+  port: number,
+): string[] {
+  const names = ["localhost", "127.0.0.1", "[::1]"];
+  if (host && !WILDCARD_HOSTS.has(host)) {
+    const form =
+      host.includes(":") && !host.startsWith("[") ? `[${host}]` : host;
+    if (!names.includes(form)) {
+      names.push(form);
+    }
+  }
+  const hosts: string[] = [];
+  for (const name of names) {
+    hosts.push(name);
+    if (port > 0) {
+      hosts.push(`${name}:${port}`);
+    }
+  }
+  return hosts;
+}
+
 function registerMcpRoute(
   app: Hono,
+  config: ServerConfig,
+  getBoundPort: () => number,
   createServer: () => McpServer,
   disposeMcpServer: (server: McpServer) => void,
 ): void {
   app.all("/mcp", async (c) => {
-    const transport = new WebStandardStreamableHTTPServerTransport();
+    const transport = new WebStandardStreamableHTTPServerTransport({
+      // Explicit stateless mode (one transport per request, as before).
+      sessionIdGenerator: undefined,
+      // GHSA-jvqm-g5ch-jh76: reject DNS-rebind/spoofed Host headers and,
+      // when a CORS allowlist is configured, browser Origins not in it.
+      enableDnsRebindingProtection: true,
+      allowedHosts: deriveAllowedHosts(config.host, getBoundPort()),
+      allowedOrigins: config.corsOrigins ?? [],
+    });
     const server = createServer();
     await server.connect(transport);
     // Remove the server from the tracking set immediately so it does not
@@ -329,6 +370,7 @@ function registerMcpRoute(
 function createHttpApp(
   log: AppLogger,
   config: ServerConfig,
+  getBoundPort: () => number,
   features: HttpFeatureConfig,
   createServer: () => McpServer,
   disposeMcpServer: (server: McpServer) => void,
@@ -340,7 +382,8 @@ function createHttpApp(
 
   if (features.enableHealth) registerHealthRoute(app);
   if (features.enableConfig) registerConfigRoute(app, config, scheme);
-  if (features.enableMcp) registerMcpRoute(app, createServer, disposeMcpServer);
+  if (features.enableMcp)
+    registerMcpRoute(app, config, getBoundPort, createServer, disposeMcpServer);
   if (features.enableEditor) registerEditorRoutes(app, config, log);
 
   return { app };
@@ -358,9 +401,13 @@ async function startHttpServer(
   server: ReturnType<typeof serve>;
   port: number;
 }> {
+  let boundPort = 0;
+  const getBoundPort = () => boundPort;
+
   const { app } = createHttpApp(
     log,
     config,
+    getBoundPort,
     features,
     createServer,
     disposeMcpServer,
@@ -404,6 +451,8 @@ async function startHttpServer(
     httpPort === 0
       ? ((httpServer.address() as AddressInfo | null)?.port ?? httpPort)
       : httpPort;
+
+  boundPort = listeningPort;
 
   const scheme = tlsMaterial ? "https" : "http";
   log.debug(

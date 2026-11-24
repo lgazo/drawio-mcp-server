@@ -1,4 +1,5 @@
 import { mkdtempSync } from "node:fs";
+import { request } from "node:http";
 import * as https from "node:https";
 import { Socket } from "node:net";
 import { tmpdir } from "node:os";
@@ -153,6 +154,7 @@ describe("HTTP transport (stateless per-request)", () => {
     tlsEnabled: false,
     tlsAuto: false,
     host: "127.0.0.1",
+    corsOrigins: ["https://good.example"],
   };
 
   const features: HttpFeatureConfig = {
@@ -177,6 +179,61 @@ describe("HTTP transport (stateless per-request)", () => {
   it("binds to the loopback interface when host is configured", async () => {
     const address = httpServer?.address();
     expect(address).toMatchObject({ address: "127.0.0.1" });
+  });
+
+  it("rejects a spoofed Host header with 403", async () => {
+    const res = await new Promise<{
+      statusCode: number;
+      body: string;
+    }>((resolve, reject) => {
+      const req = request(
+        {
+          host: "127.0.0.1",
+          port,
+          method: "POST",
+          path: "/mcp",
+          headers: {
+            Host: `rebind.example:${port}`,
+            "Content-Type": "application/json",
+            Accept: "application/json, text/event-stream",
+          },
+        },
+        (res) => {
+          let body = "";
+          res.on("data", (chunk) => {
+            body += chunk;
+          });
+          res.on("end", () =>
+            resolve({ statusCode: res.statusCode ?? 0, body }),
+          );
+        },
+      );
+      req.on("error", reject);
+      req.end(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "tools/list",
+        }),
+      );
+    });
+    expect(res.statusCode).toBe(403);
+    expect(res.body).toContain("Invalid Host header");
+  });
+
+  it("rejects a non-allowlisted Origin when an allowlist is configured", async () => {
+    const res = await fetch(`http://127.0.0.1:${port}/mcp`, {
+      method: "POST",
+      headers: {
+        Origin: "https://evil.example",
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+    });
+    expect(res.status).toBe(403);
+    const text = await res.text();
+    expect(text).toContain("Invalid Origin header");
   });
 
   it("handles a single HTTP client request", async () => {
