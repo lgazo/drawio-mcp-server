@@ -165,6 +165,7 @@ describe("parseConfig", () => {
       logger: "console",
       tlsEnabled: false,
       tlsAuto: false,
+      host: "127.0.0.1",
     });
   });
 
@@ -177,6 +178,7 @@ describe("parseConfig", () => {
       logger: "console",
       tlsEnabled: false,
       tlsAuto: false,
+      host: "127.0.0.1",
     });
   });
 
@@ -189,6 +191,7 @@ describe("parseConfig", () => {
       logger: "console",
       tlsEnabled: false,
       tlsAuto: false,
+      host: "127.0.0.1",
     });
   });
 
@@ -201,6 +204,7 @@ describe("parseConfig", () => {
       logger: "console",
       tlsEnabled: false,
       tlsAuto: false,
+      host: "127.0.0.1",
     });
   });
 
@@ -215,6 +219,7 @@ describe("parseConfig", () => {
       logger: "console",
       tlsEnabled: false,
       tlsAuto: false,
+      host: "127.0.0.1",
     });
   });
 
@@ -227,6 +232,7 @@ describe("parseConfig", () => {
       logger: "console",
       tlsEnabled: false,
       tlsAuto: false,
+      host: "127.0.0.1",
     });
   });
 
@@ -269,6 +275,7 @@ describe("parseConfig", () => {
       logger: "console",
       tlsEnabled: false,
       tlsAuto: false,
+      host: "127.0.0.1",
     });
   });
 
@@ -281,6 +288,7 @@ describe("parseConfig", () => {
       logger: "console",
       tlsEnabled: false,
       tlsAuto: false,
+      host: "127.0.0.1",
     });
   });
 
@@ -294,6 +302,7 @@ describe("parseConfig", () => {
         logger: "console",
         tlsEnabled: false,
         tlsAuto: false,
+        host: "127.0.0.1",
       },
     );
   });
@@ -307,6 +316,7 @@ describe("parseConfig", () => {
       logger: "console",
       tlsEnabled: false,
       tlsAuto: false,
+      host: "127.0.0.1",
     });
   });
 
@@ -319,6 +329,7 @@ describe("parseConfig", () => {
       logger: "console",
       tlsEnabled: false,
       tlsAuto: false,
+      host: "127.0.0.1",
     });
   });
 
@@ -336,6 +347,7 @@ describe("parseConfig", () => {
       logger: "console",
       tlsEnabled: false,
       tlsAuto: false,
+      host: "127.0.0.1",
     });
   });
 
@@ -348,6 +360,7 @@ describe("parseConfig", () => {
       logger: "console",
       tlsEnabled: false,
       tlsAuto: false,
+      host: "127.0.0.1",
     });
   });
 
@@ -360,6 +373,7 @@ describe("parseConfig", () => {
       logger: "console",
       tlsEnabled: false,
       tlsAuto: false,
+      host: "127.0.0.1",
     });
   });
 
@@ -372,6 +386,7 @@ describe("parseConfig", () => {
       logger: "console",
       tlsEnabled: false,
       tlsAuto: false,
+      host: "127.0.0.1",
     });
   });
 
@@ -384,6 +399,7 @@ describe("parseConfig", () => {
       logger: "console",
       tlsEnabled: false,
       tlsAuto: false,
+      host: "127.0.0.1",
     });
   });
 });
@@ -406,10 +422,22 @@ describe("parseConfig --host", () => {
     expect(result).toBeInstanceOf(Error);
   });
 
-  test("omitting --host leaves host undefined", () => {
+  test("omitting --host defaults host to 127.0.0.1", () => {
     const result = parseConfig([]);
     expect(result).not.toBeInstanceOf(Error);
-    expect((result as ServerConfig).host).toBeUndefined();
+    expect((result as ServerConfig).host).toBe("127.0.0.1");
+  });
+
+  test("--host 0.0.0.0 overrides the loopback default", () => {
+    const result = parseConfig(["--host", "0.0.0.0"]);
+    expect(result).not.toBeInstanceOf(Error);
+    expect((result as ServerConfig).host).toBe("0.0.0.0");
+  });
+
+  test("--host ::1 overrides the loopback default", () => {
+    const result = parseConfig(["--host", "::1"]);
+    expect(result).not.toBeInstanceOf(Error);
+    expect((result as ServerConfig).host).toBe("::1");
   });
 
   test("--host without value returns Error", () => {
@@ -735,6 +763,7 @@ describe("buildConfig", () => {
       logger: "console",
       tlsEnabled: false,
       tlsAuto: false,
+      host: "127.0.0.1",
     });
   });
 
@@ -749,6 +778,7 @@ describe("buildConfig", () => {
       logger: "console",
       tlsEnabled: false,
       tlsAuto: false,
+      host: "127.0.0.1",
     });
   });
 
@@ -763,6 +793,7 @@ describe("buildConfig", () => {
       logger: "console",
       tlsEnabled: false,
       tlsAuto: false,
+      host: "127.0.0.1",
     });
   });
 

@@ -377,6 +377,9 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
       return parsed;
     }
     host = parsed;
+  } else {
+    // GHSA-jvqm-g5ch-jh76: default to loopback, not all interfaces.
+    host = "127.0.0.1";
   }
 
   if (httpPortValue !== undefined) {

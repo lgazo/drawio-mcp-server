@@ -152,6 +152,7 @@ describe("HTTP transport (stateless per-request)", () => {
     logger: "console",
     tlsEnabled: false,
     tlsAuto: false,
+    host: "127.0.0.1",
   };
 
   const features: HttpFeatureConfig = {
@@ -171,6 +172,11 @@ describe("HTTP transport (stateless per-request)", () => {
 
   afterEach(async () => {
     await app.close();
+  });
+
+  it("binds to the loopback interface when host is configured", async () => {
+    const address = httpServer?.address();
+    expect(address).toMatchObject({ address: "127.0.0.1" });
   });
 
   it("handles a single HTTP client request", async () => {
