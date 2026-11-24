@@ -235,6 +235,108 @@ describe("HTTP transport (stateless per-request)", () => {
   });
 });
 
+describe("HTTP CORS policy", () => {
+  let app: DrawioMcpApp;
+  let logger: MemoryLogger;
+  let port: number;
+
+  const baseFeatures: HttpFeatureConfig = {
+    enableMcp: true,
+    enableEditor: false,
+    enableHealth: true,
+    enableConfig: true,
+  };
+
+  afterEach(async () => {
+    await app.close();
+  });
+
+  it("emits no CORS headers by default", async () => {
+    logger = new MemoryLogger();
+    app = createDrawioMcpApp({ log: logger });
+    const config: ServerConfig = {
+      extensionPort: 0,
+      httpPort: 0,
+      transports: ["http"],
+      editorEnabled: false,
+      logger: "console",
+      tlsEnabled: false,
+      tlsAuto: false,
+      host: "127.0.0.1",
+    };
+    const started = await app.startHttpServer(0, config, baseFeatures);
+    port = started.port;
+
+    const res = await fetch(`http://127.0.0.1:${port}/mcp`, {
+      method: "OPTIONS",
+      headers: {
+        Origin: "https://evil.example",
+        "Access-Control-Request-Method": "POST",
+        "Access-Control-Request-Headers": "content-type",
+      },
+    });
+    expect(res.headers.get("access-control-allow-origin")).toBeNull();
+  });
+
+  it("echoes an allowlisted origin", async () => {
+    logger = new MemoryLogger();
+    app = createDrawioMcpApp({ log: logger });
+    const config: ServerConfig = {
+      extensionPort: 0,
+      httpPort: 0,
+      transports: ["http"],
+      editorEnabled: false,
+      logger: "console",
+      tlsEnabled: false,
+      tlsAuto: false,
+      host: "127.0.0.1",
+      corsOrigins: ["https://editor.example"],
+    };
+    const started = await app.startHttpServer(0, config, baseFeatures);
+    port = started.port;
+
+    const res = await fetch(`http://127.0.0.1:${port}/mcp`, {
+      method: "OPTIONS",
+      headers: {
+        Origin: "https://editor.example",
+        "Access-Control-Request-Method": "POST",
+        "Access-Control-Request-Headers": "content-type",
+      },
+    });
+    expect(res.headers.get("access-control-allow-origin")).toBe(
+      "https://editor.example",
+    );
+    expect(res.headers.get("vary")).toContain("Origin");
+  });
+
+  it("does not emit allow-origin for a non-listed origin", async () => {
+    logger = new MemoryLogger();
+    app = createDrawioMcpApp({ log: logger });
+    const config: ServerConfig = {
+      extensionPort: 0,
+      httpPort: 0,
+      transports: ["http"],
+      editorEnabled: false,
+      logger: "console",
+      tlsEnabled: false,
+      tlsAuto: false,
+      host: "127.0.0.1",
+      corsOrigins: ["https://editor.example"],
+    };
+    const started = await app.startHttpServer(0, config, baseFeatures);
+    port = started.port;
+
+    const res = await fetch(`http://127.0.0.1:${port}/mcp`, {
+      method: "OPTIONS",
+      headers: {
+        Origin: "https://evil.example",
+        "Access-Control-Request-Method": "POST",
+      },
+    });
+    expect(res.headers.get("access-control-allow-origin")).toBeNull();
+  });
+});
+
 describe("WebSocket TLS", () => {
   let app: DrawioMcpApp;
   let logger: MemoryLogger;

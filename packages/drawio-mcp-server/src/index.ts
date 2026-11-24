@@ -173,11 +173,17 @@ async function start_stdio_transport(
   return server;
 }
 
-function setupCors(app: Hono) {
+function setupCors(app: Hono, origins?: string[]) {
+  // GHSA-jvqm-g5ch-jh76: no CORS by default. A web page must not be able
+  // to POST to /mcp; MCP clients and the extension (WebSocket) never
+  // needed CORS. Opt in per-origin with --cors-origin.
+  if (!origins || origins.length === 0) {
+    return;
+  }
   app.use(
     "*",
     cors({
-      origin: "*",
+      origin: origins,
       allowMethods: ["GET", "POST", "DELETE", "OPTIONS"],
       allowHeaders: [
         "Content-Type",
@@ -329,7 +335,7 @@ function createHttpApp(
   tlsMaterial: ResolvedTlsMaterial | null,
 ): { app: Hono } {
   const app = new Hono();
-  setupCors(app);
+  setupCors(app, config.corsOrigins);
   const scheme = tlsMaterial ? "https" : "http";
 
   if (features.enableHealth) registerHealthRoute(app);
