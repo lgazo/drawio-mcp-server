@@ -12,10 +12,11 @@ Let's do some Vibe Diagramming with the most wide-spread diagramming tool called
 
 ## Key Highlights
 
+- Security hardening (GHSA-jvqm-g5ch-jh76): HTTP transport binds to `127.0.0.1` by default, emits no CORS headers unless `--cors-origin` is configured, validates `Host`/`Origin` on `/mcp`, and confines `export-diagram` writes to the export directory (`--export-dir`, XDG data dir by default) ![v3.0.0](https://img.shields.io/badge/v3.0.0-blue)
 - Browser extension UI and documentation localized to Simplified Chinese (zh-CN) ![v2.4.0](https://img.shields.io/badge/v2.4.0-blue)
-- Claude Code plugin: `/plugin marketplace add lgazo/drawio-mcp-server` then `/plugin install drawio`, with `/drawio-open` and `/drawio-status` slash commands ![v2.3.0](https://img.shields.io/badge/v2.3.0-blue)
-- `npx drawio-mcp-server install <host>` writes the MCP config for `claude-code`, `claude-desktop`, `codex`, `zed`, `opencode`, or `all` ![v2.3.0](https://img.shields.io/badge/v2.3.0-blue)
-- Document persistence tools: `set-document-title` and `save-document` ![v2.3.0](https://img.shields.io/badge/v2.3.0-blue)
+- Claude Code plugin: `/plugin marketplace add lgazo/drawio-mcp-server` then `/plugin install drawio`, with `/drawio-open` and `/drawio-status` slash commands
+- `npx drawio-mcp-server install <host>` writes the MCP config for `claude-code`, `claude-desktop`, `codex`, `zed`, `opencode`, or `all`
+- Document persistence tools: `set-document-title` and `save-document`
 - Draw.io library API version compatibility mechanism
 - Enable Draw.io MCP in IFrames
 - AWS, GCP, Azure, Cisco19, and CiscoSafe stencils auto-discovered at runtime from drawio's sidebar

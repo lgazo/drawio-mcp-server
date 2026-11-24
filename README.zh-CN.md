@@ -14,10 +14,11 @@
 
 ## 核心亮点
 
+- 安全加固（GHSA-jvqm-g5ch-jh76）：HTTP 传输默认绑定 `127.0.0.1`，未配置 `--cors-origin` 时不发送任何 CORS 头，`/mcp` 会校验 `Host`/`Origin` 请求头，`export-diagram` 的写入被限制在导出目录内（`--export-dir`，默认为 XDG 数据目录） ![v3.0.0](https://img.shields.io/badge/v3.0.0-blue)
 - 浏览器扩展界面与文档已本地化为简体中文 ![v2.4.0](https://img.shields.io/badge/v2.4.0-blue)
-- Claude Code 插件：执行 `/plugin marketplace add lgazo/drawio-mcp-server` 后执行 `/plugin install drawio`，附带 `/drawio-open` 和 `/drawio-status` 斜杠命令 ![v2.3.0](https://img.shields.io/badge/v2.3.0-blue)
-- `npx drawio-mcp-server install <host>` 会为 `claude-code`、`claude-desktop`、`codex`、`zed`、`opencode` 或 `all` 写入相应的 MCP 配置 ![v2.3.0](https://img.shields.io/badge/v2.3.0-blue)
-- 文档持久化工具：`set-document-title` 和 `save-document` ![v2.3.0](https://img.shields.io/badge/v2.3.0-blue)
+- Claude Code 插件：执行 `/plugin marketplace add lgazo/drawio-mcp-server` 后执行 `/plugin install drawio`，附带 `/drawio-open` 和 `/drawio-status` 斜杠命令
+- `npx drawio-mcp-server install <host>` 会为 `claude-code`、`claude-desktop`、`codex`、`zed`、`opencode` 或 `all` 写入相应的 MCP 配置
+- 文档持久化工具：`set-document-title` 和 `save-document`
 - Draw.io 图形库 API 版本兼容机制
 - 支持在 IFrame 中启用 Draw.io MCP
 - AWS、GCP、Azure、Cisco19 和 CiscoSafe 图形模板可在运行时从 drawio 的侧边栏自动发现
