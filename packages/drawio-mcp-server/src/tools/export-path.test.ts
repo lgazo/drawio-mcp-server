@@ -53,6 +53,14 @@ describe("resolveConfinedExportPath", () => {
     expect(result).toBeInstanceOf(Error);
   });
 
+  test("dangling symlink tail pointing outside is rejected", () => {
+    const outside = mkdtempSync(join(tmpdir(), "outside-"));
+    const link = join(exportDir, "dangling.svg");
+    symlinkSync(join(outside, "does-not-exist.svg"), link);
+    const result = resolveConfinedExportPath(exportDir, "dangling.svg");
+    expect(result).toBeInstanceOf(Error);
+  });
+
   test("existing file target inside the dir is allowed (overwrite)", () => {
     const target = join(exportDir, "existing.svg");
     writeFileSync(target, "old");

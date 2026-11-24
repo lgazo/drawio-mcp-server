@@ -1,4 +1,4 @@
-import { mkdirSync, realpathSync } from "node:fs";
+import { lstatSync, mkdirSync, realpathSync } from "node:fs";
 import { dirname, isAbsolute, resolve, sep } from "node:path";
 
 /**
@@ -32,6 +32,20 @@ export function resolveConfinedExportPath(
   const candidate = isAbsolute(outputPath)
     ? outputPath
     : resolve(realExportDir, outputPath);
+
+  // A not-yet-existing tail cannot be a symlink, but an existing dangling
+  // symlink at the target would make realpathSync fail above and be waved
+  // through by the ancestor walk. Fail closed on any symlink final
+  // component (CWE-59).
+  let targetStat: ReturnType<typeof lstatSync> | undefined;
+  try {
+    targetStat = lstatSync(candidate);
+  } catch {
+    targetStat = undefined;
+  }
+  if (targetStat?.isSymbolicLink()) {
+    return containmentError(outputPath, realExportDir);
+  }
 
   // Walk up to the nearest existing ancestor so symlink components in the
   // path are resolved; a not-yet-existing tail cannot be a symlink.
