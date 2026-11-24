@@ -1,6 +1,6 @@
 import { describe, it, expect } from "@jest/globals";
 import { join } from "node:path";
-import { resolveTlsDir, tlsFilePaths } from "./paths.js";
+import { resolveTlsDir, resolveExportDir, tlsFilePaths } from "./paths.js";
 
 describe("resolveTlsDir", () => {
   it("uses explicit override when provided", () => {
@@ -71,5 +71,68 @@ describe("tlsFilePaths", () => {
     expect(p.serverCert).toBe(join("/base", "server.crt"));
     expect(p.serverKey).toBe(join("/base", "server.key"));
     expect(p.meta).toBe(join("/base", "meta.json"));
+  });
+});
+
+describe("resolveExportDir", () => {
+  it("override wins on every platform", () => {
+    const dir = resolveExportDir({
+      override: "/custom/exports",
+      platform: "linux",
+      env: {},
+      home: "/home/u",
+    });
+    expect(dir).toBe("/custom/exports");
+  });
+
+  it("linux uses XDG_DATA_HOME", () => {
+    const dir = resolveExportDir({
+      platform: "linux",
+      env: { XDG_DATA_HOME: "/xdg/data" },
+      home: "/home/u",
+    });
+    expect(dir).toBe("/xdg/data/drawio-mcp-server/exports");
+  });
+
+  it("linux falls back to ~/.local/share without XDG_DATA_HOME", () => {
+    const dir = resolveExportDir({
+      platform: "linux",
+      env: {},
+      home: "/home/u",
+    });
+    expect(dir).toBe("/home/u/.local/share/drawio-mcp-server/exports");
+  });
+
+  it("darwin uses ~/Library/Application Support", () => {
+    const dir = resolveExportDir({
+      platform: "darwin",
+      env: {},
+      home: "/home/u",
+    });
+    expect(dir).toBe(
+      "/home/u/Library/Application Support/drawio-mcp-server/exports",
+    );
+  });
+
+  it("win32 uses LOCALAPPDATA", () => {
+    const dir = resolveExportDir({
+      platform: "win32",
+      env: { LOCALAPPDATA: "C:\\Users\\u\\AppData\\Local" },
+      home: "C:\\Users\\u",
+    });
+    expect(dir).toBe(
+      "C:\\Users\\u\\AppData\\Local\\drawio-mcp-server\\exports",
+    );
+  });
+
+  it("win32 falls back to AppData\\Local without LOCALAPPDATA", () => {
+    const dir = resolveExportDir({
+      platform: "win32",
+      env: {},
+      home: "C:\\Users\\u",
+    });
+    expect(dir).toBe(
+      "C:\\Users\\u\\AppData\\Local\\drawio-mcp-server\\exports",
+    );
   });
 });

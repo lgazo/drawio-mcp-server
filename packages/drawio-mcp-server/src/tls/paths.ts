@@ -39,8 +39,46 @@ export function resolveTlsDir(args: ResolveTlsDirArgs): string {
   return joinPosix(base, APP_NAME, "tls");
 }
 
-export interface TlsFilePaths {
-  readonly caCert: string;
+export interface ResolveExportDirArgs {
+  override?: string;
+  platform: NodeJS.Platform;
+  env: NodeJS.ProcessEnv;
+  home: string;
+}
+
+/**
+ * Per-OS data dir for export-diagram output confinement.
+ * Same convention as TLS material (XDG on Linux) with an `exports` subpath.
+ */
+export function resolveExportDir(args: ResolveExportDirArgs): string {
+  if (args.override && args.override.length > 0) return args.override;
+
+  if (args.platform === "darwin") {
+    return joinPosix(
+      args.home,
+      "Library",
+      "Application Support",
+      APP_NAME,
+      "exports",
+    );
+  }
+
+  if (args.platform === "win32") {
+    const base =
+      args.env.LOCALAPPDATA && args.env.LOCALAPPDATA.length > 0
+        ? args.env.LOCALAPPDATA
+        : joinWin32(args.home, "AppData", "Local");
+    return joinWin32(base, APP_NAME, "exports");
+  }
+
+  // Linux + other unix
+  const xdg = args.env.XDG_DATA_HOME;
+  const base =
+    xdg && xdg.length > 0 ? xdg : joinPosix(args.home, ".local", "share");
+  return joinPosix(base, APP_NAME, "exports");
+}
+
+export interface TlsFilePaths {  readonly caCert: string;
   readonly caKey: string;
   readonly serverCert: string;
   readonly serverKey: string;
