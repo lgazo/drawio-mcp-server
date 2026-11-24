@@ -14,7 +14,7 @@
 
 ## 核心亮点
 
-- 安全加固（GHSA-jvqm-g5ch-jh76）：HTTP 传输默认绑定 `127.0.0.1`，未配置 `--cors-origin` 时不发送任何 CORS 头，`/mcp` 会校验 `Host`/`Origin` 请求头，`export-diagram` 的写入被限制在导出目录内（`--export-dir`，默认为 XDG 数据目录） ![v3.0.0](https://img.shields.io/badge/v3.0.0-blue)
+- 安全加固（GHSA-jvqm-g5ch-jh76）：HTTP 传输默认绑定 `127.0.0.1`，未配置 `--cors-origin` 时不发送任何 CORS 头，`/mcp` 会校验 `Host`/`Origin` 请求头，`export-diagram` 的写入被限制在导出目录内（`--export-dir`，默认为 XDG 数据目录） ![v2.5.0](https://img.shields.io/badge/v2.5.0-blue)
 - 浏览器扩展界面与文档已本地化为简体中文 ![v2.4.0](https://img.shields.io/badge/v2.4.0-blue)
 - Claude Code 插件：执行 `/plugin marketplace add lgazo/drawio-mcp-server` 后执行 `/plugin install drawio`，附带 `/drawio-open` 和 `/drawio-status` 斜杠命令
 - `npx drawio-mcp-server install <host>` 会为 `claude-code`、`claude-desktop`、`codex`、`zed`、`opencode` 或 `all` 写入相应的 MCP 配置
