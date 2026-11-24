@@ -12,10 +12,11 @@ Let's do some Vibe Diagramming with the most wide-spread diagramming tool called
 
 ## Key Highlights
 
+- Security hardening (GHSA-jvqm-g5ch-jh76): HTTP transport binds to `127.0.0.1` by default, emits no CORS headers unless `--cors-origin` is configured, validates `Host`/`Origin` on `/mcp`, and confines `export-diagram` writes to the export directory (`--export-dir`, XDG data dir by default) ![v2.5.0](https://img.shields.io/badge/v2.5.0-blue)
 - Browser extension UI and documentation localized to Simplified Chinese (zh-CN) ![v2.4.0](https://img.shields.io/badge/v2.4.0-blue)
-- Claude Code plugin: `/plugin marketplace add lgazo/drawio-mcp-server` then `/plugin install drawio`, with `/drawio-open` and `/drawio-status` slash commands ![v2.3.0](https://img.shields.io/badge/v2.3.0-blue)
-- `npx drawio-mcp-server install <host>` writes the MCP config for `claude-code`, `claude-desktop`, `codex`, `zed`, `opencode`, or `all` ![v2.3.0](https://img.shields.io/badge/v2.3.0-blue)
-- Document persistence tools: `set-document-title` and `save-document` ![v2.3.0](https://img.shields.io/badge/v2.3.0-blue)
+- Claude Code plugin: `/plugin marketplace add lgazo/drawio-mcp-server` then `/plugin install drawio`, with `/drawio-open` and `/drawio-status` slash commands
+- `npx drawio-mcp-server install <host>` writes the MCP config for `claude-code`, `claude-desktop`, `codex`, `zed`, `opencode`, or `all`
+- Document persistence tools: `set-document-title` and `save-document`
 - Draw.io library API version compatibility mechanism
 - Enable Draw.io MCP in IFrames
 - AWS, GCP, Azure, Cisco19, and CiscoSafe stencils auto-discovered at runtime from drawio's sidebar
@@ -124,6 +125,16 @@ The server provides MCP tools for:
 - **Built-in TLS** — opt-in HTTPS + WSS with manual cert/key or auto-generated self-signed material via a per-user local CA. See [CONFIG.md → TLS](./CONFIG.md#tls-https--wss).
 
 See [Tools Reference](./TOOLS.md) for the complete list of available tools.
+
+## MCP Apps support
+
+On MCP Apps-capable hosts (Claude Desktop, QuixiDesk, MCPJam, VS Code Copilot), the `show-diagram` tool opens the diagram as an interactive draw.io editor directly inside the conversation. The framed editor displays the diagram, connects to the server's WebSocket bridge, and registers there as a live document: it appears in `list-documents` (in embed mode) and agent tool calls (e.g. `add-rectangle`) apply to it, verified in headless E2E. Syncing user-side edits made in the framed editor so the agent sees them remains pending real-browser verification.
+
+Enable it by running the server with the `--editor` flag; no other configuration is needed. On hosts without MCP Apps support, `show-diagram` falls back to returning plain diagram XML text.
+
+Limitation: the MCP host must be able to reach `http://localhost:<http-port>`, where the locally served draw.io editor is framed. Native desktop hosts like Claude Desktop work; remote browser sessions may not be able to.
+
+See the [`show-diagram` tool](./TOOLS.md#mcp-apps-tools) for details.
 
 ## Installation
 
