@@ -976,7 +976,10 @@ describe("parseConfig --cors-origin", () => {
   });
 
   test("--cors-origin normalizes to origin (strips path)", () => {
-    const result = parseConfig(["--cors-origin", "https://a.example/some/path"]);
+    const result = parseConfig([
+      "--cors-origin",
+      "https://a.example/some/path",
+    ]);
     expect((result as ServerConfig).corsOrigins).toEqual(["https://a.example"]);
   });
 

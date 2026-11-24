@@ -78,7 +78,8 @@ export function resolveExportDir(args: ResolveExportDirArgs): string {
   return joinPosix(base, APP_NAME, "exports");
 }
 
-export interface TlsFilePaths {  readonly caCert: string;
+export interface TlsFilePaths {
+  readonly caCert: string;
   readonly caKey: string;
   readonly serverCert: string;
   readonly serverKey: string;
