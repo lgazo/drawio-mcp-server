@@ -118,6 +118,8 @@ Options:
   --transport                    Transport type: stdio, http (default: stdio)
   --asset-path <path>            Custom path for downloaded assets
   --host <ip>                    Bind address for all servers (default: 127.0.0.1; use ::1 for IPv6 loopback)
+  --cors-origin <origin>          Allowed browser origin for HTTP routes (repeatable; default: none)
+  --export-dir <path>             Directory that export-diagram may write files to (default: per-OS data dir)
   --logger <mode>                Logger mode: console (stderr) or mcp-server (MCP notifications/message) (default: console)
   --tls                          Enable TLS (HTTPS + WSS) on HTTP and WebSocket endpoints
   --tls-cert <path>              Manual TLS cert PEM (requires --tls and --tls-key)

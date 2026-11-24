@@ -953,3 +953,91 @@ describe("TLS configuration", () => {
     ]);
   });
 });
+
+describe("parseConfig --cors-origin", () => {
+  test("--cors-origin accepts a valid http origin", () => {
+    const result = parseConfig(["--cors-origin", "https://editor.example"]);
+    expect((result as ServerConfig).corsOrigins).toEqual([
+      "https://editor.example",
+    ]);
+  });
+
+  test("--cors-origin is repeatable and keeps order", () => {
+    const result = parseConfig([
+      "--cors-origin",
+      "https://a.example",
+      "--cors-origin",
+      "https://b.example",
+    ]);
+    expect((result as ServerConfig).corsOrigins).toEqual([
+      "https://a.example",
+      "https://b.example",
+    ]);
+  });
+
+  test("--cors-origin normalizes to origin (strips path)", () => {
+    const result = parseConfig(["--cors-origin", "https://a.example/some/path"]);
+    expect((result as ServerConfig).corsOrigins).toEqual(["https://a.example"]);
+  });
+
+  test("--cors-origin rejects non-http(s) origins", () => {
+    const result = parseConfig(["--cors-origin", "ftp://bad.example"]);
+    expect(result).toBeInstanceOf(Error);
+  });
+
+  test("--cors-origin rejects garbage", () => {
+    const result = parseConfig(["--cors-origin", "not a url"]);
+    expect(result).toBeInstanceOf(Error);
+  });
+
+  test("--cors-origin requires a value", () => {
+    const result = parseConfig(["--cors-origin"]);
+    expect(result).toBeInstanceOf(Error);
+  });
+
+  test("omitting --cors-origin leaves corsOrigins undefined", () => {
+    const result = parseConfig([]);
+    expect((result as ServerConfig).corsOrigins).toBeUndefined();
+  });
+});
+
+describe("envToArgs cors/export", () => {
+  test("DRAWIO_MCP_CORS_ORIGINS splits on commas", () => {
+    const args = envToArgs({
+      DRAWIO_MCP_CORS_ORIGINS: "https://a.example, https://b.example",
+    });
+    expect(args).toEqual([
+      "--cors-origin",
+      "https://a.example",
+      "--cors-origin",
+      "https://b.example",
+    ]);
+  });
+
+  test("DRAWIO_MCP_EXPORT_DIR maps to --export-dir", () => {
+    const args = envToArgs({ DRAWIO_MCP_EXPORT_DIR: "/data/exports" });
+    expect(args).toEqual(["--export-dir", "/data/exports"]);
+  });
+
+  test("CLI flags win over env vars", () => {
+    const result = parseConfig([
+      "--export-dir",
+      "/data/exports",
+      "--export-dir",
+      "/cli/wins",
+    ]);
+    expect((result as ServerConfig).exportDir).toBe("/cli/wins");
+  });
+});
+
+describe("parseConfig --export-dir", () => {
+  test("--export-dir stores the path", () => {
+    const result = parseConfig(["--export-dir", "/tmp/exports"]);
+    expect((result as ServerConfig).exportDir).toBe("/tmp/exports");
+  });
+
+  test("--export-dir requires a value", () => {
+    const result = parseConfig(["--export-dir"]);
+    expect(result).toBeInstanceOf(Error);
+  });
+});
