@@ -9,6 +9,7 @@ import { cors } from "hono/cors";
 import EventEmitter from "node:events";
 import { createServer } from "node:net";
 import { createServer as createHttpsServer } from "node:https";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -62,6 +63,7 @@ import { registerTools } from "./tools/index.js";
 import { createServerWithSchemaStripping } from "./register-tool.js";
 import { target_document_field } from "./tools/shared.js";
 import { resolveTlsMaterial, type ResolvedTlsMaterial } from "./tls/index.js";
+import { resolveExportDir } from "./tls/paths.js";
 import { handleCompatReport } from "./drawio-compat/log-report.js";
 
 const fatalLog = create_console_logger();
@@ -362,7 +364,9 @@ async function startHttpServer(
   const httpServer = serve({
     fetch: app.fetch,
     port: httpPort,
-    ...(config.host !== undefined ? { hostname: config.host } : {}),
+    ...(config.host !== undefined
+      ? { hostname: config.host }
+      : { hostname: "127.0.0.1" }),
     ...(tlsMaterial
       ? {
           createServer: createHttpsServer,
@@ -687,11 +691,19 @@ export function createDrawioMcpApp(options?: {
     },
   };
 
+  const exportDir = resolveExportDir({
+    override: config.exportDir,
+    platform: process.platform,
+    env: process.env,
+    home: homedir(),
+  });
+
   const context: Context = {
     bus,
     id_generator,
     request_queue,
     document_routing,
+    export_dir: exportDir,
     get log() {
       return getLog();
     },
@@ -938,7 +950,7 @@ export function createDrawioMcpApp(options?: {
         httpsServer.listen(
           {
             port: extensionPort,
-            ...(host !== undefined ? { host } : {}),
+            host: host ?? "127.0.0.1",
           },
           () => {
             httpsServer.off("error", reject);
@@ -951,7 +963,7 @@ export function createDrawioMcpApp(options?: {
     } else {
       wsServer = new WebSocketServer({
         port: extensionPort,
-        ...(host !== undefined ? { host } : {}),
+        host: host ?? "127.0.0.1",
       });
     }
 

@@ -1,6 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
-import { existsSync, mkdtempSync, readFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import {
@@ -46,8 +45,7 @@ describe("real environment/import export", () => {
     });
     expectToolSuccess(rectangle);
 
-    const xmlExportDir = mkdtempSync(join(tmpdir(), "drawio-real-export-"));
-    const xmlExportPath = join(xmlExportDir, "diagram.xml");
+    const xmlExportPath = join(context.artifactRunDir, "diagram.xml");
     const xmlExport = await callToolRaw(context, "export-diagram", {
       format: "xml",
       output_path: xmlExportPath,

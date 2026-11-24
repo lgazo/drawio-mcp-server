@@ -48,7 +48,10 @@ export async function createRealEnvironmentContext(): Promise<RealEnvironmentCon
 
   await ensureAssets({}, logger);
 
-  const app = createDrawioMcpApp({ config: defaultConfig(), log: logger });
+  const app = createDrawioMcpApp({
+    config: { ...defaultConfig(), exportDir: artifactRunDir },
+    log: logger,
+  });
 
   const wsServer = await app.startWebSocketServer(0);
   const wsPort = Number((wsServer.address() as { port: number }).port);

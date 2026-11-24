@@ -63,4 +63,6 @@ export type Context = {
   request_queue: RequestQueue;
   document_routing: DocumentRouting;
   log: Logger;
+  /** Absolute directory export-diagram may write files into. */
+  export_dir: string;
 };
