@@ -17,10 +17,31 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const DRAWIO_GITHUB_API =
   "https://api.github.com/repos/jgraph/drawio/releases/latest";
 
+// Stable redirect to the latest release asset; no API call, so it is not
+// subject to the unauthenticated rate limit that hosted CI runners share.
+const DRAWIO_LATEST_WAR_URL =
+  "https://github.com/jgraph/drawio/releases/latest/download/draw.war";
+
 export async function getLatestWarUrl(): Promise<string> {
-  const response = await fetch(DRAWIO_GITHUB_API);
+  const headers: Record<string, string> = {
+    Accept: "application/vnd.github+json",
+  };
+  const token = process.env.GITHUB_TOKEN;
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(DRAWIO_GITHUB_API, { headers });
+  } catch {
+    return DRAWIO_LATEST_WAR_URL;
+  }
+
   if (!response.ok) {
-    throw new Error(`Failed to get draw.io release info: ${response.status}`);
+    // 403/429 mean the shared runner IP exhausted the anonymous quota;
+    // the direct latest-asset URL serves the same artifact.
+    return DRAWIO_LATEST_WAR_URL;
   }
 
   const data = await response.json();
@@ -28,11 +49,7 @@ export async function getLatestWarUrl(): Promise<string> {
     (asset: { name: string }) => asset.name === "draw.war",
   );
 
-  if (!warAsset) {
-    throw new Error("Could not find draw.war in latest release");
-  }
-
-  return warAsset.browser_download_url;
+  return warAsset?.browser_download_url ?? DRAWIO_LATEST_WAR_URL;
 }
 
 export async function downloadFile(
