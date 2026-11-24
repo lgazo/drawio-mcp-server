@@ -9,6 +9,7 @@ import { cors } from "hono/cors";
 import EventEmitter from "node:events";
 import { createServer } from "node:net";
 import { createServer as createHttpsServer } from "node:https";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -62,6 +63,7 @@ import { registerTools } from "./tools/index.js";
 import { createServerWithSchemaStripping } from "./register-tool.js";
 import { target_document_field } from "./tools/shared.js";
 import { resolveTlsMaterial, type ResolvedTlsMaterial } from "./tls/index.js";
+import { resolveExportDir } from "./tls/paths.js";
 import { handleCompatReport } from "./drawio-compat/log-report.js";
 
 const fatalLog = create_console_logger();
@@ -117,7 +119,9 @@ Options:
   --http-port                    HTTP server port for Streamable HTTP transport (default: 3000)
   --transport                    Transport type: stdio, http (default: stdio)
   --asset-path <path>            Custom path for downloaded assets
-  --host <ip>                    Bind address for all servers (default: OS-assigned, e.g. 127.0.0.1 or ::1)
+  --host <ip>                    Bind address for all servers (default: 127.0.0.1; use ::1 for IPv6 loopback)
+  --cors-origin <origin>          Allowed browser origin for HTTP routes (repeatable; default: none)
+  --export-dir <path>             Directory that export-diagram may write files to (default: per-OS data dir)
   --logger <mode>                Logger mode: console (stderr) or mcp-server (MCP notifications/message) (default: console)
   --tls                          Enable TLS (HTTPS + WSS) on HTTP and WebSocket endpoints
   --tls-cert <path>              Manual TLS cert PEM (requires --tls and --tls-key)
@@ -169,11 +173,17 @@ async function start_stdio_transport(
   return server;
 }
 
-function setupCors(app: Hono) {
+function setupCors(app: Hono, origins?: string[]) {
+  // GHSA-jvqm-g5ch-jh76: no CORS by default. A web page must not be able
+  // to POST to /mcp; MCP clients and the extension (WebSocket) never
+  // needed CORS. Opt in per-origin with --cors-origin.
+  if (!origins || origins.length === 0) {
+    return;
+  }
   app.use(
     "*",
     cors({
-      origin: "*",
+      origin: origins,
       allowMethods: ["GET", "POST", "DELETE", "OPTIONS"],
       allowHeaders: [
         "Content-Type",
@@ -297,13 +307,54 @@ function registerEditorRoutes(app: Hono, config: ServerConfig, log: AppLogger) {
   log.debug(`Draw.io editor enabled at: http://localhost:${config.httpPort}/`);
 }
 
+const WILDCARD_HOSTS = new Set(["0.0.0.0", "::"]);
+
+/**
+ * Host-header allowlist for the MCP SDK's DNS-rebinding protection.
+ * SDK 1.32.1 compares the raw Host header including the port, so each
+ * name is emitted bare and with `:<port>`. IPv6 names are bracketed the
+ * way browsers send them. Wildcard binds add no entry — the SDK skips
+ * the Host check when the list would be empty of real identities.
+ */
+export function deriveAllowedHosts(
+  host: string | undefined,
+  port: number,
+): string[] {
+  const names = ["localhost", "127.0.0.1", "[::1]"];
+  if (host && !WILDCARD_HOSTS.has(host)) {
+    const form =
+      host.includes(":") && !host.startsWith("[") ? `[${host}]` : host;
+    if (!names.includes(form)) {
+      names.push(form);
+    }
+  }
+  const hosts: string[] = [];
+  for (const name of names) {
+    hosts.push(name);
+    if (port > 0) {
+      hosts.push(`${name}:${port}`);
+    }
+  }
+  return hosts;
+}
+
 function registerMcpRoute(
   app: Hono,
+  config: ServerConfig,
+  getBoundPort: () => number,
   createServer: () => McpServer,
   disposeMcpServer: (server: McpServer) => void,
 ): void {
   app.all("/mcp", async (c) => {
-    const transport = new WebStandardStreamableHTTPServerTransport();
+    const transport = new WebStandardStreamableHTTPServerTransport({
+      // Explicit stateless mode (one transport per request, as before).
+      sessionIdGenerator: undefined,
+      // GHSA-jvqm-g5ch-jh76: reject DNS-rebind/spoofed Host headers and,
+      // when a CORS allowlist is configured, browser Origins not in it.
+      enableDnsRebindingProtection: true,
+      allowedHosts: deriveAllowedHosts(config.host, getBoundPort()),
+      allowedOrigins: config.corsOrigins ?? [],
+    });
     const server = createServer();
     await server.connect(transport);
     // Remove the server from the tracking set immediately so it does not
@@ -319,18 +370,20 @@ function registerMcpRoute(
 function createHttpApp(
   log: AppLogger,
   config: ServerConfig,
+  getBoundPort: () => number,
   features: HttpFeatureConfig,
   createServer: () => McpServer,
   disposeMcpServer: (server: McpServer) => void,
   tlsMaterial: ResolvedTlsMaterial | null,
 ): { app: Hono } {
   const app = new Hono();
-  setupCors(app);
+  setupCors(app, config.corsOrigins);
   const scheme = tlsMaterial ? "https" : "http";
 
   if (features.enableHealth) registerHealthRoute(app);
   if (features.enableConfig) registerConfigRoute(app, config, scheme);
-  if (features.enableMcp) registerMcpRoute(app, createServer, disposeMcpServer);
+  if (features.enableMcp)
+    registerMcpRoute(app, config, getBoundPort, createServer, disposeMcpServer);
   if (features.enableEditor) registerEditorRoutes(app, config, log);
 
   return { app };
@@ -348,9 +401,13 @@ async function startHttpServer(
   server: ReturnType<typeof serve>;
   port: number;
 }> {
+  let boundPort = 0;
+  const getBoundPort = () => boundPort;
+
   const { app } = createHttpApp(
     log,
     config,
+    getBoundPort,
     features,
     createServer,
     disposeMcpServer,
@@ -360,7 +417,9 @@ async function startHttpServer(
   const httpServer = serve({
     fetch: app.fetch,
     port: httpPort,
-    ...(config.host !== undefined ? { hostname: config.host } : {}),
+    ...(config.host !== undefined
+      ? { hostname: config.host }
+      : { hostname: "127.0.0.1" }),
     ...(tlsMaterial
       ? {
           createServer: createHttpsServer,
@@ -392,6 +451,8 @@ async function startHttpServer(
     httpPort === 0
       ? ((httpServer.address() as AddressInfo | null)?.port ?? httpPort)
       : httpPort;
+
+  boundPort = listeningPort;
 
   const scheme = tlsMaterial ? "https" : "http";
   log.debug(
@@ -685,11 +746,19 @@ export function createDrawioMcpApp(options?: {
     },
   };
 
+  const exportDir = resolveExportDir({
+    override: config.exportDir,
+    platform: process.platform,
+    env: process.env,
+    home: homedir(),
+  });
+
   const context: Context = {
     bus,
     id_generator,
     request_queue,
     document_routing,
+    export_dir: exportDir,
     get log() {
       return getLog();
     },
@@ -936,7 +1005,7 @@ export function createDrawioMcpApp(options?: {
         httpsServer.listen(
           {
             port: extensionPort,
-            ...(host !== undefined ? { host } : {}),
+            host: host ?? "127.0.0.1",
           },
           () => {
             httpsServer.off("error", reject);
@@ -949,7 +1018,7 @@ export function createDrawioMcpApp(options?: {
     } else {
       wsServer = new WebSocketServer({
         port: extensionPort,
-        ...(host !== undefined ? { host } : {}),
+        host: host ?? "127.0.0.1",
       });
     }
 

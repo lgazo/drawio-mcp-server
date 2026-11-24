@@ -349,7 +349,7 @@ Notes:
 - `dpi`: DPI for PNG export (affects quality, default: 96)
 - `embed_xml`: Embed the diagram XML data in SVG/PNG so it can be reopened in draw.io (default: false)
 - `size`: What to export: 'selection' for selected cells only, 'page' for the target page, 'diagram' for the entire model (default: diagram)
-- `output_path`: Absolute file path to save the exported file (must be an absolute path)
+- `output_path`: File path to save the exported file. Relative paths resolve inside the export directory; absolute paths must stay inside it. Default directory is the per-OS data dir (`$XDG_DATA_HOME/drawio-mcp-server/exports` on Linux); `--export-dir` / `DRAWIO_MCP_EXPORT_DIR` overrides it. Existing files inside the directory may be overwritten.
 
 *Returns*: Export result with format, mimeType, data (base64 for PNG, text for SVG/XML), dimensions, and optional warning
 

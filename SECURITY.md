@@ -60,7 +60,7 @@ Users should evaluate the following surfaces before deploying:
 ### 1. MCP transport
 
 - **`stdio`** — trusted by construction; the MCP client (Claude Desktop, Claude Code, Codex, etc.) owns the process. Anyone able to launch the process can send arbitrary tool calls.
-- **`http`** — the HTTP MCP endpoint is unauthenticated by default and binds to the OS-chosen interface. **Do not expose the HTTP transport to untrusted networks without a reverse proxy that enforces authentication.** Bind to `127.0.0.1` (via `--host`) unless you have deliberately added an auth layer in front.
+- **`http`** — the HTTP MCP endpoint is unauthenticated by default and binds to `127.0.0.1` by default. **Do not expose the HTTP transport to untrusted networks without a reverse proxy that enforces authentication.** Pass `--host` explicitly only when you have deliberately added an auth layer in front.
 
 ### 2. Browser extension WebSocket
 
@@ -85,6 +85,8 @@ Users should evaluate the following surfaces before deploying:
 
 Some MCP tools read or write files (diagram import/export, PNG export). The server executes these with the privileges of the running process. Deploy the server as a low-privilege user; do not run it as `root` inside a container or on the host.
 
+`export-diagram` writes are confined to the export directory (the per-OS data directory by default; `--export-dir` / `DRAWIO_MCP_EXPORT_DIR` to change it). Paths outside it — including traversal, absolute-outside, and symlink escapes — are rejected.
+
 ### 6. Supply chain
 
 - The npm packages and Docker image are published from the GitHub repository. Verify the version against <https://github.com/lgazo/drawio-mcp-server/releases>.
@@ -95,7 +97,7 @@ Some MCP tools read or write files (diagram import/export, PNG export). The serv
 
 For any deployment beyond a single-user localhost setup:
 
-- Bind explicitly with `--host 127.0.0.1` (or a specific interface) instead of relying on the OS default.
+- Bind explicitly with `--host 127.0.0.1` (or a specific interface) instead of relying on the default.
 - Enable TLS with a real certificate (`--tls --tls-cert / --tls-key`), not `--tls-auto`.
 - Terminate the MCP HTTP transport behind a reverse proxy that enforces authentication (mTLS, OIDC, a shared token — whatever fits your environment).
 - Do not expose the WebSocket extension port to non-loopback interfaces on shared machines.
@@ -107,7 +109,7 @@ For any deployment beyond a single-user localhost setup:
 
 The following are known behaviours and are **not** treated as vulnerabilities:
 
-- The HTTP MCP transport and WebSocket endpoint have no built-in authentication. This is by design; authentication is expected to be provided by the surrounding deployment.
+- The HTTP MCP transport and WebSocket endpoint have no built-in authentication. This is by design; authentication is expected to be provided by the surrounding deployment. The `/mcp` transport validates the `Host` header against the bind host and — when `--cors-origin` is configured — browser `Origin` headers, and emits no CORS headers by default.
 - `--tls-auto` produces certificates that browsers do not trust by default. This is inherent to self-signed CAs.
 - MCP tools can arbitrarily modify the current diagram. Callers are trusted; there is no per-tool authorisation model.
 

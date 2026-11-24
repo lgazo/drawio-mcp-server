@@ -64,6 +64,7 @@ describe("build_channel", () => {
       id_generator: mockIdGenerator,
       request_queue: mockRequestQueue,
       document_routing: mockDocumentRouting,
+      export_dir: "/tmp/test-exports",
       log,
     };
 
@@ -453,6 +454,7 @@ describe("default_tool", () => {
       id_generator: mockIdGenerator,
       request_queue: mockRequestQueue,
       document_routing: mockDocumentRouting,
+      export_dir: "/tmp/test-exports",
       log,
     };
   });

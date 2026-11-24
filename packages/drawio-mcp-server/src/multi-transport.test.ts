@@ -1,4 +1,5 @@
 import { mkdtempSync } from "node:fs";
+import { request } from "node:http";
 import * as https from "node:https";
 import { Socket } from "node:net";
 import { tmpdir } from "node:os";
@@ -152,6 +153,8 @@ describe("HTTP transport (stateless per-request)", () => {
     logger: "console",
     tlsEnabled: false,
     tlsAuto: false,
+    host: "127.0.0.1",
+    corsOrigins: ["https://good.example"],
   };
 
   const features: HttpFeatureConfig = {
@@ -171,6 +174,66 @@ describe("HTTP transport (stateless per-request)", () => {
 
   afterEach(async () => {
     await app.close();
+  });
+
+  it("binds to the loopback interface when host is configured", async () => {
+    const address = httpServer?.address();
+    expect(address).toMatchObject({ address: "127.0.0.1" });
+  });
+
+  it("rejects a spoofed Host header with 403", async () => {
+    const res = await new Promise<{
+      statusCode: number;
+      body: string;
+    }>((resolve, reject) => {
+      const req = request(
+        {
+          host: "127.0.0.1",
+          port,
+          method: "POST",
+          path: "/mcp",
+          headers: {
+            Host: `rebind.example:${port}`,
+            "Content-Type": "application/json",
+            Accept: "application/json, text/event-stream",
+          },
+        },
+        (res) => {
+          let body = "";
+          res.on("data", (chunk) => {
+            body += chunk;
+          });
+          res.on("end", () =>
+            resolve({ statusCode: res.statusCode ?? 0, body }),
+          );
+        },
+      );
+      req.on("error", reject);
+      req.end(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "tools/list",
+        }),
+      );
+    });
+    expect(res.statusCode).toBe(403);
+    expect(res.body).toContain("Invalid Host header");
+  });
+
+  it("rejects a non-allowlisted Origin when an allowlist is configured", async () => {
+    const res = await fetch(`http://127.0.0.1:${port}/mcp`, {
+      method: "POST",
+      headers: {
+        Origin: "https://evil.example",
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+    });
+    expect(res.status).toBe(403);
+    const text = await res.text();
+    expect(text).toContain("Invalid Origin header");
   });
 
   it("handles a single HTTP client request", async () => {
@@ -226,6 +289,108 @@ describe("HTTP transport (stateless per-request)", () => {
     // close() should not hang or throw — the per-request McpServer
     // was already disposed and removed from the tracking set.
     await expect(app.close()).resolves.not.toThrow();
+  });
+});
+
+describe("HTTP CORS policy", () => {
+  let app: DrawioMcpApp;
+  let logger: MemoryLogger;
+  let port: number;
+
+  const baseFeatures: HttpFeatureConfig = {
+    enableMcp: true,
+    enableEditor: false,
+    enableHealth: true,
+    enableConfig: true,
+  };
+
+  afterEach(async () => {
+    await app.close();
+  });
+
+  it("emits no CORS headers by default", async () => {
+    logger = new MemoryLogger();
+    app = createDrawioMcpApp({ log: logger });
+    const config: ServerConfig = {
+      extensionPort: 0,
+      httpPort: 0,
+      transports: ["http"],
+      editorEnabled: false,
+      logger: "console",
+      tlsEnabled: false,
+      tlsAuto: false,
+      host: "127.0.0.1",
+    };
+    const started = await app.startHttpServer(0, config, baseFeatures);
+    port = started.port;
+
+    const res = await fetch(`http://127.0.0.1:${port}/mcp`, {
+      method: "OPTIONS",
+      headers: {
+        Origin: "https://evil.example",
+        "Access-Control-Request-Method": "POST",
+        "Access-Control-Request-Headers": "content-type",
+      },
+    });
+    expect(res.headers.get("access-control-allow-origin")).toBeNull();
+  });
+
+  it("echoes an allowlisted origin", async () => {
+    logger = new MemoryLogger();
+    app = createDrawioMcpApp({ log: logger });
+    const config: ServerConfig = {
+      extensionPort: 0,
+      httpPort: 0,
+      transports: ["http"],
+      editorEnabled: false,
+      logger: "console",
+      tlsEnabled: false,
+      tlsAuto: false,
+      host: "127.0.0.1",
+      corsOrigins: ["https://editor.example"],
+    };
+    const started = await app.startHttpServer(0, config, baseFeatures);
+    port = started.port;
+
+    const res = await fetch(`http://127.0.0.1:${port}/mcp`, {
+      method: "OPTIONS",
+      headers: {
+        Origin: "https://editor.example",
+        "Access-Control-Request-Method": "POST",
+        "Access-Control-Request-Headers": "content-type",
+      },
+    });
+    expect(res.headers.get("access-control-allow-origin")).toBe(
+      "https://editor.example",
+    );
+    expect(res.headers.get("vary")).toContain("Origin");
+  });
+
+  it("does not emit allow-origin for a non-listed origin", async () => {
+    logger = new MemoryLogger();
+    app = createDrawioMcpApp({ log: logger });
+    const config: ServerConfig = {
+      extensionPort: 0,
+      httpPort: 0,
+      transports: ["http"],
+      editorEnabled: false,
+      logger: "console",
+      tlsEnabled: false,
+      tlsAuto: false,
+      host: "127.0.0.1",
+      corsOrigins: ["https://editor.example"],
+    };
+    const started = await app.startHttpServer(0, config, baseFeatures);
+    port = started.port;
+
+    const res = await fetch(`http://127.0.0.1:${port}/mcp`, {
+      method: "OPTIONS",
+      headers: {
+        Origin: "https://evil.example",
+        "Access-Control-Request-Method": "POST",
+      },
+    });
+    expect(res.headers.get("access-control-allow-origin")).toBeNull();
   });
 });
 

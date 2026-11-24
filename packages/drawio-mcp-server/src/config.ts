@@ -18,6 +18,8 @@ export interface ServerConfig {
   readonly tlsCert?: string;
   readonly tlsKey?: string;
   readonly tlsDir?: string;
+  corsOrigins?: string[];
+  exportDir?: string;
 }
 
 export type TransportType = "stdio" | "http";
@@ -223,6 +225,26 @@ export const shouldShowHelp = (args: readonly string[]): boolean => {
 };
 
 /**
+ * Validate a CORS origin - pure function.
+ * Accepts http/https URLs; normalized to the URL origin (scheme + host + port).
+ */
+export const parseCorsOriginValue = (value: string): string | Error => {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return new Error(
+        `--cors-origin requires an http(s) origin, got "${value}"`,
+      );
+    }
+    return url.origin;
+  } catch {
+    return new Error(
+      `--cors-origin requires a valid origin URL, got "${value}"`,
+    );
+  }
+};
+
+/**
  * Parse command line arguments into configuration object
  * Pure function - no side effects, deterministic output
  */
@@ -242,6 +264,8 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
   let tlsCert: string | undefined;
   let tlsKey: string | undefined;
   let tlsDir: string | undefined;
+  let corsOriginValues: string[] | undefined;
+  let exportDirValue: string | undefined;
 
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
@@ -315,6 +339,24 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
 
       hostValue = nextValue;
       i += 1;
+    } else if (arg === "--cors-origin") {
+      const nextValue = args[i + 1];
+
+      if (nextValue === undefined) {
+        return new Error("--cors-origin flag requires an origin URL");
+      }
+
+      corsOriginValues = [...(corsOriginValues ?? []), nextValue];
+      i += 1;
+    } else if (arg === "--export-dir") {
+      const nextValue = args[i + 1];
+
+      if (nextValue === undefined) {
+        return new Error("--export-dir flag requires a directory path");
+      }
+
+      exportDirValue = nextValue;
+      i += 1;
     } else if (arg === "--logger") {
       const nextValue = args[i + 1];
 
@@ -377,6 +419,20 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
       return parsed;
     }
     host = parsed;
+  } else {
+    // GHSA-jvqm-g5ch-jh76: default to loopback, not all interfaces.
+    host = "127.0.0.1";
+  }
+
+  let corsOrigins: string[] | undefined;
+  if (corsOriginValues !== undefined) {
+    const parsed = corsOriginValues.map(parseCorsOriginValue);
+    for (const item of parsed) {
+      if (item instanceof Error) {
+        return item;
+      }
+    }
+    corsOrigins = parsed as string[];
   }
 
   if (httpPortValue !== undefined) {
@@ -435,6 +491,8 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
       tlsCert,
       tlsKey,
       tlsDir,
+      corsOrigins,
+      exportDir: exportDirValue,
     };
   }
 
@@ -458,6 +516,8 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
       tlsCert,
       tlsKey,
       tlsDir,
+      corsOrigins,
+      exportDir: exportDirValue,
     };
   }
 
@@ -480,6 +540,8 @@ export const parseConfig = (args: readonly string[]): ServerConfig | Error => {
     tlsCert,
     tlsKey,
     tlsDir,
+    corsOrigins,
+    exportDir: exportDirValue,
   };
 };
 
@@ -550,6 +612,21 @@ export const envToArgs = (env: NodeJS.ProcessEnv): string[] => {
 
   const tlsDir = env.DRAWIO_MCP_TLS_DIR;
   if (tlsDir && tlsDir.length > 0) out.push("--tls-dir", tlsDir);
+
+  const corsOrigins = env.DRAWIO_MCP_CORS_ORIGINS;
+  if (corsOrigins && corsOrigins.length > 0) {
+    for (const origin of corsOrigins.split(",")) {
+      const trimmed = origin.trim();
+      if (trimmed.length > 0) {
+        out.push("--cors-origin", trimmed);
+      }
+    }
+  }
+
+  const exportDir = env.DRAWIO_MCP_EXPORT_DIR;
+  if (exportDir && exportDir.length > 0) {
+    out.push("--export-dir", exportDir);
+  }
 
   return out;
 };

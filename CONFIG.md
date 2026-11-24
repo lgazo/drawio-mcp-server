@@ -11,7 +11,9 @@ Every CLI flag has a matching environment variable. CLI flags take precedence ov
 | `--http-port` | `DRAWIO_MCP_HTTP_PORT` | HTTP transport port | 3000 |
 | `--transport` | `DRAWIO_MCP_TRANSPORT` | Transport type: `stdio`, `http`, or `stdio,http` | `stdio` |
 | `--asset-path` | `DRAWIO_MCP_ASSET_PATH` | Custom path for downloaded assets | - |
-| `--host` | `DRAWIO_MCP_HOST` | Explicit IPv4 or IPv6 bind address for all server endpoints (HTTP, WebSocket) | unset (OS chooses) |
+| `--host` | `DRAWIO_MCP_HOST` | Explicit IPv4 or IPv6 bind address for all server endpoints (HTTP, WebSocket) | `127.0.0.1` |
+| `--cors-origin <origin>` | `DRAWIO_MCP_CORS_ORIGINS` | Allowed browser origin for HTTP routes (repeatable; comma-separated in the env var) | none (no CORS headers) |
+| `--export-dir <path>` | `DRAWIO_MCP_EXPORT_DIR` | Directory that `export-diagram` may write files to | per-OS data dir |
 | `--websocket-url` | `DRAWIO_MCP_WEBSOCKET_URL` | Override WebSocket URL advertised to the editor (must be `ws://` or `wss://`) | derived from page |
 | `--logger` | `DRAWIO_MCP_LOGGER` | Logger mode: `console` (writes to stderr) or `mcp-server` (sends MCP `notifications/message`). The legacy underscore form `mcp_server` is also accepted as a value alias. | `console` |
 | `--tls` | `DRAWIO_MCP_TLS` | Enable TLS on HTTP and WebSocket endpoints (off by default) | disabled |
@@ -40,7 +42,7 @@ The browser extension has the same override under **Custom WebSocket URL** on it
 
 ## Host Binding
 
-By default, the server binds to an OS-assigned address (typically `127.0.0.1` on Linux and Windows, or `::1` on macOS). On macOS and systems with `IPV6_V6ONLY=1`, the OS may bind to IPv6-only, causing connections from browsers attempting `ws://localhost:XXXX` (IPv4) to fail.
+By default, the server binds to `127.0.0.1` (IPv4 loopback). To serve remote machines — e.g. the browser extension on another computer — pass `--host 0.0.0.0` (or a specific interface IP) explicitly. On IPv6-first setups where clients reach the server via `localhost` resolving to `::1`, pass `--host ::1`.
 
 Use `--host` to explicitly set the bind address:
 
@@ -58,6 +60,25 @@ Example values:
 - `127.0.0.1` — IPv4 loopback (localhost IPv4 only)
 - `0.0.0.0` — All IPv4 interfaces
 - `::1` — IPv6 loopback (localhost IPv6 only)
+
+## CORS
+
+The server sends no CORS headers by default, so a web page cannot call the HTTP routes cross-origin. `--cors-origin` (repeatable) opts specific browser origins in; every origin in the list is echoed back on all HTTP routes. The environment variable takes a comma-separated list:
+
+```sh
+DRAWIO_MCP_CORS_ORIGINS=https://editor.example,https://admin.example \
+  drawio-mcp-server --transport http
+
+drawio-mcp-server --transport http \
+  --cors-origin https://editor.example \
+  --cors-origin https://admin.example
+```
+
+WebSocket connections (browser extension, plugin) never need CORS.
+
+## Export directory
+
+`export-diagram` writes files only inside the export directory: relative `output_path`s resolve there, absolute paths are accepted only when they stay inside it, and paths that escape it (via `..`, an absolute path elsewhere, or a symlink) are rejected. The default is the per-OS data directory (`$XDG_DATA_HOME/drawio-mcp-server/exports` on Linux, `~/Library/Application Support/drawio-mcp-server/exports` on macOS, `%LOCALAPPDATA%\drawio-mcp-server\exports` on Windows). Use `--export-dir` or `DRAWIO_MCP_EXPORT_DIR` to change it.
 
 ## Built-in Editor
 

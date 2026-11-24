@@ -1,8 +1,10 @@
 import { writeFileSync, existsSync } from "node:fs";
+import { dirname } from "node:path";
 
 import { z } from "zod";
 
 import { export_tool_handler } from "../tool.js";
+import { resolveConfinedExportPath } from "./export-path.js";
 import { target_page_field } from "./shared.js";
 import { ToolRegistrar } from "./types.js";
 
@@ -79,7 +81,7 @@ export const registerExportDiagramTool: ToolRegistrar = (server, context) => {
         .string()
         .optional()
         .describe(
-          "Absolute file path to save the exported file (must be an absolute path)",
+          "File path to save the exported file. Relative paths resolve inside, and absolute paths must stay inside, the configured export directory (--export-dir; default: per-OS data dir)",
         ),
     },
     async (args, _extra) => {
@@ -89,11 +91,15 @@ export const registerExportDiagramTool: ToolRegistrar = (server, context) => {
       const result = await exportHandler(args, _extra);
 
       if (args.output_path) {
-        const path = await import("node:path");
-        if (!path.isAbsolute(args.output_path)) {
-          throw new Error("output_path must be an absolute path");
+        const resolved = resolveConfinedExportPath(
+          context.export_dir,
+          args.output_path,
+        );
+        if (resolved instanceof Error) {
+          throw new Error(resolved.message);
         }
-        const dir = path.dirname(args.output_path);
+        const path = resolved;
+        const dir = dirname(path);
         if (!existsSync(dir)) {
           throw new Error(`Directory does not exist: ${dir}`);
         }
@@ -104,23 +110,20 @@ export const registerExportDiagramTool: ToolRegistrar = (server, context) => {
             (c: any) => c.type === "image",
           ) as any;
           if (imageContent) {
-            writeFileSync(
-              args.output_path,
-              Buffer.from(imageContent.data, "base64"),
-            );
+            writeFileSync(path, Buffer.from(imageContent.data, "base64"));
           }
         } else {
           const textContent = exportContent.find(
             (c: any) => c.type === "text",
           ) as any;
           if (textContent) {
-            writeFileSync(args.output_path, textContent.text, "utf-8");
+            writeFileSync(path, textContent.text, "utf-8");
           }
         }
 
         result.content.push({
           type: "text" as const,
-          text: `Saved to: ${args.output_path}`,
+          text: `Saved to: ${path}`,
         });
       }
 

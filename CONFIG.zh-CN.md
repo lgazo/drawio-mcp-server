@@ -13,7 +13,9 @@
 | `--http-port` | `DRAWIO_MCP_HTTP_PORT` | HTTP 传输端口 | 3000 |
 | `--transport` | `DRAWIO_MCP_TRANSPORT` | 传输类型：`stdio`、`http` 或 `stdio,http` | `stdio` |
 | `--asset-path` | `DRAWIO_MCP_ASSET_PATH` | 已下载资源的自定义路径 | - |
-| `--host` | `DRAWIO_MCP_HOST` | 所有服务器端点（HTTP、WebSocket）显式使用的 IPv4 或 IPv6 绑定地址 | 未设置（由操作系统选择） |
+| `--host` | `DRAWIO_MCP_HOST` | 所有服务器端点（HTTP、WebSocket）显式使用的 IPv4 或 IPv6 绑定地址 | `127.0.0.1` |
+| `--cors-origin <origin>` | `DRAWIO_MCP_CORS_ORIGINS` | 允许访问 HTTP 路由的浏览器来源（可重复；环境变量中用逗号分隔） | 无（不发送 CORS 头） |
+| `--export-dir <path>` | `DRAWIO_MCP_EXPORT_DIR` | `export-diagram` 可写入文件的目录 | 各操作系统的数据目录 |
 | `--websocket-url` | `DRAWIO_MCP_WEBSOCKET_URL` | 覆盖向编辑器通告的 WebSocket URL（必须为 `ws://` 或 `wss://`） | 从页面推导 |
 | `--logger` | `DRAWIO_MCP_LOGGER` | 日志记录器模式：`console`（写入 stderr）或 `mcp-server`（发送 MCP `notifications/message`）。同时接受旧的下划线形式 `mcp_server` 作为值别名。 | `console` |
 | `--tls` | `DRAWIO_MCP_TLS` | 在 HTTP 和 WebSocket 端点上启用 TLS（默认关闭） | 禁用 |
@@ -42,7 +44,7 @@ npx -y drawio-mcp-server --editor --transport http \
 
 ## 主机绑定
 
-默认情况下，服务器会绑定到由操作系统分配的地址（在 Linux 和 Windows 上通常为 `127.0.0.1`，macOS 上为 `::1`）。在 macOS 以及 `IPV6_V6ONLY=1` 的系统上，操作系统可能只绑定 IPv6，导致浏览器尝试 `ws://localhost:XXXX`（IPv4）时的连接失败。
+默认情况下，服务器绑定到 `127.0.0.1`（IPv4 环回地址）。若要服务远程机器（例如另一台计算机上的浏览器扩展），请显式传入 `--host 0.0.0.0`（或某个具体的接口 IP）。在以 IPv6 优先、客户端通过解析为 `::1` 的 `localhost` 访问服务器的环境中，请传入 `--host ::1`。
 
 使用 `--host` 显式指定绑定地址：
 
@@ -60,6 +62,25 @@ DRAWIO_MCP_HOST=127.0.0.1 drawio-mcp-server
 - `127.0.0.1` — IPv4 环回地址（仅 localhost IPv4）
 - `0.0.0.0` — 所有 IPv4 接口
 - `::1` — IPv6 环回地址（仅 localhost IPv6）
+
+## CORS
+
+默认情况下，服务器不发送任何 CORS 头，因此网页无法跨域调用 HTTP 路由。`--cors-origin`（可重复）用于将指定的浏览器来源加入允许列表；列表中的每个来源都会在所有 HTTP 路由上被回显。环境变量使用逗号分隔的列表：
+
+```sh
+DRAWIO_MCP_CORS_ORIGINS=https://editor.example,https://admin.example \
+  drawio-mcp-server --transport http
+
+drawio-mcp-server --transport http \
+  --cors-origin https://editor.example \
+  --cors-origin https://admin.example
+```
+
+WebSocket 连接（浏览器扩展、插件）从不需要 CORS。
+
+## 导出目录
+
+`export-diagram` 只会将文件写入导出目录内：相对 `output_path` 会解析到该目录，绝对路径只有位于该目录内时才会被接受，而逃逸出该目录的路径（通过 `..`、目录外的绝对路径或符号链接）都会被拒绝。默认目录是各操作系统的数据目录（Linux 上为 `$XDG_DATA_HOME/drawio-mcp-server/exports`，macOS 上为 `~/Library/Application Support/drawio-mcp-server/exports`，Windows 上为 `%LOCALAPPDATA%\drawio-mcp-server\exports`）。使用 `--export-dir` 或 `DRAWIO_MCP_EXPORT_DIR` 进行更改。
 
 ## 内置编辑器
 
