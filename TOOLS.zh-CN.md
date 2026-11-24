@@ -351,7 +351,7 @@ Draw.io MCP 服务器提供以下 MCP 工具，用于以编程方式与图表交
 - `dpi`：PNG 导出的 DPI（影响质量，默认：96）
 - `embed_xml`：将图表 XML 数据嵌入 SVG/PNG，以便之后可以在 draw.io 中重新打开（默认：false）
 - `size`：要导出的内容：'selection' 表示仅选中单元格，'page' 表示目标页面，'diagram' 表示整个模型（默认：diagram）
-- `output_path`：保存导出文件的绝对文件路径（必须是绝对路径）
+- `output_path`：保存导出文件的文件路径。相对路径会解析到导出目录内；绝对路径必须位于该目录内。默认目录是各操作系统的数据目录（Linux 上为 `$XDG_DATA_HOME/drawio-mcp-server/exports`）；可通过 `--export-dir` / `DRAWIO_MCP_EXPORT_DIR` 覆盖。目录内已存在的文件可以被覆盖。
 
 *返回*：导出结果，包含 format、mimeType、data（PNG 为 base64，SVG/XML 为文本）、尺寸以及可选的警告信息
 
